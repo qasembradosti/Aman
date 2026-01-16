@@ -1,0 +1,1391 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { productService } from "../services/productService";
+import { orderService } from "../services/orderService";
+import { translations, getDirection, getAlign } from "../utils/translations";
+
+const ImageSlider = ({ images }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Handle images array - extract URLs from image objects
+  let imageList = [];
+  if (Array.isArray(images) && images.length > 0) {
+    // If images is array of objects with url/image_url property
+    imageList = images.map((img) => {
+      if (typeof img === "string") return img;
+      return img.url || img.image_url || img.filename || img;
+    });
+  } else if (typeof images === "string") {
+    imageList = [images];
+  } else {
+    // No valid images
+    return (
+      <div className="relative h-96 overflow-hidden rounded-2xl bg-gray-200 flex items-center justify-center">
+        <svg
+          className="w-24 h-24 text-gray-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
+        </svg>
+      </div>
+    );
+  }
+
+  const goToPrevious = () => {
+    setCurrentIndex((prevIndex) =>
+      prevIndex === 0 ? imageList.length - 1 : prevIndex - 1
+    );
+  };
+
+  const goToNext = () => {
+    setCurrentIndex((prevIndex) =>
+      prevIndex === imageList.length - 1 ? 0 : prevIndex + 1
+    );
+  };
+
+  return (
+    <div className="relative group">
+      <div className="relative w-full aspect-4/3 overflow-hidden rounded-2xl bg-gray-100">
+        <img
+          src={imageList[currentIndex]}
+          alt={`Product ${currentIndex + 1}`}
+          className="w-full h-full object-contain transition-transform duration-500 hover:scale-105"
+          onError={(e) => {
+            e.target.src =
+              'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect fill="%23ddd" width="400" height="400"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em" font-size="20"%3EImage not available%3C/text%3E%3C/svg%3E';
+          }}
+        />
+
+        {/* linear Overlays */}
+        <div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+        {imageList.length > 1 && (
+          <>
+            {/* Previous Button */}
+            <button
+              onClick={goToPrevious}
+              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300 hover:scale-110"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+
+            {/* Next Button */}
+            <button
+              onClick={goToNext}
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300 hover:scale-110"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </button>
+
+            {/* Dots Indicator */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
+              {imageList.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentIndex(index)}
+                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                    index === currentIndex
+                      ? "bg-white w-8"
+                      : "bg-white/50 hover:bg-white/75"
+                  }`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Thumbnails */}
+      {imageList.length > 1 && (
+        <div className="flex gap-3 mt-4 overflow-x-auto pb-2">
+          {imageList.map((img, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentIndex(index)}
+              className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all duration-300 ${
+                index === currentIndex
+                  ? "border-primary-500 ring-2 ring-primary-200"
+                  : "border-gray-200 hover:border-primary-300"
+              }`}
+            >
+              <img
+                src={img}
+                alt={`Thumbnail ${index + 1}`}
+                className="w-full h-full object-cover"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const Checkout = () => {
+  const navigate = useNavigate();
+  
+  // Get URL parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const productId = urlParams.get("productId");
+  const userId = urlParams.get("userId");
+
+  // Language state
+  const [language, setLanguage] = useState(() => {
+    return localStorage.getItem('language') || 'en';
+  });
+  const t = translations[language];
+  const dir = getDirection(language);
+
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [cart, setCart] = useState([]);
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [loadingRelated, setLoadingRelated] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(6);
+  const [cartError, setCartError] = useState(null);
+
+  const [formData, setFormData] = useState({
+    quantity: 1,
+    city: "",
+    phone: "",
+    address: "",
+    location_points: "",
+    delivery_price: 5000, // Default delivery price
+    commission_price: 0,
+  });
+
+  // Save language preference
+  useEffect(() => {
+    localStorage.setItem('language', language);
+    document.documentElement.dir = dir;
+    document.documentElement.lang = language;
+  }, [language, dir]);
+
+  const changeLanguage = (lang) => {
+    setLanguage(lang);
+  };
+
+  // Calculate pagination
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentProducts = relatedProducts.slice(
+    indexOfFirstItem,
+    indexOfLastItem
+  );
+  const totalPages = Math.ceil(relatedProducts.length / itemsPerPage);
+
+  const goToPage = (pageNumber) => {
+    setCurrentPage(pageNumber);
+    window.scrollTo({
+      top: document.getElementById("related-products")?.offsetTop - 100,
+      behavior: "smooth",
+    });
+  };
+
+  const handleProductClick = (productIdToShow) => {
+    // Update URL with new product ID
+    const newUrl = new URL(window.location);
+    newUrl.searchParams.set("productId", productIdToShow);
+    if (userId) {
+      newUrl.searchParams.set("userId", userId);
+    }
+    window.history.pushState({}, "", newUrl);
+
+    // Scroll to top
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+
+    // Fetch the new product
+    fetchProductById(productIdToShow);
+  };
+
+  const fetchProductById = async (id) => {
+    try {
+      setLoading(true);
+      const data = await productService.getProduct(id);
+      console.log("Product data received:", data);
+      setProduct(data);
+
+      // Don't automatically add to cart when viewing different products
+      // User can manually add if they want
+
+      // Fetch related products
+      if (data.brand_id || data.category_id) {
+        fetchRelatedProducts(data.brand_id, data.category_id, data.id);
+      }
+
+      setError(null);
+    } catch (err) {
+      setError("Failed to load product. Please try again.");
+      console.error("Product fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (productId) {
+      fetchProduct();
+    } else {
+      setError("Product ID is required");
+      setLoading(false);
+    }
+  }, [productId]);
+
+  const fetchProduct = async () => {
+    try {
+      setLoading(true);
+      const data = await productService.getProduct(productId);
+      console.log("Product data received:", data);
+      setProduct(data);
+
+      // Add product to cart by default
+      setCart([
+        {
+          ...data,
+          quantity: 1,
+        },
+      ]);
+
+      // Fetch related products
+      if (data.brand_id || data.category_id) {
+        fetchRelatedProducts(data.brand_id, data.category_id, data.id);
+      }
+
+      setError(null);
+    } catch (err) {
+      setError("Failed to load product. Please try again.");
+      console.error("Product fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRelatedProducts = async (brandId, categoryId, excludeId) => {
+    try {
+      setLoadingRelated(true);
+      const related = await productService.getRelatedProducts(
+        brandId,
+        categoryId,
+        excludeId
+      );
+      setRelatedProducts(related);
+    } catch (err) {
+      console.error("Failed to fetch related products:", err);
+    } finally {
+      setLoadingRelated(false);
+    }
+  };
+
+  const addToCart = (product) => {
+    const existingItem = cart.find((item) => item.id === product.id);
+    const stock = product.stock || product.quantity_in_stock || 999;
+
+    if (existingItem) {
+      if (existingItem.quantity >= stock) {
+        setCartError(t.stockError.replace('{stock}', stock));
+        setTimeout(() => setCartError(null), 3000);
+        return;
+      }
+      setCart(
+        cart.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        )
+      );
+    } else {
+      setCart([...cart, { ...product, quantity: 1 }]);
+    }
+    setCartError(null);
+  };
+
+  const removeFromCart = (productId) => {
+    setCart(cart.filter((item) => item.id !== productId));
+  };
+
+  const updateCartQuantity = (productId, quantity) => {
+    if (quantity < 1) {
+      removeFromCart(productId);
+      return;
+    }
+
+    const item = cart.find((item) => item.id === productId);
+    if (item) {
+      const stock = item.stock || item.quantity_in_stock || 999;
+      if (quantity > stock) {
+        setCartError(t.stockError.replace('{stock}', stock));
+        setTimeout(() => setCartError(null), 3000);
+        return;
+      }
+    }
+
+    setCart(
+      cart.map((item) => (item.id === productId ? { ...item, quantity } : item))
+    );
+    setCartError(null);
+  };
+
+  const calculateCartTotal = () => {
+    const productsTotal = cart.reduce((sum, item) => {
+      const price = item.sell_price || item.price || 0;
+      return sum + price * item.quantity;
+    }, 0);
+    return productsTotal + formData.delivery_price + formData.commission_price;
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]:
+        name === "quantity" ||
+        name === "delivery_price" ||
+        name === "commission_price"
+          ? parseInt(value) || 0
+          : value,
+    }));
+  };
+
+  const calculateTotalPrice = () => {
+    if (!product) return 0;
+    const productTotal = product.sell_price * formData.quantity;
+    return productTotal + formData.delivery_price + formData.commission_price;
+  };
+
+  const handleCheckout = async (e) => {
+    e.preventDefault();
+
+    // Validation
+    if (!formData.city || !formData.phone || !formData.address) {
+      toast.error(t.fillAllFields);
+      return;
+    }
+
+    if (cart.length === 0) {
+      toast.error(t.cartEmpty);
+      return;
+    }
+
+    // Validate userId
+    if (!userId) {
+      toast.error('User ID is required. Please check the URL.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      // Prepare order items from cart
+      const items = cart.map((item) => ({
+        product_id: item.id,
+        quantity: item.quantity,
+        price: item.sell_price || item.price,
+      }));
+
+      // Calculate total price
+      const totalPrice = calculateCartTotal();
+
+      // Prepare shipping address
+      const shipping_address = {
+        city: formData.city,
+        address: formData.address,
+        phone: formData.phone,
+        location_points: formData.location_points || null,
+      };
+
+      // Create single order with all items
+      const orderData = {
+        user_id: parseInt(userId, 10), // Convert to number
+        items: items,
+        total_amount: totalPrice,
+        shipping_address: shipping_address,
+        payment_method: 'cash_on_delivery',
+        notes: `Delivery Price: ${formData.delivery_price}, Commission: ${formData.commission_price}`,
+        status: "pending",
+      };
+
+      console.log('Creating order:', orderData);
+      const response = await orderService.createOrder(orderData);
+      console.log('Order response:', response);
+
+      toast.success(
+        t.orderSuccess.replace('{total}', `${totalPrice.toLocaleString()} ${t.currency}`),
+        { duration: 3000 }
+      );
+
+      // Clear cart
+      setCart([]);
+      
+      // Redirect to success page with order ID
+      setTimeout(() => {
+        navigate(`/success?orderId=${response.orderId}`);
+      }, 1000);
+    } catch (err) {
+      console.error('Order creation error:', err);
+      const errorMessage = err.response?.data?.message || err.message || t.orderFailed;
+      toast.error(errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Check if required parameters are missing
+  if (!userId || !productId) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-primary-50 to-blue-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-12 max-w-lg w-full">
+          <div className="flex flex-col items-center text-center">
+            <div className="bg-red-100 rounded-full p-6 mb-6">
+              <svg
+                className="w-16 h-16 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-3">
+              Page Not Found
+            </h1>
+            <p className="text-lg text-gray-600 mb-2">
+              {!userId && !productId ? 'User ID and Product ID are required.' : !userId ? 'User ID is required.' : 'Product ID is required.'}
+            </p>
+            <p className="text-sm text-gray-500">
+              Please check the URL and try again.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-primary-50 to-blue-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary-600"></div>
+            <p className="mt-4 text-lg text-gray-600 font-medium">
+              {t.loading}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-primary-50 to-blue-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
+          <div className="flex flex-col items-center text-center">
+            <div className="bg-red-100 rounded-full p-4 mb-4">
+              <svg
+                className="w-12 h-12 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Error</h2>
+            <p className="text-gray-600">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-primary-50 to-blue-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-12 max-w-lg w-full">
+          <div className="flex flex-col items-center text-center">
+            <div className="bg-red-100 rounded-full p-6 mb-6">
+              <svg
+                className="w-16 h-16 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-3">
+              {t.productNotFound}
+            </h1>
+            <p className="text-lg text-gray-600">
+              {t.productNotFoundDesc}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-linear-to-br from-primary-50 via-blue-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8" dir={dir}>
+      <div className="max-w-7xl mx-auto">
+        {/* Language Switcher */}
+        <div className="flex justify-end mb-6">
+          <div className="bg-white rounded-xl shadow-lg p-1.5 sm:p-2 flex gap-1 sm:gap-2 overflow-x-auto">
+            <button
+              onClick={() => changeLanguage('en')}
+              className={`px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base whitespace-nowrap ${
+                language === 'en'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              English
+            </button>
+            <button
+              onClick={() => changeLanguage('ar')}
+              className={`px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base whitespace-nowrap ${
+                language === 'ar'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              العربية
+            </button>
+            <button
+              onClick={() => changeLanguage('ku')}
+              className={`px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base whitespace-nowrap ${
+                language === 'ku'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              کوردی
+            </button>
+          </div>
+        </div>
+
+        {/* Header with Animation */}
+        <div className="text-center mb-12 animate-fade-in">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-500 rounded-full mb-6 shadow-lg">
+            <svg
+              className="w-10 h-10 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+              />
+            </svg>
+          </div>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold bg-linear-to-r from-gray-900 via-primary-800 to-blue-900 bg-clip-text text-transparent mb-3">
+            {t.secureCheckout}
+          </h1>
+          <p className="text-gray-600 text-base sm:text-lg md:text-xl">
+            {t.completeYourPurchase}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
+          {/* Product Details Card - Takes 3 columns */}
+          <div className="lg:col-span-3 bg-white rounded-2xl lg:rounded-3xl shadow-2xl overflow-hidden transform transition-all hover:shadow-3xl border border-gray-100">
+            <div className="bg-linear-to-r from-blue-300 via-primary-700 to-blue-600 px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white flex items-center">
+                <svg
+                  className="w-8 h-8 mr-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                  />
+                </svg>
+                {t.productDetails}
+              </h2>
+            </div>
+
+            <div className="p-4 sm:p-6 lg:p-8">
+              {/* Image Slider */}
+              {(product.image || product.images) && (
+                <div className="mb-8">
+                  <ImageSlider images={product.images || product.image} />
+                </div>
+              )}
+
+              {/* Product Info */}
+              <div className="space-y-6">
+                <div className="border-b border-gray-200 pb-6">
+                  <h3 className="text-3xl font-bold text-gray-900 mb-4">
+                    {product.title || product.name}
+                  </h3>
+                  <div className="flex items-center mb-4">
+                    <div className="flex items-baseline gap-1 sm:gap-2 bg-primary-50 px-3 sm:px-4 md:px-6 py-2 sm:py-3 rounded-xl">
+                      <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-primary-600">
+                        {product.sell_price?.toLocaleString()}
+                      </span>
+                      <span className="text-lg sm:text-xl md:text-2xl text-primary-700 font-semibold">
+                        {t.currency}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Stock Badge */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6">
+                    <div className="inline-flex items-center bg-green-100 text-green-800 px-4 py-2 rounded-full font-semibold text-sm">
+                      <svg
+                        className="w-4 h-4 mr-2"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      {t.inStock}
+                    </div>
+                    {/* Add to Cart Button */}
+                    <button
+                      onClick={() => addToCart(product)}
+                      className="w-full sm:flex-1 bg-blue-600 hover:from-primary-700 hover:to-blue-700 text-white font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 text-sm sm:text-base"
+                    >
+                      <svg
+                        className="w-5 h-5 sm:w-6 sm:h-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                        />
+                      </svg>
+                      <span>{t.addToCart}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {(product.description || product.description_en || product.description_ar || product.description_ku) && (
+                  <div className="bg-gray-50 rounded-xl p-6">
+                    <h4 className="text-lg font-bold gap-2 text-gray-900 mb-3 flex items-center">
+                      <svg
+                        className="w-5 h-5 mr-2 text-primary-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <p>{t.productDescription}</p>
+                    </h4>
+                    <p className="text-gray-700 leading-relaxed text-base">
+                      {language === 'en' 
+                        ? (product.description_en || product.description)
+                        : language === 'ar'
+                        ? (product.description_ar || product.description)
+                        : (product.description || product.description_ku)}
+                    </p>
+                  </div>
+                )}
+
+                {/* Product Features */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-blue-50 rounded-xl p-4 text-center">
+                    <svg
+                      className="w-8 h-8 mx-auto mb-2 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                      />
+                    </svg>
+                    <p className="text-sm font-semibold text-blue-900">
+                      {t.freePackaging}
+                    </p>
+                  </div>
+                  <div className="bg-purple-50 rounded-xl p-4 text-center">
+                    <svg
+                      className="w-8 h-8 mx-auto mb-2 text-purple-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                      />
+                    </svg>
+                    <p className="text-sm font-semibold text-purple-900">
+                      {t.securePayment}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Checkout Form Card - Takes 2 columns */}
+          <div className="lg:col-span-2 bg-white rounded-2xl lg:rounded-3xl shadow-2xl overflow-hidden border border-gray-100 lg:sticky lg:top-8 h-fit">
+            <div className="bg-linear-to-r from-blue-600 via-blue-700 to-purple-600 px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white flex items-center">
+                <svg
+                  className="w-8 h-8 mr-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+                {t.deliveryInformation}
+              </h2>
+            </div>
+
+            <form
+              onSubmit={handleCheckout}
+              className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6"
+            >
+              {/* Quantity */}
+              <div className="transform transition-all hover:scale-[1.01]">
+                <label
+                  htmlFor="quantity"
+                  className="text-sm font-bold text-gray-800 mb-2 flex items-center flex-wrap"
+                >
+                  <svg
+                    className="w-5 h-5 mr-2 text-primary-600 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"
+                    />
+                  </svg>
+                  <span>{t.quantity} <span className="text-red-500 ml-1">{t.required}</span></span>
+                </label>
+                <input
+                  type="number"
+                  id="quantity"
+                  name="quantity"
+                  min="1"
+                  value={formData.quantity}
+                  onChange={handleInputChange}
+                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition-all outline-none text-lg font-semibold bg-gray-50 hover:bg-white"
+                  required
+                />
+              </div>
+
+              {/* City */}
+              <div className="transform transition-all hover:scale-[1.01]">
+                <label
+                  htmlFor="city"
+                  className="text-sm font-bold text-gray-800 mb-2 flex items-center flex-wrap"
+                >
+                  <svg
+                    className="w-5 h-5 mr-2 text-primary-600 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                    />
+                  </svg>
+                  <span>{t.city} <span className="text-red-500 ml-1">{t.required}</span></span>
+                </label>
+                <input
+                  type="text"
+                  id="city"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleInputChange}
+                  placeholder={t.enterCity}
+                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition-all outline-none hover:border-primary-200 bg-gray-50 hover:bg-white"
+                  required
+                />
+              </div>
+
+              {/* Phone */}
+              <div className="transform transition-all hover:scale-[1.01]">
+                <label
+                  htmlFor="phone"
+                  className="text-sm font-bold text-gray-800 mb-2 flex items-center flex-wrap"
+                >
+                  <svg
+                    className="w-5 h-5 mr-2 text-primary-600 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                    />
+                  </svg>
+                  <span>{t.phone} <span className="text-red-500 ml-1">{t.required}</span></span>
+                </label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  placeholder={t.enterPhone}
+                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition-all outline-none hover:border-primary-200 bg-gray-50 hover:bg-white"
+                  required
+                />
+              </div>
+
+              {/* Address */}
+              <div className="transform transition-all hover:scale-[1.01]">
+                <label
+                  htmlFor="address"
+                  className="text-sm font-bold text-gray-800 mb-2 flex items-center"
+                >
+                  <svg
+                    className="w-5 h-5 mr-2 text-primary-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  {t.address} <span className="text-red-500 ml-1">{t.required}</span>
+                </label>
+                <textarea
+                  id="address"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  placeholder={t.enterAddress}
+                  rows="4"
+                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition-all outline-none resize-none hover:border-primary-200 bg-gray-50 hover:bg-white"
+                  required
+                />
+              </div>
+
+              {/* Location Points */}
+              <div className="transform transition-all hover:scale-[1.01]">
+                <label
+                  htmlFor="location_points"
+                  className="text-sm font-bold text-gray-800 mb-2 flex items-center"
+                >
+                  <svg
+                    className="w-5 h-5 mr-2 text-primary-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  {t.locationPoints}
+                </label>
+                <input
+                  type="text"
+                  id="location_points"
+                  name="location_points"
+                  value={formData.location_points}
+                  onChange={handleInputChange}
+                  placeholder={t.enterLocationPoints}
+                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition-all outline-none hover:border-primary-200 bg-gray-50 hover:bg-white"
+                />
+              </div>
+
+              {/* Order Summary - Cart Items */}
+              <div className="bg-linear-to-br from-primary-50 via-blue-50 to-purple-50 rounded-2xl p-4 sm:p-6 border-2 border-primary-200 mt-6 sm:mt-8 shadow-inner">
+                {/* Cart Error Notification */}
+                {cartError && (
+                  <div className="mb-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg flex items-start animate-fade-in">
+                    <svg
+                      className="w-5 h-5 mr-3 shrink-0 mt-0.5"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span className="font-semibold">{cartError}</span>
+                  </div>
+                )}
+
+                <h3 className="text-lg sm:text-xl font-extrabold text-gray-900 mb-4 sm:mb-5 flex items-center">
+                  <svg
+                    className="w-7 h-7 mr-3 text-primary-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                  </svg>
+                  {t.shoppingCart} ({cart.length})
+                </h3>
+
+                {cart.length === 0 ? (
+                  <p className="text-gray-600 text-center py-4">
+                    {t.yourCartEmpty}
+                  </p>
+                ) : (
+                  <div className="space-y-3 mb-4">
+                    {cart.map((item) => (
+                      <div
+                        key={item.id}
+                        className="bg-white rounded-lg p-3 sm:p-4 shadow-sm"
+                      >
+                        <div className="flex gap-3">
+                          {item.images && item.images[0] && (
+                            <img
+                              src={item.images[0].url || item.images[0].image_url}
+                              alt={item.title || item.name || "Product"}
+                              className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg shrink-0"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm sm:text-base text-gray-900 line-clamp-2 mb-1">
+                              {item.title || item.name || "Product"}
+                            </h4>
+                            <p className="text-xs sm:text-sm text-primary-600 font-semibold">
+                              {(item.sell_price || item.price)?.toLocaleString()}{" "}
+                              {t.currency}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeFromCart(item.id)}
+                            className="text-red-600 hover:text-red-800 shrink-0 self-start"
+                          >
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                        {/* Quantity Controls Row */}
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                          <span className="text-xs sm:text-sm text-gray-600 font-medium">Quantity:</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateCartQuantity(item.id, item.quantity - 1)
+                              }
+                              className="bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center transition-colors font-semibold text-gray-700"
+                            >
+                              −
+                            </button>
+                            <span className="w-10 text-center font-bold text-gray-900">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateCartQuantity(item.id, item.quantity + 1)
+                              }
+                              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors font-semibold"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center text-gray-700 bg-white rounded-lg p-3 gap-2">
+                    <span className="font-semibold text-sm sm:text-base">{t.productsTotal}</span>
+                    <span className="font-bold text-gray-900 text-sm sm:text-base text-right">
+                      {cart
+                        .reduce(
+                          (sum, item) =>
+                            sum +
+                            (item.sell_price || item.price) * item.quantity,
+                          0
+                        )
+                        .toLocaleString()}{" "}
+                      {t.currency}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-gray-700 bg-white rounded-lg p-3 gap-2">
+                    <span className="font-semibold text-sm sm:text-base">{t.deliveryFee}</span>
+                    <span className="font-bold text-gray-900 text-sm sm:text-base text-right">
+                      {formData.delivery_price.toLocaleString()} {t.currency}
+                    </span>
+                  </div>
+                  <div className="pt-4 border-t-2 border-primary-300">
+                    <div className="flex justify-between items-center bg-white rounded-xl p-3 sm:p-4 shadow-md gap-2">
+                      <span className="text-base sm:text-lg md:text-xl font-extrabold text-gray-900">
+                        {t.total}
+                      </span>
+                      <span className="text-xl sm:text-2xl md:text-3xl font-extrabold bg-blue-600 bg-clip-text text-transparent break-all">
+                        {calculateCartTotal().toLocaleString()} {t.currency}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={submitting || cart.length === 0}
+                className="w-full bg-blue-600 hover:from-primary-700 hover:via-primary-800 hover:to-blue-700 text-white font-bold py-4 sm:py-5 px-4 sm:px-6 rounded-2xl transition-all transform hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-2xl hover:shadow-3xl flex items-center justify-center gap-2 sm:gap-3 text-base sm:text-lg md:text-xl group"
+              >
+                {submitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                    <span>{t.processing}</span>
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-6 h-6"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    <span>{t.completeCheckout}</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Related Products Section */}
+        {relatedProducts.length > 0 && (
+          <div id="related-products" className="mt-12">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                {t.youMayAlsoLike}
+              </h2>
+              <p className="text-gray-600">
+                {t.showing} {indexOfFirstItem + 1}-
+                {Math.min(indexOfLastItem, relatedProducts.length)} {t.of}{" "}
+                {relatedProducts.length} {t.products}
+              </p>
+            </div>
+
+            {/* Error Notification for Related Products */}
+            {cartError && (
+              <div className="mb-6 mx-auto max-w-2xl bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg flex items-start animate-fade-in shadow-lg">
+                <svg
+                  className="w-5 h-5 mr-3 shrink-0 mt-0.5"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span className="font-semibold">{cartError}</span>
+              </div>
+            )}
+
+            {loadingRelated ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-primary-600"></div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                  {currentProducts.map((relatedProduct) => (
+                    <div
+                      key={relatedProduct.id}
+                      className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all transform hover:-translate-y-2 cursor-pointer flex flex-col"
+                      onClick={() => handleProductClick(relatedProduct.id)}
+                    >
+                      {relatedProduct.images && relatedProduct.images[0] && (
+                        <div className="aspect-4/3 overflow-hidden bg-gray-100">
+                          <img
+                            src={
+                              relatedProduct.images[0].url ||
+                              relatedProduct.images[0].image_url
+                            }
+                            alt={relatedProduct.name}
+                            className="w-full h-full object-contain hover:scale-110 transition-transform duration-300"
+                          />
+                        </div>
+                      )}
+
+                      <div className="p-5 flex flex-col grow">
+                        <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-2">
+                          {relatedProduct.title || relatedProduct.name}
+                        </h3>
+
+                        <div className="flex items-baseline space-x-2 mb-4">
+                          <span className="text-2xl font-bold text-primary-600">
+                            {(
+                              relatedProduct.sell_price || relatedProduct.price
+                            )?.toLocaleString()}
+                          </span>
+                          <span className="text-sm text-gray-600 font-medium">
+                            {t.currency}
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering the card click
+                            addToCart(relatedProduct);
+                          }}
+                          className="w-full bg-blue-600 hover:from-primary-700 hover:to-blue-700 text-white font-semibold py-3 px-4 rounded-xl transition-all transform hover:scale-105 flex items-center justify-center space-x-2 mt-auto"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                            />
+                          </svg>
+                          <span>{t.addToCart}</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center items-center mt-10 space-x-2">
+                    {/* Previous Button */}
+                    <button
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 rounded-lg bg-white border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 19l-7-7 7-7"
+                        />
+                      </svg>
+                    </button>
+
+                    {/* Page Numbers */}
+                    <div className="flex space-x-2">
+                      {[...Array(totalPages)].map((_, index) => {
+                        const pageNumber = index + 1;
+                        // Show first page, last page, current page, and pages around current
+                        if (
+                          pageNumber === 1 ||
+                          pageNumber === totalPages ||
+                          (pageNumber >= currentPage - 1 &&
+                            pageNumber <= currentPage + 1)
+                        ) {
+                          return (
+                            <button
+                              key={pageNumber}
+                              onClick={() => goToPage(pageNumber)}
+                              className={`w-10 h-10 rounded-lg font-semibold transition-all ${
+                                currentPage === pageNumber
+                                  ? "bg-linear-to-r from-primary-600 to-blue-600 text-white shadow-lg"
+                                  : "bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+                              }`}
+                            >
+                              {pageNumber}
+                            </button>
+                          );
+                        } else if (
+                          pageNumber === currentPage - 2 ||
+                          pageNumber === currentPage + 2
+                        ) {
+                          return (
+                            <span
+                              key={pageNumber}
+                              className="px-2 text-gray-500"
+                            >
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+
+                    {/* Next Button */}
+                    <button
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 rounded-lg bg-white border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Checkout;

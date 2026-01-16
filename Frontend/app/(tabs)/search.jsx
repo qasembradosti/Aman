@@ -1,0 +1,551 @@
+import { useState, useEffect } from "react";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Text as RNText,
+  Image,
+  Pressable,
+  ActivityIndicator,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useDispatch, useSelector } from "react-redux";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLanguage } from "../../utils/LanguageContext";
+import { useTheme } from "../../utils/ThemeContext";
+import { fetchProducts } from "../../store/slices/productsSlice";
+import { fetchCategories } from "../../store/slices/categoriesSlice";
+import Input from "../../components/ui/Input";
+import { getProductImageUrl } from "../../utils/productImages";
+
+const STORAGE_KEY = 'recent_searches';
+const MAX_RECENT_SEARCHES = 10;
+
+// Custom Text component with font
+const Text = ({ style, ...props }) => {
+  const { fontFamily } = useLanguage();
+  return (
+    <RNText
+      style={[
+        fontFamily?.regular ? { fontFamily: fontFamily.regular } : {},
+        style,
+      ]}
+      {...props}
+    />
+  );
+};
+
+export default function Search() {
+  const router = useRouter();
+  const dispatch = useDispatch();
+  const { t, isRTL } = useLanguage();
+  const { theme } = useTheme();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [recentSearches, setRecentSearches] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // Redux state
+  const { items: products, loading: productsLoading } = useSelector((state) => state.products);
+  const { items: categories, loading: categoriesLoading } = useSelector((state) => state.categories);
+
+  // Popular searches from actual categories (filter parent categories only)
+  const popularSearches = categories
+    .filter((cat) => cat.parent_id === null) // Get only parent categories
+    .slice(0, 6) // Limit to 6 categories
+    .map((cat) => ({
+      name: cat.name,
+      slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-'),
+      id: cat.id,
+    }));
+
+  // Load recent searches from AsyncStorage
+  useEffect(() => {
+    loadRecentSearches();
+  }, []);
+
+  // Fetch featured products and categories on mount
+  useEffect(() => {
+    dispatch(fetchProducts({ limit: 100 }));
+    dispatch(fetchCategories({})); // Fetch all categories
+  }, [dispatch]);
+
+  const loadRecentSearches = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        setRecentSearches(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.error('Error loading recent searches:', error);
+    }
+  };
+
+  const saveRecentSearch = async (query) => {
+    try {
+      const trimmedQuery = query.trim();
+      if (!trimmedQuery) return;
+
+      // Remove duplicates and add to front
+      const updated = [
+        trimmedQuery,
+        ...recentSearches.filter(item => item.toLowerCase() !== trimmedQuery.toLowerCase())
+      ].slice(0, MAX_RECENT_SEARCHES);
+
+      setRecentSearches(updated);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (error) {
+      console.error('Error saving recent search:', error);
+    }
+  };
+
+  const clearRecentSearches = async () => {
+    try {
+      setRecentSearches([]);
+      await AsyncStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.error('Error clearing recent searches:', error);
+    }
+  };
+
+  const handleSearch = (query) => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    saveRecentSearch(trimmedQuery);
+
+    // Filter products based on search query (schema-aligned: name/description/features)
+    const q = trimmedQuery.toLowerCase();
+    const filtered = products.filter((p) => {
+      const name = (p.name || p.title || '').toLowerCase();
+      const desc = (p.description || '').toLowerCase();
+      const features = Array.isArray(p.key_features)
+        ? p.key_features.join(' ').toLowerCase()
+        : typeof p.key_features === 'string'
+          ? p.key_features.toLowerCase()
+          : '';
+      return name.includes(q) || desc.includes(q) || features.includes(q);
+    });
+
+    setSearchResults(filtered);
+    setIsSearching(false);
+  };
+
+  const handleSearchSubmit = () => {
+    handleSearch(searchQuery);
+  };
+
+  const handleRecentSearchClick = (query) => {
+    setSearchQuery(query);
+    handleSearch(query);
+  };
+
+  const handlePopularSearchClick = (slug, name) => {
+    // Navigate to category page to show products from that category
+    router.push(`/category/${slug}`);
+  };
+
+  const featuredProducts = products.slice(0, 8);
+
+  const renderStars = (rating) => {
+    const stars = [];
+    const full = Math.floor(rating);
+    const hasHalf = rating - full >= 0.5;
+    for (let i = 0; i < full; i++) {
+      stars.push(
+        <Ionicons key={`full-${i}`} name="star" size={12} color="#FFB800" />
+      );
+    }
+    if (hasHalf) {
+      stars.push(
+        <Ionicons key="half" name="star-half" size={12} color="#FFB800" />
+      );
+    }
+    const remaining = 5 - stars.length;
+    for (let i = 0; i < remaining; i++) {
+      stars.push(
+        <Ionicons
+          key={`empty-${i}`}
+          name="star-outline"
+          size={12}
+          color="#FFB800"
+        />
+      );
+    }
+    return stars;
+  };
+
+  return (
+    <SafeAreaView
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.colors.background,
+          direction: isRTL ? "rtl" : "ltr",
+        },
+      ]}
+    >
+      <View style={styles.content}>
+        {/* Search Bar */}
+        <View
+          style={[
+            styles.searchContainer,
+            { backgroundColor: theme.colors.card },
+          ]}
+        >
+          <View
+            style={[
+              styles.searchBar,
+              {
+                backgroundColor: theme.colors.background,
+                flexDirection: isRTL ? "row-reverse" : "row",
+              },
+            ]}
+          >
+            <Ionicons
+              name="search-outline"
+              size={20}
+              color={theme.colors.textSecondary}
+            />
+            <Input
+              style={[styles.searchInput, { color: theme.colors.text }]}
+              placeholder={t("searchProducts")}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+              returnKeyType="search"
+              onSubmitEditing={handleSearchSubmit}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => {
+                setSearchQuery("");
+                setSearchResults([]);
+              }}>
+                <Ionicons
+                  name="close-circle"
+                  size={20}
+                  color={theme.colors.textSecondary}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        <ScrollView style={styles.scrollView}>
+          {/* Search Results */}
+          {searchQuery.trim() && searchResults.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                {t("searchResults") || "Search Results"} ({searchResults.length})
+              </Text>
+              <View style={styles.resultsGrid}>
+                {searchResults.map((product) => (
+                  <Pressable
+                    key={product.id}
+                    style={({ pressed }) => [
+                      styles.resultCard,
+                      {
+                        backgroundColor: theme.colors.card,
+                        borderColor: theme.colors.border,
+                      },
+                      pressed && { borderColor: theme.colors.primary },
+                    ]}
+                    onPress={() => router.push(`/product/${product.id}`)}
+                  >
+                    <Image
+                      source={{
+                        uri: getProductImageUrl(
+                          product,
+                          "https://via.placeholder.com/400"
+                        ),
+                      }}
+                      style={styles.resultImage}
+                      resizeMode="cover"
+                    />
+                    <Text
+                      numberOfLines={2}
+                      style={[styles.resultName, { color: theme.colors.text }]}
+                    >
+                      {product.name || product.title}
+                    </Text>
+                    <View style={styles.resultRating}>
+                      {renderStars(product.rating || 4.0)}
+                      <Text style={[styles.ratingText, { color: theme.colors.textSecondary }]}>
+                        ({product.rating || 4.0})
+                      </Text>
+                    </View>
+                    <Text style={[styles.resultPrice, { color: theme.colors.primary }]}>
+                      {typeof product?.sell_price === 'number' ? product.sell_price : (typeof product?.price === 'number' ? product.price : product?.base_price)} IQD
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* No Results */}
+          {searchQuery.trim() && !isSearching && searchResults.length === 0 && (
+            <View style={styles.noResults}>
+              <Ionicons name="search-outline" size={64} color={theme.colors.textSecondary} />
+              <Text style={[styles.noResultsText, { color: theme.colors.textSecondary }]}>
+                {t("noProductsFound") || "No products found"}
+              </Text>
+              <Text style={[styles.noResultsSubtext, { color: theme.colors.textSecondary }]}>
+                Try searching with different keywords
+              </Text>
+            </View>
+          )}
+
+          {/* Recent Searches */}
+          {!searchQuery.trim() && recentSearches.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                  {t("recentSearches")}
+                </Text>
+                <TouchableOpacity onPress={clearRecentSearches}>
+                  <Text
+                    style={[styles.clearAll, { color: theme.colors.primary }]}
+                  >
+                    {t("clearAll")}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {recentSearches.map((search, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.recentItem,
+                    {
+                      backgroundColor: theme.colors.card,
+                      flexDirection: isRTL ? "row-reverse" : "row",
+                    },
+                  ]}
+                  onPress={() => handleRecentSearchClick(search)}
+                >
+                  <Ionicons
+                    name="time-outline"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
+                  <Text style={[styles.recentText, { color: theme.colors.text }]}>
+                    {search}
+                  </Text>
+                  <Ionicons
+                    name={isRTL ? "arrow-back" : "arrow-forward"}
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Popular Searches */}
+          {!searchQuery.trim() && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                {t("popularSearches")}
+              </Text>
+              <View style={styles.tagsContainer}>
+                {popularSearches.map((item, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.tag, { 
+                      borderColor: theme.colors.primary,
+                      backgroundColor: `${theme.colors.primary}15`,
+                    }]}
+                    onPress={() => handlePopularSearchClick(item.slug, item.name)}
+                  >
+                    <Text
+                      style={[styles.tagText, { color: theme.colors.primary }]}
+                    >
+                      {item.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  content: {
+    flex: 1,
+  },
+  searchContainer: {
+    padding: 16,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 16,
+    color: "#1a1a1a",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  section: {
+    padding: 16,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    
+    color: "#1a1a1a",
+    marginBottom: 16,
+  },
+  seeAll: {
+    fontSize: 14,
+  },
+  clearAll: {
+    fontSize: 14,
+  },
+  recentItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  recentText: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 12,
+    fontSize: 16,
+    color: "#1a1a1a",
+  },
+  tagsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  tag: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  tagText: {
+    fontSize: 14,
+  },
+  productItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  productImage: {
+    width: 70,
+    height: 70,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  productInfo: {
+    flex: 1,
+  },
+  productName: {
+    fontSize: 15,
+    
+    color: "#1a1a1a",
+    marginBottom: 4,
+  },
+  productRating: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 4,
+  },
+  ratingText: {
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  productPrice: {
+    fontSize: 16,
+    
+  },
+  resultsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  resultCard: {
+    width: "48%",
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: "hidden",
+    padding: 10,
+  },
+  resultImage: {
+    width: "100%",
+    height: 120,
+    borderRadius: 8,
+    backgroundColor: "#f5f5f5",
+    marginBottom: 8,
+  },
+  resultName: {
+    fontSize: 13,
+    
+    marginBottom: 4,
+    minHeight: 32,
+  },
+  resultRating: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 4,
+  },
+  resultPrice: {
+    fontSize: 15,
+    
+  },
+  noResults: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  noResultsText: {
+    fontSize: 18,
+    
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+  },
+});
