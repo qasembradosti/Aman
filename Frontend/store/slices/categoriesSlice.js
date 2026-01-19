@@ -12,6 +12,7 @@ export const fetchCategories = createAsyncThunk(
       return response.data;
     } catch (error) {
       console.error('Error fetching categories:', error);
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch categories');
     }
   }
 );
@@ -94,8 +95,8 @@ const categoriesSlice = createSlice({
       })
       .addCase(fetchCategories.fulfilled, (state, action) => {
         state.loading = false;
-        state.items = action.payload.data || action.payload;
-        state.meta = action.payload.meta || state.meta;
+        state.items = action.payload?.data || action.payload || [];
+        state.meta = action.payload?.meta || state.meta;
       })
       .addCase(fetchCategories.rejected, (state, action) => {
         state.loading = false;
@@ -128,7 +129,12 @@ const categoriesSlice = createSlice({
         state.error = action.payload;
       })
       // Update category
+      .addCase(updateCategory.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
       .addCase(updateCategory.fulfilled, (state, action) => {
+        state.loading = false;
         const index = state.items.findIndex((c) => c.id === action.payload.id);
         if (index !== -1) {
           state.items[index] = action.payload;
@@ -137,12 +143,25 @@ const categoriesSlice = createSlice({
           state.currentCategory = action.payload;
         }
       })
+      .addCase(updateCategory.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
       // Delete category
+      .addCase(deleteCategory.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
       .addCase(deleteCategory.fulfilled, (state, action) => {
+        state.loading = false;
         state.items = state.items.filter((c) => c.id !== action.payload);
         if (state.currentCategory?.id === action.payload) {
           state.currentCategory = null;
         }
+      })
+      .addCase(deleteCategory.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   },
 });

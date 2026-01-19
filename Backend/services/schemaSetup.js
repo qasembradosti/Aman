@@ -52,7 +52,7 @@ export async function ensureWalletTables() {
   if (!hasWallets) {
     await db.schema.createTable('wallets', (t) => {
       t.increments('id').primary();
-      t.integer('user_id').unsigned().notNullable().index();
+      t.integer('user_id').unsigned().notNullable().unique();
       t.decimal('balance', 18, 2).notNullable().defaultTo(0);
       t.string('currency', 8).notNullable().defaultTo('USD');
       t.timestamps(true, true);
@@ -78,6 +78,62 @@ export async function ensureWalletTables() {
       });
       console.log('Patched wallets timestamps');
     }
+
+    // Ensure unique constraint on user_id to prevent duplicate wallets
+    try {
+      // Check if unique constraint already exists by trying to find duplicate user_ids
+      const duplicates = await db('wallets')
+        .select('user_id')
+        .count('* as count')
+        .groupBy('user_id')
+        .having('count', '>', 1);
+
+      if (duplicates.length > 0) {
+        console.warn(`⚠️ Found ${duplicates.length} users with multiple wallets. Cleaning up...`);
+        // Remove duplicate wallets, keeping only the first one for each user
+        for (const dup of duplicates) {
+          const wallets = await db('wallets')
+            .where('user_id', dup.user_id)
+            .orderBy('id', 'asc');
+          
+          if (wallets.length > 1) {
+            // Keep the first wallet, merge balances, delete others
+            const keepWallet = wallets[0];
+            const totalBalance = wallets.reduce((sum, w) => sum + parseFloat(w.balance || 0), 0);
+            
+            // Update the kept wallet with total balance
+            await db('wallets')
+              .where('id', keepWallet.id)
+              .update({ balance: totalBalance });
+            
+            // Delete duplicate wallets
+            const idsToDelete = wallets.slice(1).map(w => w.id);
+            await db('wallets').whereIn('id', idsToDelete).del();
+            
+            console.log(`✅ Merged ${wallets.length} wallets for user ${dup.user_id}`);
+          }
+        }
+      }
+
+      // Now add unique constraint
+      const hasUniqueConstraint = await db.raw(`
+        SELECT COUNT(*) as count
+        FROM information_schema.table_constraints 
+        WHERE table_schema = DATABASE()
+        AND table_name = 'wallets' 
+        AND constraint_type = 'UNIQUE'
+        AND constraint_name LIKE '%user_id%'
+      `).then(res => res[0][0].count > 0).catch(() => false);
+
+      if (!hasUniqueConstraint) {
+        await db.schema.alterTable('wallets', (t) => {
+          t.unique('user_id');
+        });
+        console.log('✅ Added unique constraint on wallets.user_id');
+      }
+    } catch (err) {
+      console.error('⚠️ Could not ensure unique constraint on wallets.user_id:', err.message);
+    }
   }
 
   const hasWalletTx = await db.schema.hasTable('wallet_transactions');
@@ -92,6 +148,18 @@ export async function ensureWalletTables() {
       t.timestamp('created_at').defaultTo(db.fn.now());
     });
     console.log('Created table wallet_transactions');
+  } else {
+    // Add missing columns if table already exists
+    const hasReference = await db.schema.hasColumn('wallet_transactions', 'reference');
+    const hasMetadata = await db.schema.hasColumn('wallet_transactions', 'metadata');
+    
+    if (!hasReference || !hasMetadata) {
+      await db.schema.alterTable('wallet_transactions', (t) => {
+        if (!hasReference) t.string('reference', 255).nullable();
+        if (!hasMetadata) t.text('metadata').nullable();
+      });
+      console.log('✅ Updated wallet_transactions table with missing columns');
+    }
   }
 }
 
@@ -146,6 +214,59 @@ export async function ensureProductReviewsTable() {
   console.log('Created table product_reviews');
 }
 
+export async function ensureOrderCommissionColumns() {
+  // Add commission tracking columns to orders table
+  const hasOrders = await db.schema.hasTable('orders');
+  if (!hasOrders) return;
+
+  const addIfMissing = async (column, builder) => {
+    const exists = await db.schema.hasColumn('orders', column);
+    if (!exists) {
+      await db.schema.alterTable('orders', (t) => builder(t));
+      console.log(`Added orders.${column}`);
+    }
+  };
+
+  await addIfMissing('commission_withdrawn', (t) => t.boolean('commission_withdrawn').defaultTo(false));
+  await addIfMissing('commission_withdrawn_at', (t) => t.dateTime('commission_withdrawn_at').nullable());
+
+  // Add commission_price to order_items table
+  const hasOrderItems = await db.schema.hasTable('order_items');
+  if (hasOrderItems) {
+    const hasCommissionPrice = await db.schema.hasColumn('order_items', 'commission_price');
+    if (!hasCommissionPrice) {
+      await db.schema.alterTable('order_items', (t) => {
+        t.decimal('commission_price', 10, 2).defaultTo(0);
+      });
+      console.log('Added order_items.commission_price');
+    }
+  }
+}
+
+export async function ensureWithdrawalRequestsTable() {
+  const exists = await db.schema.hasTable('withdrawal_requests');
+  if (exists) return;
+
+  await db.schema.createTable('withdrawal_requests', (table) => {
+    table.increments('id').primary();
+    table.integer('user_id').unsigned().notNullable().index();
+    table.decimal('amount', 18, 2).notNullable();
+    table.string('status', 20).notNullable().defaultTo('pending'); // pending, approved, rejected
+    table.text('payment_details').nullable(); // JSON with bank details, phone number, etc.
+    table.text('user_note').nullable();
+    table.text('admin_note').nullable();
+    table.integer('processed_by').unsigned().nullable(); // admin user_id
+    table.timestamp('processed_at').nullable();
+    table.timestamp('created_at').defaultTo(db.fn.now());
+    table.timestamp('updated_at').defaultTo(db.fn.now());
+    
+    table.index(['user_id', 'status']);
+    table.index('status');
+    table.index('created_at');
+  });
+  console.log('✅ withdrawal_requests table created');
+}
+
 export async function runStartupSchemaSetup() {
   try {
     await ensureUsersTable();
@@ -154,6 +275,8 @@ export async function runStartupSchemaSetup() {
     await ensureNotificationsTable();
     await ensureProductsColumns();
     await ensureProductReviewsTable();
+    await ensureOrderCommissionColumns();
+    await ensureWithdrawalRequestsTable();
   } catch (e) {
     console.warn('Schema setup skipped/failed:', e.message);
   }

@@ -12,18 +12,18 @@ export const getApiBaseUrl = () => {
   if (__DEV__) {
     // Development environment
     if (Platform.OS === 'android') {
-      return 'https://aman-store.com'; // Physical Device (same WiFi) - CURRENT IP FROM BACKEND
+      return 'https://backend.aman-store.com'; // Physical Device (same WiFi) - CURRENT IP FROM BACKEND
     } else if (Platform.OS === 'ios') {
-      // iOS Simulator can use localhost
-      // return 'http://localhost:3000';
-      return 'https://aman-store.com'; // Use actual IP for consistency
+      // iOS Simulator can use 10.98.15.168
+      // return 'https://backend.aman-store.com';
+      return 'https://backend.aman-store.com'; // Use actual IP for consistency
     } else {
       // Physical device - use your computer's IP address
-      return 'https://aman-store.com';
+      return 'https://backend.aman-store.com';
     }
   } else {
     // Production environment
-    return 'https://aman-store.com';
+    return 'https://backend.aman-store.com';
   }
 };
 
@@ -53,13 +53,13 @@ API Connection Troubleshooting:
    npm run dev
    
 2. Check if the backend is accessible:
-  Open browser: https://aman-store.com/api/health
+  Open browser: https://backend.aman-store.com/api/health
    
 3. For Android Emulator:
-   - Use: https://aman-store.com
+   - Use: https://backend.aman-store.com
    
 4. For iOS Simulator:
-   - Use: https://aman-store.com
+   - Use: https://backend.aman-store.com
    
 5. For Physical Device:
    - Find your computer's IP address:
@@ -70,8 +70,8 @@ API Connection Troubleshooting:
    - Make sure your firewall allows connections on port 3000
 
 6. Test the API endpoint:
-   - Register: POST https://aman-store.com/api/auth/register
-   - Login: POST https://aman-store.com/api/auth/login
+   - Register: POST https://backend.aman-store.com/api/auth/register
+   - Login: POST https://backend.aman-store.com/api/auth/login
    
 7. Check backend logs for errors
 `;

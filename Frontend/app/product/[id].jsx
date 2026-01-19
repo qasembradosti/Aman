@@ -35,9 +35,40 @@ export default function ProductDetail() {
   const router = useRouter();
   const dispatch = useDispatch();
   const layout = useResponsiveLayout();
-  const { t, isRTL } = useLanguage();
+  const { t, isRTL, language } = useLanguage();
   const rowDirection = isRTL ? "row-reverse" : "row";
   const textAlign = isRTL ? "right" : "left";
+
+  // Helper function to get localized text
+  const getLocalizedText = (product, field) => {
+    if (!product) return '';
+    
+    const languageMap = {
+      'ar': 'ar',
+      'en': 'en',
+      'ku': 'ku'
+    };
+    
+    const lang = languageMap[language] || 'en';
+    const fieldWithLang = `${field}_${lang}`;
+    
+    // Try language-specific field first
+    if (product[fieldWithLang]) {
+      return product[fieldWithLang];
+    }
+    
+    // Fallback to base field
+    if (product[field]) {
+      return product[field];
+    }
+    
+    // Fallback to English if available
+    if (lang !== 'en' && product[`${field}_en`]) {
+      return product[`${field}_en`];
+    }
+    
+    return '';
+  };
 
   // Robust theme access: fall back to safe defaults if provider isn't mounted
   let theme;
@@ -60,6 +91,7 @@ export default function ProductDetail() {
   const { items: products, loading: productsLoading } = useSelector(
     (state) => state.products
   );
+  const { user } = useSelector((state) => state.auth);
 
   useEffect(() => {
     dispatch(fetchProducts({ limit: 100 }));
@@ -122,7 +154,7 @@ export default function ProductDetail() {
       
       return {
         id: dbProduct.id,
-        name: dbProduct.title || dbProduct.name,
+        name: getLocalizedText(dbProduct, 'title') || getLocalizedText(dbProduct, 'name') || dbProduct.title || dbProduct.name,
         price: dbProduct.price,
         base_price: dbProduct.base_price,
         originalPrice:
@@ -130,8 +162,7 @@ export default function ProductDetail() {
           Math.round(dbProduct.price * 1.25 * 100) / 100,
         rating: dbProduct.rating ?? 4.2,
         reviews: dbProduct.reviews || 0,
-        description:
-          dbProduct.description || "Great product with excellent quality.",
+        description: getLocalizedText(dbProduct, 'description') || "Great product with excellent quality.",
         model: dbProduct.product_code || "PRD-" + String(dbProduct.id).padStart(4, "0"),
         features: dbProduct.features || [
           "High-quality materials",
@@ -163,7 +194,7 @@ export default function ProductDetail() {
       };
     }
     return null;
-  }, [dbProduct, id]);
+  }, [dbProduct, id, language]);
 
   // Fetch reviews and rating summary
   useEffect(() => {
@@ -268,9 +299,12 @@ export default function ProductDetail() {
 
   const handleShare = async () => {
     try {
+      const userId = user?.id || 'unknown';
+      const productId = product?.id || id;
+      const checkoutUrl = `https://checkout.aman-store.com/checkout?userId=${userId}&productId=${productId}`;
+      
       const result = await Share.share({
-        message: `Check out this amazing product: ${product.name}\nPrice: $${product.price}\n\nGet it now!`,
-        url: `https://yourapp.com/product/${product.id}`, // Replace with your actual URL
+        message: `${product.name}\n\n${checkoutUrl}`,
         title: product.name,
       });
 
@@ -818,8 +852,9 @@ export default function ProductDetail() {
                   color: theme.colors.textSecondary,
                   fontSize: layout.typography.md,
                   lineHeight: layout.typography.md * 1.6,
-                  textAlign,
+                  textAlign: isRTL ? "right" : "left",
                   marginTop: layout.spacing.sm,
+                  direction: isRTL ? "rtl" : "ltr",
                 },
               ]}
             >
@@ -1646,7 +1681,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {},
   description: {
-    direction: "rtl",
+    // direction is handled dynamically in component
   },
   subsection: {},
   subsectionTitle: {},

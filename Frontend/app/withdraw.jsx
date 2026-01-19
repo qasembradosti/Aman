@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "../utils/LanguageContext";
 import { useTheme } from "../utils/ThemeContext";
 import { useDispatch, useSelector } from "react-redux";
-import { withdrawWallet, fetchWallet } from "../store/slices/walletSlice";
+import { createWithdrawalRequest, fetchWallet } from "../store/slices/walletSlice";
 import { useResponsiveLayout } from "../utils/useResponsiveLayout";
 import Input from "../components/ui/Input";
 import InfoDialog from "../components/InfoDialog";
@@ -129,9 +129,11 @@ export default function WithdrawScreen() {
     // Confirm withdrawal
     setConfirmDialog({
       visible: true,
-      message: `${t("withdrawAmount") || "Withdraw"}: ${withdrawAmount} ${
+      message: `${t("withdrawRequest") || "Request Withdrawal"}: ${withdrawAmount} ${
         t("currency") || "IQD"
-      }\n${t("toPhone") || "To"}: ${phoneNumber}`,
+      }\n${t("toPhone") || "To"}: ${phoneNumber}\n\n${
+        t("withdrawalNote") || "Your request will be reviewed by the admin."
+      }`,
     });
   };
 
@@ -143,14 +145,13 @@ export default function WithdrawScreen() {
 
     try {
       await dispatch(
-        withdrawWallet({
-          user_id: user?.id,
+        createWithdrawalRequest({
           amount: withdrawAmount,
-          reference: `WITHDRAWAL_${Date.now()}`,
-          metadata: {
+          payment_details: {
             phone: phoneNumber,
-            type: "withdrawal",
+            method: "mobile_money",
           },
+          user_note: `Withdrawal request for ${withdrawAmount}`,
         })
       ).unwrap();
 
@@ -158,12 +159,18 @@ export default function WithdrawScreen() {
         visible: true,
         title: t("success") || "Success",
         message:
-          t("withdrawalSuccess") || "Withdrawal request submitted successfully",
+          t("withdrawalRequestSuccess") || 
+          "Withdrawal request submitted successfully! Please wait for admin approval.",
       });
 
       // Clear form
       setAmount("");
       setPhoneNumber("");
+      
+      // Refresh wallet balance
+      if (user?.id) {
+        dispatch(fetchWallet({ user_id: user.id }));
+      }
     } catch (error) {
       setInfoDialog({
         visible: true,
@@ -171,7 +178,7 @@ export default function WithdrawScreen() {
         message:
           error ||
           t("withdrawalFailed") ||
-          "Withdrawal failed. Please try again.",
+          "Withdrawal request failed. Please try again.",
       });
     } finally {
       setIsSubmitting(false);

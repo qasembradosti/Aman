@@ -110,10 +110,42 @@ const useResponsiveLayout = () => {
 export default function Home() {
   const router = useRouter();
   const dispatch = useDispatch();
-  const { t, isRTL } = useLanguage();
+  const { t, isRTL, language } = useLanguage();
   const { theme, toggleTheme, isDark } = useTheme();
   const layout = useResponsiveLayout();
   const API_BASE_URL = getApiBaseUrl();
+
+  // Helper function to get localized text
+  const getLocalizedText = (product, field) => {
+    if (!product) return '';
+    
+    const languageMap = {
+      'ar': 'ar',
+      'en': 'en',
+      'ku': 'ku',
+      'om': 'om'
+    };
+    
+    const lang = languageMap[language] || 'en';
+    const fieldWithLang = `${field}_${lang}`;
+    
+    // Try language-specific field first
+    if (product[fieldWithLang]) {
+      return product[fieldWithLang];
+    }
+    
+    // Fallback to base field
+    if (product[field]) {
+      return product[field];
+    }
+    
+    // Fallback to English if available
+    if (lang !== 'en' && product[`${field}_en`]) {
+      return product[`${field}_en`];
+    }
+    
+    return '';
+  };
   // Dialog state for errors/info
   const [dialog, setDialog] = useState({
     visible: false,
@@ -269,17 +301,30 @@ export default function Home() {
 
   const handleShareProduct = async (id, name) => {
     try {
-      await Share.share({
+      const userId = user?.id || 'unknown';
+      const checkoutUrl = `https://checkout.aman-store.com/checkout?userId=${userId}&productId=${id}`;
+      
+      const result = await Share.share({
+        message: `${name}\n\n${checkoutUrl}`,
         title: name,
-        message: `Check out this product: ${name}`,
-        url: `https://yourapp.com/product/${id}`, // TODO: replace with real deep link
       });
-    } catch (_e) {
+
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+          console.log("Shared with activity type:", result.activityType);
+        } else {
+          console.log("Shared successfully");
+        }
+      } else if (result.action === Share.dismissedAction) {
+        console.log("Share dismissed");
+      }
+    } catch (error) {
       setDialog({
         visible: true,
         title: "Error",
         message: "Unable to share product",
       });
+      console.error("Share error:", error);
     }
   };
 
@@ -575,13 +620,32 @@ export default function Home() {
               >
                 {selectedCategory.name} {t("products")}
               </Text>
-              <TouchableOpacity onPress={() => setSelectedCategory(null)}>
-                <Ionicons 
-                  name="close-circle-outline" 
-                  size={24} 
-                  color={theme.colors.primary} 
-                />
-              </TouchableOpacity>
+              <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                {categoryProducts.length > 0 && (
+                  <TouchableOpacity 
+                    onPress={() => router.push(`/products?category=${selectedCategory.id}`)}
+                  >
+                    <Text
+                      style={[
+                        styles.seeAll,
+                        {
+                          color: theme.colors.primary,
+                          fontSize: layout.isSmallPhone ? 13 : 14,
+                        },
+                      ]}
+                    >
+                      {t("seeAll")}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={() => setSelectedCategory(null)}>
+                  <Ionicons 
+                    name="close-circle-outline" 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
             
             {categoryProductsLoading && categoryProducts.length === 0 ? (
@@ -704,7 +768,7 @@ export default function Home() {
                             },
                           ]}
                         >
-                          {product.name}
+                          {getLocalizedText(product, 'title') || getLocalizedText(product, 'name') || product.name}
                         </Text>
                         <View style={styles.ratingRow}>
                           <View style={styles.starsRow}>
@@ -744,7 +808,7 @@ export default function Home() {
                             ]}
                             onPress={(e) => {
                               e.stopPropagation();
-                              handleShareProduct(product.id, product.title);
+                              handleShareProduct(product.id, getLocalizedText(product, 'title') || getLocalizedText(product, 'name') || product.title);
                             }}
                           >
                             <Ionicons
@@ -885,7 +949,7 @@ export default function Home() {
                           fontSize: layout.isSmallPhone ? 12 : 13,
                         }}
                       >
-                        {product.name}
+                        {getLocalizedText(product, 'title') || getLocalizedText(product, 'name') || product.name}
                       </Text>
                       <Text
                         style={{
@@ -897,7 +961,7 @@ export default function Home() {
                           ? product.sell_price
                           : typeof product?.price === "number"
                           ? product.price
-                          : product?.base_price}
+                          : product?.base_price} IQD
                       </Text>
                     </View>
                   </Pressable>
@@ -1083,7 +1147,7 @@ export default function Home() {
                         },
                       ]}
                     >
-                      {product.name}
+                      {getLocalizedText(product, 'title') || getLocalizedText(product, 'name') || product.name}
                     </Text>
 
                     {/* Rating */}
@@ -1127,7 +1191,7 @@ export default function Home() {
                         ]}
                         onPress={(e) => {
                           e.stopPropagation();
-                          handleShareProduct(product.id, product.title);
+                          handleShareProduct(product.id, getLocalizedText(product, 'title') || getLocalizedText(product, 'name') || product.title);
                         }}
                       >
                         <Ionicons

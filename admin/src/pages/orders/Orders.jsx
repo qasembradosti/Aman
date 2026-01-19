@@ -5,8 +5,9 @@ import {
   fetchOrders,
   fetchOrder,
   updateOrderStatus,
+  withdrawCommission,
 } from "../../store/slices/ordersSlice";
-import { Eye, Loader2, Package, Search, Filter, X } from "lucide-react";
+import { Eye, Loader2, Package, Search, Filter, X, Wallet, DollarSign } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -86,6 +87,29 @@ const Orders = () => {
       console.error("Failed to update order status:", error);
       toast.error(error || "Failed to update order status. Please try again.");
     }
+  };
+
+  const handleWithdrawCommission = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      const result = await dispatch(withdrawCommission(selectedOrder.id)).unwrap();
+      toast.success(`Commission $${result.commission.toFixed(2)} sent to user's wallet!`);
+      
+      // Refresh the order details
+      const fullOrder = await dispatch(fetchOrder(selectedOrder.id)).unwrap();
+      setSelectedOrder(fullOrder);
+    } catch (error) {
+      console.error("Failed to withdraw commission:", error);
+      toast.error(error || "Failed to withdraw commission. Please try again.");
+    }
+  };
+
+  const calculateTotalCommission = (order) => {
+    if (!order?.items) return 0;
+    return order.items.reduce((sum, item) => {
+      return sum + (Number(item.commission_price || 0) * Number(item.quantity));
+    }, 0);
   };
 
   const filteredOrders = items.filter((order) => {
@@ -434,6 +458,62 @@ const Orders = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Commission Section */}
+                  {calculateTotalCommission(selectedOrder) > 0 && (
+                    <div className="border-t pt-4">
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="w-5 h-5 text-green-600" />
+                            <h4 className="font-medium text-gray-900">
+                              User Commission
+                            </h4>
+                          </div>
+                          <span className="text-lg font-bold text-green-600">
+                            {formatCurrency(calculateTotalCommission(selectedOrder))}
+                          </span>
+                        </div>
+                        
+                        {selectedOrder.status === 'delivered' && !selectedOrder.commission_withdrawn && (
+                          <Button
+                            onClick={handleWithdrawCommission}
+                            className="w-full bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            <Wallet className="w-4 h-4 mr-2" />
+                            Send Commission to User's Wallet
+                          </Button>
+                        )}
+                        
+                        {selectedOrder.commission_withdrawn && (
+                          <div className="text-center text-sm text-green-700 font-medium">
+                            ✓ Commission has been sent to user's wallet
+                          </div>
+                        )}
+
+                        {selectedOrder.status !== 'delivered' && (
+                          <div className="text-center text-sm text-gray-600">
+                            Commission will be available after order is delivered
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Commission Breakdown */}
+                      <div className="mt-3 space-y-2">
+                        <p className="text-xs font-medium text-gray-700 mb-2">Commission Breakdown:</p>
+                        {selectedOrder.items?.map((item, index) => (
+                          item.commission_price > 0 && (
+                            <div key={index} className="flex justify-between text-xs text-gray-600 pl-4">
+                              <span>{item.product_name || item.title} (x{item.quantity})</span>
+                              <span className="text-green-600 font-medium">
+                                {formatCurrency(item.commission_price * item.quantity)}
+                              </span>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Payment Info */}
                   {selectedOrder.payment_method && (

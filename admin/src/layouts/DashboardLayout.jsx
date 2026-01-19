@@ -2,7 +2,7 @@ import { Outlet, NavLink } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { logoutAdmin } from '../store/slices/authSlice';
 import { useState } from 'react';
-import { Home, Package, FolderTree, ShoppingCart, MessageSquare, Bell, Users, LogOut, Menu, Image, Tag, Store } from 'lucide-react';
+import { Home, Package, FolderTree, ShoppingCart, MessageSquare, Bell, Users, LogOut, Menu, Image, Tag, Store, Wallet } from 'lucide-react';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 
 const navItems = [
@@ -13,6 +13,8 @@ const navItems = [
   { path: '/stores', label: 'Stores', icon: Store },
   { path: '/banners', label: 'Banners', icon: Image },
   { path: '/orders', label: 'Orders', icon: ShoppingCart },
+  { path: '/wallets', label: 'Wallets', icon: Wallet },
+  { path: '/withdrawals', label: 'Withdrawals', icon: Wallet },
   { path: '/reviews', label: 'Reviews', icon: MessageSquare },
   { path: '/notifications', label: 'Notifications', icon: Bell },
   { path: '/users', label: 'Users', icon: Users },

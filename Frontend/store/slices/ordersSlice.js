@@ -6,9 +6,16 @@ export const fetchOrders = createAsyncThunk(
   'orders/fetchOrders',
   async (params = {}, { rejectWithValue }) => {
     try {
+      console.log('📦 Fetching orders with params:', params);
       const response = await apiService.get('/api/orders', { params });
+      console.log('✅ Orders fetched successfully:', response.data);
       return response.data;
     } catch (error) {
+      console.error('❌ Error fetching orders:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
       return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
@@ -86,7 +93,19 @@ const ordersSlice = createSlice({
       .addCase(fetchOrders.fulfilled, (state, action) => {
         state.loading = false;
         const payload = action.payload || {};
-        state.items = payload.orders || payload.items || payload || [];
+        const rawOrders = payload.orders || payload.items || payload || [];
+        
+        // Transform backend data to match component expectations
+        state.items = rawOrders.map(order => ({
+          ...order,
+          // Map backend field names to component field names
+          total: order.total_amount || order.total,
+          date: order.created_at || order.date,
+          items: order.items_count || order.items || 0,
+          products: [], // Products list not included in backend list endpoint
+          // Keep original fields too for compatibility
+        }));
+        
         if (payload.pagination) {
           state.pagination = {
             page: payload.pagination.page || 1,

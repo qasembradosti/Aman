@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -11,14 +11,18 @@ import {
   Share,
   ActivityIndicator,
   RefreshControl,
+  TextInput,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
 import { useLanguage } from "../utils/LanguageContext";
 import { useTheme } from "../utils/ThemeContext";
 import { fetchProducts } from "../store/slices/productsSlice";
+import { fetchBrands } from "../store/slices/brandsSlice";
+import { fetchCategories } from "../store/slices/categoriesSlice";
 import InfoDialog from "../components/InfoDialog";
 import { getProductImageUrl } from "../utils/productImages";
 
@@ -39,7 +43,7 @@ const Text = ({ style, ...props }) => {
 // Responsive layout hook
 const useResponsiveLayout = () => {
   const [dimensions, setDimensions] = useState(Dimensions.get("window"));
-  
+
   useEffect(() => {
     const subscription = Dimensions.addEventListener("change", ({ window }) => {
       setDimensions(window);
@@ -49,21 +53,23 @@ const useResponsiveLayout = () => {
 
   const { width, height } = dimensions;
   const isLandscape = width > height;
-  
+
   const isSmallPhone = width <= 375;
   const isMediumPhone = width > 375 && width <= 414;
   const isLargePhone = width > 414;
-  
+
   const horizontalPadding = isSmallPhone ? 12 : isMediumPhone ? 16 : 20;
   const cardGap = isSmallPhone ? 8 : 12;
-  
+
   const columns = isLandscape ? 3 : 2;
   const totalGapWidth = cardGap * (columns - 1);
-  const cardWidth = Math.floor((width - (horizontalPadding * 2) - totalGapWidth) / columns);
-  
+  const cardWidth = Math.floor(
+    (width - horizontalPadding * 2 - totalGapWidth) / columns,
+  );
+
   const productNameSize = isSmallPhone ? 12 : 13;
   const productPriceSize = isSmallPhone ? 14 : 16;
-  
+
   return {
     width,
     height,
@@ -81,44 +87,164 @@ const useResponsiveLayout = () => {
 
 export default function Products() {
   const router = useRouter();
+  const { category: routeCategory } = useLocalSearchParams();
   const dispatch = useDispatch();
-  const { t, isRTL } = useLanguage();
+  const { t, isRTL, language } = useLanguage();
   const { theme } = useTheme();
   const layout = useResponsiveLayout();
-  
-  const [dialog, setDialog] = useState({ visible: false, title: '', message: '' });
-  const closeDialog = () => setDialog({ visible: false, title: '', message: '' });
+
+  const [dialog, setDialog] = useState({
+    visible: false,
+    title: "",
+    message: "",
+  });
+  const closeDialog = () =>
+    setDialog({ visible: false, title: "", message: "" });
   const [refreshing, setRefreshing] = useState(false);
-  
-  const { items: products, loading: productsLoading } = useSelector((state) => state.products);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedBrand, setSelectedBrand] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState(routeCategory || "all");
+  const [sortBy, setSortBy] = useState("latest");
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+
+  const { items: products, loading: productsLoading } = useSelector(
+    (state) => state.products,
+  );
+  const { items: brands, loading: brandsLoading } = useSelector(
+    (state) => state.brands,
+  );
+  const { items: categories, loading: categoriesLoading } = useSelector(
+    (state) => state.categories,
+  );
+  const { user } = useSelector((state) => state.auth);
 
   useEffect(() => {
-    dispatch(fetchProducts({ limit: 100 })); // Fetch more products for the listing page
-  }, [dispatch]);
+    const fetchParams = { limit: pageSize, offset: (currentPage - 1) * pageSize };
+    
+    // Include category filter in API request if category is selected
+    if (routeCategory && routeCategory !== "all") {
+      fetchParams.category_id = routeCategory;
+    }
+    
+    dispatch(fetchProducts(fetchParams));
+    dispatch(fetchBrands({ limit: 10 }));
+    dispatch(fetchCategories({ limit: 100 }));
+  }, [dispatch, currentPage, pageSize, routeCategory]);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
-    dispatch(fetchProducts({ limit: 100 })).finally(() => setRefreshing(false));
-  }, [dispatch]);
+    setCurrentPage(1);
+    dispatch(fetchProducts({ limit: pageSize, offset: 0 })).finally(() =>
+      setRefreshing(false),
+    );
+  }, [dispatch, pageSize]);
 
   const handleShareProduct = async (id, name) => {
     try {
+      const userId = user?.id || "unknown";
+      const checkoutUrl = `https://checkout.aman-store.com/checkout?userId=${userId}&productId=${id}`;
+
       await Share.share({
         title: name,
-        message: `Check out this product: ${name}`,
-        url: `https://yourapp.com/product/${id}`,
+        message: `${name}\n\n${checkoutUrl}`,
       });
     } catch (_e) {
-      setDialog({ visible: true, title: 'Error', message: 'Unable to share product' });
+      setDialog({
+        visible: true,
+        title: "Error",
+        message: "Unable to share product",
+      });
     }
   };
 
   const computeBonus = (p) => {
-    if (typeof p?.bonus === 'number') return p.bonus;
-    const priceNum = typeof p?.price === 'number' ? p.price : Number(p?.price);
+    if (typeof p?.bonus === "number") return p.bonus;
+    const priceNum = typeof p?.price === "number" ? p.price : Number(p?.price);
     if (!isNaN(priceNum)) return Math.round(priceNum * 0.1 * 100) / 100;
     return undefined;
   };
+
+  const getLocalizedProductName = (product, lang) => {
+    if (!product) return "Product";
+
+    try {
+      let name = "";
+
+      // Check if localized fields exist
+      const titleAr = product?.name_ar?.trim();
+      const titleEn = product?.name_en?.trim();
+      const titleKu = product?.name_ku?.trim();
+      // Determine language and set name with fallbacks
+      if (lang === "ar") {
+        name = titleAr || titleEn || titleKu;
+      } else if (lang === "en") {
+        name = titleEn || titleAr || titleKu;
+      } else if (lang === "ku") {
+        name = titleKu || titleEn || titleAr;
+      } else if (lang === "om") {
+        name = titleOm || titleEn || titleAr;
+      } else {
+        name = titleEn || titleAr || titleKu;
+      }
+
+      return name || "Product";
+    } catch (error) {
+      console.warn("Error getting localized product name:", error);
+      return product?.title || "Product";
+    }
+  };
+
+  const getFilteredProducts = useMemo(() => {
+    if (!products || products.length === 0) return [];
+
+    let filtered = [...products];
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((product) => {
+        const name = getLocalizedProductName(product, language).toLowerCase();
+        const description = (product.description || "").toLowerCase();
+        return name.includes(query) || description.includes(query);
+      });
+    }
+
+    // Filter by selected brand
+    if (selectedBrand !== "all") {
+      filtered = filtered.filter(
+        (product) => String(product.brand_id) === String(selectedBrand),
+      );
+    }
+
+    // Filter by selected category
+    if (selectedCategory !== "all") {
+      filtered = filtered.filter(
+        (product) => String(product.category_id) === String(selectedCategory),
+      );
+    }
+
+    // Sort products
+    if (sortBy === "price-low") {
+      filtered.sort((a, b) => (a.sell_price || 0) - (b.sell_price || 0));
+    } else if (sortBy === "price-high") {
+      filtered.sort((a, b) => (b.sell_price || 0) - (a.sell_price || 0));
+    } else if (sortBy === "rating") {
+      filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    } else if (sortBy === "latest") {
+      filtered.sort((a, b) => (b.id || 0) - (a.id || 0));
+    }
+
+    return filtered;
+  }, [
+    products,
+    searchQuery,
+    selectedBrand,
+    selectedCategory,
+    sortBy,
+    language,
+  ]);
 
   const renderStars = (rating) => {
     const stars = [];
@@ -126,12 +252,12 @@ export default function Products() {
     const hasHalf = rating - full >= 0.5;
     for (let i = 0; i < full; i++) {
       stars.push(
-        <Ionicons key={`full-${i}`} name="star" size={12} color="#FFB800" />
+        <Ionicons key={`full-${i}`} name="star" size={12} color="#FFB800" />,
       );
     }
     if (hasHalf) {
       stars.push(
-        <Ionicons key="half" name="star-half" size={12} color="#FFB800" />
+        <Ionicons key="half" name="star-half" size={12} color="#FFB800" />,
       );
     }
     const remaining = 5 - stars.length;
@@ -142,7 +268,7 @@ export default function Products() {
           name="star-outline"
           size={12}
           color="#FFB800"
-        />
+        />,
       );
     }
     return stars;
@@ -173,7 +299,12 @@ export default function Products() {
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
           {t("allProducts") || "All Products"}
         </Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity
+          onPress={() => setFilterModalVisible(true)}
+          style={styles.filterIconButton}
+        >
+          <Ionicons name="funnel" size={24} color={theme.colors.text} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -182,6 +313,64 @@ export default function Products() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        {/* Search Input */}
+        <View
+          style={[
+            styles.searchWrapper,
+            {
+              paddingHorizontal: layout.horizontalPadding,
+              marginBottom: 16,
+              marginTop: 8,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.searchContainer,
+              {
+                backgroundColor: theme.colors.card,
+                borderColor: theme.colors.border,
+                shadowColor: theme.colors.shadow || "#000",
+              },
+            ]}
+          >
+            <Ionicons
+              name="search"
+              size={20}
+              color={theme.colors.textSecondary}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={[
+                styles.searchInput,
+                {
+                  color: theme.colors.text,
+                },
+              ]}
+              placeholder={t("searchProducts") || "Search products..."}
+              placeholderTextColor={theme.colors.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              selectionColor={theme.colors.primary}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery("")}
+                style={styles.clearButton}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={20}
+                  color={theme.colors.textSecondary}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Brand Filter */}
+        {/* Moved to Modal */}
+
         <View
           style={[
             styles.productsGrid,
@@ -192,12 +381,12 @@ export default function Products() {
             },
           ]}
         >
-          {productsLoading && products.length === 0 ? (
+          {productsLoading && getFilteredProducts.length === 0 ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={theme.colors.primary} />
             </View>
-          ) : products.length > 0 ? (
-            products.map((product) => (
+          ) : getFilteredProducts.length > 0 ? (
+            getFilteredProducts.map((product) => (
               <Pressable
                 key={product.id}
                 style={({ pressed }) => [
@@ -206,20 +395,32 @@ export default function Products() {
                     backgroundColor: theme.colors.card,
                     width: layout.cardWidth,
                   },
-                  { borderColor: theme.colors.border, borderWidth: StyleSheet.hairlineWidth },
+                  {
+                    borderColor: theme.colors.border,
+                    borderWidth: StyleSheet.hairlineWidth,
+                  },
                   pressed && styles.productCardPressed,
                   pressed && { borderColor: theme.colors.primary },
                 ]}
                 onPress={() => router.push(`/product/${product.id}`)}
               >
-                <View style={[styles.productImage, {
-                  height: layout.isSmallPhone ? 100 : layout.isMediumPhone ? 110 : 120
-                }]}>
+                <View
+                  style={[
+                    styles.productImage,
+                    {
+                      height: layout.isSmallPhone
+                        ? 100
+                        : layout.isMediumPhone
+                          ? 110
+                          : 120,
+                    },
+                  ]}
+                >
                   <Image
                     source={{
                       uri: getProductImageUrl(
                         product,
-                        "https://via.placeholder.com/400"
+                        "https://via.placeholder.com/400",
                       ),
                     }}
                     style={styles.productImageImg}
@@ -227,9 +428,16 @@ export default function Products() {
                   />
                   {(() => {
                     const bonus = computeBonus(product);
-                    return typeof bonus === 'number' ? (
-                      <View style={[styles.bonusTag, { backgroundColor: theme.colors.primary }]}>
-                        <Text style={styles.bonusTagText}>{t('sellerBonus')}: ${bonus}</Text>
+                    return typeof bonus === "number" ? (
+                      <View
+                        style={[
+                          styles.bonusTag,
+                          { backgroundColor: theme.colors.primary },
+                        ]}
+                      >
+                        <Text style={styles.bonusTagText}>
+                          {t("sellerBonus")}: ${bonus}
+                        </Text>
                       </View>
                     ) : null;
                   })()}
@@ -238,15 +446,25 @@ export default function Products() {
                 <View style={styles.productInfo}>
                   <Text
                     numberOfLines={2}
-                    style={[styles.productName, {
-                      color: theme.colors.text,
-                      fontSize: layout.productNameSize,
-                    }]}
+                    style={[
+                      styles.productName,
+                      {
+                        color: theme.colors.text,
+                        fontSize: layout.productNameSize,
+                        textAlign: isRTL ? "right" : "left",
+                        direction: isRTL ? "rtl" : "ltr",
+                      },
+                    ]}
                   >
-                    {product.title}
+                    {getLocalizedProductName(product, language)}
                   </Text>
 
-                  <View style={styles.ratingRow}>
+                  <View
+                    style={[
+                      styles.ratingRow,
+                      { flexDirection: isRTL ? "row-reverse" : "row" },
+                    ]}
+                  >
                     <View style={styles.starsRow}>
                       {renderStars(product.rating || 4.0)}
                     </View>
@@ -254,30 +472,57 @@ export default function Products() {
                       numberOfLines={1}
                       style={[
                         styles.ratingText,
-                        { color: theme.colors.textSecondary },
+                        {
+                          color: theme.colors.textSecondary,
+                          marginLeft: isRTL ? 0 : 6,
+                          marginRight: isRTL ? 6 : 0,
+                        },
                       ]}
                     >
                       {product.rating || 4.0}
                     </Text>
                   </View>
 
-                  <View style={styles.bottomRow}>
-                    <Text style={[styles.productPrice, {
-                      color: theme.colors.primary,
-                      fontSize: layout.productPriceSize,
-                    }]}>
-                      ${product.price}
+                  <View
+                    style={[
+                      styles.bottomRow,
+                      { flexDirection: isRTL ? "row-reverse" : "row" },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.productPrice,
+                        {
+                          color: theme.colors.primary,
+                          fontSize: layout.productPriceSize,
+                          textAlign: isRTL ? "right" : "left",
+                          fontWeight: "700",
+                        },
+                      ]}
+                    >
+                      
+                      {typeof product.price === "number"
+                        ? product.sell_price
+                        : (Number(product.sell_price))} IQD
                     </Text>
                     <TouchableOpacity
-                      style={[styles.shareButton, {
-                        backgroundColor: theme.colors.primary,
-                        width: layout.isSmallPhone ? 32 : 36,
-                        height: layout.isSmallPhone ? 32 : 36,
-                        borderRadius: layout.isSmallPhone ? 16 : 18,
-                      }]}
+                      style={[
+                        styles.shareButton,
+                        {
+                          backgroundColor: theme.colors.primary,
+                          width: layout.isSmallPhone ? 32 : 36,
+                          height: layout.isSmallPhone ? 32 : 36,
+                          borderRadius: layout.isSmallPhone ? 16 : 18,
+                          marginLeft: isRTL ? 0 : 8,
+                          marginRight: isRTL ? 8 : 0,
+                        },
+                      ]}
                       onPress={(e) => {
                         e.stopPropagation();
-                        handleShareProduct(product.id, product.title);
+                        handleShareProduct(
+                          product.id,
+                          getLocalizedProductName(product, language),
+                        );
                       }}
                     >
                       <Ionicons
@@ -292,12 +537,80 @@ export default function Products() {
             ))
           ) : (
             <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.emptyText,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
                 {t("noProductsFound") || "No products found"}
               </Text>
             </View>
           )}
         </View>
+
+        {/* Pagination Controls */}
+        {!productsLoading && products.length > 0 && (
+          <View
+            style={[
+              styles.paginationContainer,
+              { paddingHorizontal: layout.horizontalPadding },
+            ]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.paginationButton,
+                {
+                  opacity: currentPage === 1 ? 0.5 : 1,
+                  backgroundColor: theme.colors.primary,
+                },
+              ]}
+              onPress={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={20}
+                color="#fff"
+                style={{ marginRight: 4 }}
+              />
+              <Text style={styles.paginationButtonText}>
+                {t("previous") || "Previous"}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.pageIndicator}>
+              <Text style={[styles.pageNumber, { color: theme.colors.text }]}>
+                {currentPage}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.paginationButton,
+                {
+                  opacity: products.length < pageSize ? 0.5 : 1,
+                  backgroundColor: theme.colors.primary,
+                },
+              ]}
+              onPress={() => setCurrentPage(currentPage + 1)}
+              disabled={products.length < pageSize}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.paginationButtonText}>
+                {t("next") || "Next"}
+              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color="#fff"
+                style={{ marginLeft: 4 }}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
+
       </ScrollView>
 
       <InfoDialog
@@ -306,6 +619,327 @@ export default function Products() {
         message={dialog.message}
         onClose={closeDialog}
       />
+
+      {/* Filter Modal */}
+      <Modal
+        visible={filterModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <View
+          style={[styles.modalOverlay, { backgroundColor: "rgba(0,0,0,0.5)" }]}
+        >
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.colors.background },
+            ]}
+          >
+            {/* Modal Header */}
+            <View
+              style={[
+                styles.modalHeader,
+                { borderBottomColor: theme.colors.border },
+              ]}
+            >
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                {t("filters") || "Filters"}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setFilterModalVisible(false)}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={28} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              {/* Brand Filter Section */}
+              <View style={styles.filterSection}>
+                <Text
+                  style={[
+                    styles.filterSectionTitle,
+                    { color: theme.colors.text },
+                  ]}
+                >
+                  {t("brand") || "Brand"}
+                </Text>
+                <View style={styles.filterOptionsContainer}>
+                  {/* All Brands Option */}
+                  <TouchableOpacity
+                    style={[
+                      styles.filterOption,
+                      {
+                        backgroundColor:
+                          selectedBrand === "all"
+                            ? theme.colors.primary
+                            : theme.colors.card,
+                        borderColor: theme.colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedBrand("all")}
+                  >
+                    <Text
+                      style={[
+                        styles.filterOptionText,
+                        {
+                          color:
+                            selectedBrand === "all"
+                              ? "#fff"
+                              : theme.colors.text,
+                        },
+                      ]}
+                    >
+                      {t("all") || "All"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Brand Options */}
+                  {brands.map((brand) => (
+                    <TouchableOpacity
+                      key={brand.id}
+                      style={[
+                        styles.filterOption,
+                        {
+                          backgroundColor:
+                            selectedBrand === String(brand.id)
+                              ? theme.colors.primary
+                              : theme.colors.card,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      onPress={() => setSelectedBrand(String(brand.id))}
+                    >
+                      <Text
+                        style={[
+                          styles.filterOptionText,
+                          {
+                            color:
+                              selectedBrand === String(brand.id)
+                                ? "#fff"
+                                : theme.colors.text,
+                          },
+                        ]}
+                      >
+                        {brand.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Category Filter Section */}
+              <View style={styles.filterSection}>
+                <Text
+                  style={[
+                    styles.filterSectionTitle,
+                    { color: theme.colors.text },
+                  ]}
+                >
+                  {t("category") || "Category"}
+                </Text>
+                <View style={styles.filterOptionsContainer}>
+                  {/* All Categories Option */}
+                  <TouchableOpacity
+                    style={[
+                      styles.filterOption,
+                      {
+                        backgroundColor:
+                          selectedCategory === "all"
+                            ? theme.colors.primary
+                            : theme.colors.card,
+                        borderColor: theme.colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedCategory("all")}
+                  >
+                    <View style={styles.filterOptionContent}>
+                      <Ionicons
+                        name="apps"
+                        size={16}
+                        color={
+                          selectedCategory === "all"
+                            ? "#fff"
+                            : theme.colors.primary
+                        }
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text
+                        style={[
+                          styles.filterOptionText,
+                          {
+                            color:
+                              selectedCategory === "all"
+                                ? "#fff"
+                                : theme.colors.text,
+                          },
+                        ]}
+                      >
+                        {t("all") || "All"}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Category Options */}
+                  {categories && categories.length > 0 ? (
+                    categories.map((category) => (
+                      <TouchableOpacity
+                        key={category.id}
+                        style={[
+                          styles.filterOption,
+                          {
+                            backgroundColor:
+                              selectedCategory === String(category.id)
+                                ? theme.colors.primary
+                                : theme.colors.card,
+                            borderColor: theme.colors.border,
+                          },
+                        ]}
+                        onPress={() => setSelectedCategory(String(category.id))}
+                      >
+                        <View style={styles.filterOptionContent}>
+                          {category.icon ? (
+                            <Ionicons
+                              name={category.icon}
+                              size={16}
+                              color={
+                                selectedCategory === String(category.id)
+                                  ? "#fff"
+                                  : theme.colors.primary
+                              }
+                              style={{ marginRight: 6 }}
+                            />
+                          ) : (
+                            <Ionicons
+                              name="folder"
+                              size={16}
+                              color={
+                                selectedCategory === String(category.id)
+                                  ? "#fff"
+                                  : theme.colors.primary
+                              }
+                              style={{ marginRight: 6 }}
+                            />
+                          )}
+                          <Text
+                            style={[
+                              styles.filterOptionText,
+                              {
+                                color:
+                                  selectedCategory === String(category.id)
+                                    ? "#fff"
+                                    : theme.colors.text,
+                              },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {category.name}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <Text
+                      style={[
+                        styles.filterOptionText,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      {t("noCategories") || "No categories available"}
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <View style={styles.filterSection}>
+                <Text
+                  style={[
+                    styles.filterSectionTitle,
+                    { color: theme.colors.text },
+                  ]}
+                >
+                  {t("sortBy") || "Sort By"}
+                </Text>
+                <View style={styles.filterOptionsContainer}>
+                  {[
+                    { key: "latest", label: "Latest" },
+                    { key: "price-low", label: "Price: Low to High" },
+                    { key: "price-high", label: "Price: High to Low" },
+                    { key: "rating", label: "Top Rated" },
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={option.key}
+                      style={[
+                        styles.filterOption,
+                        {
+                          backgroundColor:
+                            sortBy === option.key
+                              ? theme.colors.primary
+                              : theme.colors.card,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                      onPress={() => setSortBy(option.key)}
+                    >
+                      <Text
+                        style={[
+                          styles.filterOptionText,
+                          {
+                            color:
+                              sortBy === option.key
+                                ? "#fff"
+                                : theme.colors.text,
+                          },
+                        ]}
+                      >
+                        {t(option.key) || option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+
+            {/* Modal Footer Actions */}
+            <View
+              style={[
+                styles.modalFooter,
+                { borderTopColor: theme.colors.border },
+              ]}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: theme.colors.border },
+                ]}
+                onPress={() => {
+                  setSelectedBrand("all");
+                  setSelectedCategory("all");
+                  setSortBy("latest");
+                  setSearchQuery("");
+                }}
+              >
+                <Text
+                  style={[styles.modalButtonText, { color: theme.colors.text }]}
+                >
+                  {t("reset") || "Reset"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: theme.colors.primary },
+                ]}
+                onPress={() => setFilterModalVisible(false)}
+              >
+                <Text style={[styles.modalButtonText, { color: "#fff" }]}>
+                  {t("apply") || "Apply"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -329,9 +963,13 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 4,
   },
+  filterIconButton: {
+    padding: 4,
+  },
   headerTitle: {
     fontSize: 18,
-    
+    flex: 1,
+    textAlign: "center",
   },
   scrollView: {
     flex: 1,
@@ -361,7 +999,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   bonusTag: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     left: 8,
     paddingVertical: 2,
@@ -369,7 +1007,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   bonusTagText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 11,
   },
   productImageImg: {
@@ -383,7 +1021,7 @@ const styles = StyleSheet.create({
   },
   productName: {
     fontSize: 13,
-    
+
     marginBottom: 4,
     minHeight: 32,
   },
@@ -401,11 +1039,10 @@ const styles = StyleSheet.create({
   },
   productPrice: {
     fontSize: 16,
-    
   },
   ratingText: {
     fontSize: 12,
-    
+
     marginLeft: 4,
     flexShrink: 1,
   },
@@ -432,5 +1069,201 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     textAlign: "center",
+  },
+  paginationContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 24,
+    paddingBottom: 32,
+    gap: 12,
+  },
+  paginationButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  paginationButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  pageIndicator: {
+    minWidth: 50,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: "transparent",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pageNumber: {
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  brandsSection: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  brandsList: {
+    flexDirection: "row",
+  },
+  brandCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    marginRight: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 100,
+    height: 130,
+  },
+  brandLogo: {
+    width: 60,
+    height: 60,
+    marginBottom: 8,
+  },
+  brandName: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  searchWrapper: {
+    // Wrapper for proper spacing
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 2,
+    borderWidth: 1,
+    height: 48,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "500",
+    paddingVertical: 0,
+  },
+  clearButton: {
+    padding: 6,
+    marginLeft: 8,
+    marginRight: -4,
+  },
+  filterContainer: {
+    marginVertical: 8,
+  },
+  filterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "transparent",
+    marginRight: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  filterText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "80%",
+    overflow: "hidden",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalBody: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  filterSection: {
+    marginBottom: 24,
+  },
+  filterSectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  filterOptionsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  filterOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  filterOptionText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  filterOptionContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalFooter: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

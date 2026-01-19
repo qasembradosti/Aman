@@ -6,6 +6,7 @@ import walletReducer from './slices/walletSlice';
 import notificationsReducer from './slices/notificationsSlice';
 import bannersReducer from './slices/bannersSlice';
 import ordersReducer from './slices/ordersSlice';
+import brandsReducer from './slices/brandsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ export const store = configureStore({
     notifications: notificationsReducer,
     banners: bannersReducer,
     orders: ordersReducer,
+    brands: brandsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

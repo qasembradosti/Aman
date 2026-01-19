@@ -5,7 +5,8 @@ import {
   createOrder,
   updateOrderStatus,
   deleteOrder,
-  getOrderStats
+  getOrderStats,
+  withdrawCommission
 } from '../controllers/orderController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
@@ -25,6 +26,9 @@ router.get('/orders/:id', getOrderById);
 
 // Update order status
 router.put('/orders/:id/status', authenticateToken, updateOrderStatus);
+
+// Withdraw commission for delivered order
+router.post('/orders/:id/withdraw-commission', authenticateToken, withdrawCommission);
 
 // Delete order
 router.delete('/orders/:id', authenticateToken, deleteOrder);

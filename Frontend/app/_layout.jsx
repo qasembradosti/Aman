@@ -16,16 +16,9 @@ import { store } from "../store/store";
 import { loadTokenFromStorage } from "../store/slices/authSlice";
 import { useEffect, useState } from "react";
 import * as Font from "expo-font";
-import * as SplashScreen from "expo-splash-screen";
-import AppLoader from "../components/AppLoader";
+import SplashScreen from "../components/SplashScreen";
 import authEvents from "../utils/authEvents";
 import { logout } from "../store/slices/authSlice";
-
-try {
-  SplashScreen.preventAutoHideAsync();
-} catch (e) {
-  console.warn("SplashScreen error:", e);
-}
 
 // Auth initialization component
 function AuthInitializer({ children }) {
@@ -153,24 +146,19 @@ export default function RootLayout() {
       } catch (error) {
         setFontsLoaded(true);
       } finally {
-        try {
-          await SplashScreen.hideAsync();
-        } catch (e) {
-          console.warn("SplashScreen hide error:", e);
-        }
-        // Add a minimum delay to show the loader animation
+        // Add a minimum delay to show the splash screen animation
         setTimeout(() => {
           setIsAppReady(true);
-        }, 2000);
+        }, 3000);
       }
     }
 
     loadFonts();
   }, []);
 
-  // Show loader while fonts are loading and minimum time hasn't passed
+  // Show splash screen while fonts are loading and minimum time hasn't passed
   if (!isAppReady) {
-    return null;
+    return <SplashScreen />;
   }
 
   return (

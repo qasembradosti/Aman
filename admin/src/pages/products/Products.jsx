@@ -76,13 +76,13 @@ const ProductCard = memo(({ product, onEdit, onDelete }) => (
       )}
       {/* Stock Badge */}
       <span className="absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
-        {product.commission_price}
+        {product.commission_price} IQD
       </span>
       {/* Discount Badge */}
       {product.discount > 0 && (
         <span className="absolute top-2 left-2 px-2 py-1 text-xs font-medium rounded-full bg-red-500 text-white">
           {product.discount_type === "fixed"
-            ? `$${product.discount} OFF`
+            ? `${product.discount}IQD OFF`
             : `${product.discount}% OFF`}
         </span>
       )}
@@ -229,7 +229,7 @@ const Products = () => {
     name_ku: "",
     description_en: "",
     description_ar: "",
-    description_ku: "",
+    description: "",
     base_price: "",
     sell_price: "",
     commission_price: "",
@@ -261,7 +261,6 @@ const Products = () => {
       });
       setBrands(response.data.data || []);
     } catch (error) {
-      console.error("Error fetching brands:", error);
       toast.error("Failed to load brands. Please try again.");
       setBrands([]);
     }
@@ -324,7 +323,7 @@ const Products = () => {
       name_ku: "",
       description_en: "",
       description_ar: "",
-      description_ku: "",
+      description: "",
       base_price: "",
       sell_price: "",
       commission_price: "",
@@ -362,7 +361,7 @@ const Products = () => {
       name_ku: product.name_ku || "",
       description_en: product.description_en || product.description || "",
       description_ar: product.description_ar || "",
-      description_ku: product.description_ku || "",
+      description: product.description || "",
       base_price: product.base_price || "",
       sell_price: product.sell_price || "",
       commission_price: product.commission_price || "",
@@ -500,7 +499,7 @@ const Products = () => {
         name_ku: formData.name_ku,
         description_en: formData.description_en,
         description_ar: formData.description_ar,
-        description_ku: formData.description_ku,
+        description: formData.description,
         base_price: parseFloat(formData.base_price) || 0,
         sell_price: formData.sell_price
           ? parseFloat(formData.sell_price)
@@ -530,7 +529,7 @@ const Products = () => {
       fd.append("name_ku", formData.name_ku);
       fd.append("description_en", formData.description_en);
       fd.append("description_ar", formData.description_ar);
-      fd.append("description_ku", formData.description_ku);
+      fd.append("description", formData.description);
       fd.append("base_price", parseFloat(formData.base_price) || 0);
       if (formData.sell_price)
         fd.append("sell_price", parseFloat(formData.sell_price));
@@ -1074,9 +1073,9 @@ const Products = () => {
                     <div>
                       <Label>Description (Kurdish)</Label>
                       <Textarea
-                        value={formData.description_ku}
+                        value={formData.description}
                         onChange={(e) =>
-                          handleFormChange("description_ku", e.target.value)
+                          handleFormChange("description", e.target.value)
                         }
                         rows={3}
                       />

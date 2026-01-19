@@ -59,6 +59,15 @@ const register = async (req, res) => {
       phone: normalizedPhone || null,
     });
 
+    // Create wallet for the user immediately after registration
+    try {
+      await Wallet.createIfMissing(user.id, 'IQD');
+      console.log(`Wallet created for user ${user.id} during registration`);
+    } catch (walletErr) {
+      console.error(`Failed to create wallet for user ${user.id}:`, walletErr.message);
+      // Don't fail registration if wallet creation fails
+    }
+
     let otpSent = false;
     // If phone provided, generate and send verification code
     if (normalizedPhone) {
@@ -124,6 +133,14 @@ const login = async (req, res) => {
     // Check if user is superadmin (for admin panel access)
     // Regular users can still login, but admin panel requires superadmin role
     const isSuperAdmin = user.role === 'superadmin';
+
+    // Create wallet if missing (for existing users who might not have one)
+    try {
+      await Wallet.createIfMissing(user.id, 'IQD');
+    } catch (walletErr) {
+      console.error(`Failed to create wallet for user ${user.id} during login:`, walletErr.message);
+      // Don't fail login if wallet creation fails
+    }
 
     // Generate JWT
     const token = jwt.sign(

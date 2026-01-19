@@ -6,8 +6,18 @@ const Wallet = {
   createIfMissing: async (userId, currency = 'USD', trx = db) => {
     const existing = await Wallet.getByUserId(userId, trx);
     if (existing) return existing;
-    const [id] = await trx('wallets').insert({ user_id: userId, balance: 0, currency });
-    return await trx('wallets').where({ id }).first();
+    
+    try {
+      const [id] = await trx('wallets').insert({ user_id: userId, balance: 0, currency });
+      return await trx('wallets').where({ id }).first();
+    } catch (err) {
+      // Handle duplicate key error (race condition)
+      if (err.code === 'ER_DUP_ENTRY' || err.errno === 1062 || err.message.includes('UNIQUE constraint failed')) {
+        console.log(`Wallet already exists for user ${userId}, fetching existing wallet`);
+        return await Wallet.getByUserId(userId, trx);
+      }
+      throw err;
+    }
   },
 
   credit: async (userId, amount, reference = null, metadata = null) => {

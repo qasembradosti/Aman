@@ -2,7 +2,7 @@ import db from '../config/knex.js';
 
 const Order = {
   // Get all orders with pagination and filters
-  getAll: async ({ page = 1, limit = 20, status, search } = {}) => {
+  getAll: async ({ page = 1, limit = 20, status, search, user_id } = {}) => {
     const offset = (page - 1) * limit;
     
     let query = db('orders')
@@ -14,6 +14,11 @@ const Order = {
         db.raw('(SELECT COUNT(*) FROM order_items WHERE order_items.order_id = orders.id) as items_count')
       )
       .leftJoin('users', 'orders.user_id', 'users.id');
+
+    // Filter by user_id if provided
+    if (user_id) {
+      query = query.where('orders.user_id', user_id);
+    }
 
     if (status && status !== 'all') {
       query = query.where('orders.status', status);
@@ -63,7 +68,7 @@ const Order = {
 
     if (!order) return null;
 
-    // Get order items with product details
+    // Get order items with product details including commission_price
     const items = await db('order_items')
       .select(
         'order_items.*',
@@ -116,12 +121,13 @@ const Order = {
         created_at: new Date()
       });
 
-      // Create order items
+      // Create order items with commission_price
       const orderItems = items.map(item => ({
         order_id: orderId,
         product_id: item.product_id,
         quantity: item.quantity,
-        price: item.price
+        price: item.price,
+        commission_price: item.commission_price || 0
       }));
 
       await trx('order_items').insert(orderItems);
@@ -195,6 +201,39 @@ const Order = {
       .first();
 
     return stats;
+  },
+
+  // Calculate total commission for an order
+  calculateCommission: async (orderId) => {
+    const items = await db('order_items')
+      .select('commission_price', 'quantity')
+      .where('order_id', orderId);
+
+    const totalCommission = items.reduce((sum, item) => {
+      return sum + (Number(item.commission_price || 0) * Number(item.quantity));
+    }, 0);
+
+    return totalCommission;
+  },
+
+  // Check if commission has been withdrawn for an order
+  isCommissionWithdrawn: async (orderId) => {
+    const order = await db('orders')
+      .select('commission_withdrawn')
+      .where('id', orderId)
+      .first();
+    
+    return order?.commission_withdrawn === 1 || order?.commission_withdrawn === true;
+  },
+
+  // Mark commission as withdrawn
+  markCommissionWithdrawn: async (orderId) => {
+    return db('orders')
+      .where('id', orderId)
+      .update({ 
+        commission_withdrawn: true,
+        commission_withdrawn_at: new Date()
+      });
   }
 };
 

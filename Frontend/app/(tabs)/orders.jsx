@@ -19,7 +19,9 @@ import { useDispatch, useSelector } from "react-redux";
 import { useLanguage } from "../../utils/LanguageContext";
 import { useTheme } from "../../utils/ThemeContext";
 import { useResponsiveLayout } from "../../utils/useResponsiveLayout";
-import { fetchOrders as fetchOrdersThunk } from "../../store/slices/ordersSlice";
+import { fetchOrders as fetchOrdersThunk, fetchOrderById } from "../../store/slices/ordersSlice";
+import { getApiBaseUrl } from "../../utils/apiConfig";
+import { Image } from "react-native";
 
 // Use theme.colors.primary instead of direct constant
 
@@ -53,16 +55,24 @@ export default function Orders() {
   const [sortBy, setSortBy] = useState("date-desc"); // date-desc, date-asc, price-desc, price-asc
   const [selectedStatuses, setSelectedStatuses] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  
+
   const { isAuthenticated } = useSelector((state) => state.auth);
-  const { items: orders, loading } = useSelector((state) => state.orders);
+  const {
+    items: orders = [],
+    loading,
+    error,
+    currentOrder,
+  } = useSelector((state) => state.orders);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   // Fetch orders from database via Redux
   const fetchOrders = useCallback(() => {
     if (!isAuthenticated) {
+      console.log("⚠️ User not authenticated, skipping orders fetch");
       return;
     }
+    console.log("📦 Fetching orders for tab:", activeTab);
     const params = activeTab !== "all" ? { status: activeTab } : {};
     dispatch(fetchOrdersThunk(params));
   }, [dispatch, activeTab, isAuthenticated]);
@@ -70,6 +80,14 @@ export default function Orders() {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  // Display error if orders fetch fails
+  useEffect(() => {
+    if (error) {
+      console.error("❌ Orders error:", error);
+      Alert.alert(t("error") || "Error", error);
+    }
+  }, [error, t]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -100,16 +118,16 @@ export default function Orders() {
       count: orders.filter((order) => order.status === "processing").length,
     },
     {
-      id: "inroad",
-      label: t("inroad"),
+      id: "shipped",
+      label: t("shipped"),
       icon: "car-outline",
       count: orders.filter((order) => order.status === "shipped").length,
     },
     {
-      id: "completed",
-      label: t("completed"),
+      id: "delivered",
+      label: t("delivered"),
       icon: "checkmark-circle-outline",
-      count: orders.filter((order) => order.status === "delivered" || order.status === "completed").length,
+      count: orders.filter((order) => order.status === "delivered").length,
     },
     {
       id: "cancelled",
@@ -129,23 +147,19 @@ export default function Orders() {
       filtered = filtered.filter(
         (order) =>
           order.id.toString().toLowerCase().includes(query) ||
-          order.products.some((product) =>
-            product.toLowerCase().includes(query)
-          ) ||
+          (order.user_first_name &&
+            order.user_first_name.toLowerCase().includes(query)) ||
+          (order.user_last_name &&
+            order.user_last_name.toLowerCase().includes(query)) ||
+          (order.user_phone &&
+            order.user_phone.toLowerCase().includes(query)) ||
           order.status.toLowerCase().includes(query)
       );
     }
 
     // Status filter (tabs + advanced filters)
     if (activeTab !== "all") {
-      // Map "inroad" to "shipped" and "completed" to both "delivered" and "completed"
-      if (activeTab === "inroad") {
-        filtered = filtered.filter((order) => order.status === "shipped");
-      } else if (activeTab === "completed") {
-        filtered = filtered.filter((order) => order.status === "delivered" || order.status === "completed");
-      } else {
-        filtered = filtered.filter((order) => order.status === activeTab);
-      }
+      filtered = filtered.filter((order) => order.status === activeTab);
     }
 
     if (selectedStatuses.length > 0) {
@@ -182,7 +196,7 @@ export default function Orders() {
     // Price range filter
     if (priceRange.min || priceRange.max) {
       filtered = filtered.filter((order) => {
-        const price = order.total;
+        const price = order.total || 0;
         const min = priceRange.min ? parseFloat(priceRange.min) : 0;
         const max = priceRange.max ? parseFloat(priceRange.max) : Infinity;
         return price >= min && price <= max;
@@ -218,18 +232,27 @@ export default function Orders() {
 
   // Format date for display
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "N/A";
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "N/A";
+    }
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "completed":
+      case "delivered":
         return theme.colors.success || "#34C759";
+      case "shipped":
+        return "#9C27B0";
       case "processing":
         return theme.colors.primary || "#007AFF";
       case "pending":
@@ -245,8 +268,10 @@ export default function Orders() {
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case "completed":
+      case "delivered":
         return "checkmark-circle";
+      case "shipped":
+        return "car";
       case "processing":
         return "sync";
       case "pending":
@@ -260,8 +285,10 @@ export default function Orders() {
 
   const getStatusText = (status) => {
     switch (status) {
-      case "completed":
-        return t("completed");
+      case "delivered":
+        return t("delivered");
+      case "shipped":
+        return t("shipped");
       case "processing":
         return t("processing");
       case "pending":
@@ -276,20 +303,37 @@ export default function Orders() {
   // Currency formatter that keeps numbers LTR while the UI can be RTL
   const formatCurrency = (value) => {
     try {
-      // Always format in English (US); adjust currency if needed later
-      const formatted = new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(Number(value));
-      return formatted;
+      const num = typeof value === "number" ? value : parseFloat(value || 0);
+      // Format for Iraqi Dinar
+      return `${num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} IQD`;
     } catch {
       // Fallback if Intl is not available
       const num = typeof value === "number" ? value : parseFloat(value || 0);
-      return `$${num.toFixed(2)}`;
+      return `${Math.round(num).toLocaleString()} IQD`;
     }
   };
+
+  // Fetch order details when clicking on an order
+  const handleOrderClick = async (order) => {
+    setSelectedOrder(order);
+    setLoadingDetails(true);
+    try {
+      console.log('📦 Fetching details for order:', order.id);
+      await dispatch(fetchOrderById(order.id)).unwrap();
+    } catch (error) {
+      console.error('❌ Error fetching order details:', error);
+      Alert.alert(t('error') || 'Error', t('failedToLoadOrderDetails') || 'Failed to load order details');
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  // Update selectedOrder with full details when currentOrder changes
+  useEffect(() => {
+    if (currentOrder && selectedOrder && currentOrder.id === selectedOrder.id) {
+      setSelectedOrder(currentOrder);
+    }
+  }, [currentOrder]);
 
   // Helper functions for filters
   const clearAllFilters = () => {
@@ -463,7 +507,7 @@ export default function Orders() {
                 styles.headerTitle,
                 {
                   fontSize: layout.typography["3xl"],
-                  
+
                   color: theme.colors.text,
                   textAlign: isRTL ? "right" : "left",
                   marginBottom: layout.spacing.xs,
@@ -491,11 +535,12 @@ export default function Orders() {
                 <Text
                   style={{
                     fontSize: layout.typography.xs,
-                    
+
                     color: theme.colors.primary,
                   }}
                 >
-                  {filteredOrders.length} {filteredOrders.length === 1 ? t("order") : t("orders")}
+                  {filteredOrders.length}{" "}
+                  {filteredOrders.length === 1 ? t("order") : t("orders")}
                 </Text>
               </View>
               {getActiveFilterCount() > 0 && (
@@ -510,7 +555,7 @@ export default function Orders() {
                   <Text
                     style={{
                       fontSize: layout.typography.xs,
-                      
+
                       color: theme.colors.warning,
                     }}
                   >
@@ -530,7 +575,10 @@ export default function Orders() {
                     ? theme.colors.primary
                     : theme.colors.background,
                 borderWidth: 1,
-                borderColor: getActiveFilterCount() > 0 ? theme.colors.primary : theme.colors.border,
+                borderColor:
+                  getActiveFilterCount() > 0
+                    ? theme.colors.primary
+                    : theme.colors.border,
                 minWidth: 48,
                 minHeight: 48,
                 alignItems: "center",
@@ -541,11 +589,7 @@ export default function Orders() {
               <Ionicons
                 name={getActiveFilterCount() > 0 ? "funnel" : "funnel-outline"}
                 size={22}
-                color={
-                  getActiveFilterCount() > 0
-                    ? "#fff"
-                    : theme.colors.text
-                }
+                color={getActiveFilterCount() > 0 ? "#fff" : theme.colors.text}
               />
             </TouchableOpacity>
           )}
@@ -651,7 +695,10 @@ export default function Orders() {
                         : theme.colors.card,
                     height: 44,
                     borderWidth: 1,
-                    borderColor: activeTab === tab.id ? theme.colors.primary : theme.colors.border,
+                    borderColor:
+                      activeTab === tab.id
+                        ? theme.colors.primary
+                        : theme.colors.border,
                   },
                 ]}
                 onPress={() => setActiveTab(tab.id)}
@@ -844,7 +891,7 @@ export default function Orders() {
                     flexDirection: "column",
                   },
                 ]}
-                onPress={() => setSelectedOrder(order)}
+                onPress={() => handleOrderClick(order)}
               >
                 <View
                   style={[
@@ -940,41 +987,43 @@ export default function Orders() {
                   ]}
                 >
                   {/* Product Preview */}
-                  <View
-                    style={{
-                      marginBottom: layout.spacing.sm,
-                      width: "100%",
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.orderLabel,
-                        {
-                          fontSize: layout.typography.sm,
-                          color: theme.colors.textSecondary,
-                          marginBottom: layout.spacing.xs / 2,
-                        },
-                      ]}
+                  {order.products && order.products.length > 0 && (
+                    <View
+                      style={{
+                        marginBottom: layout.spacing.sm,
+                        width: "100%",
+                      }}
                     >
-                      {t("products")}:
-                    </Text>
-                    <Text
-                      style={[
-                        styles.productPreview,
-                        {
-                          fontSize: layout.typography.sm,
-                          color: theme.colors.text,
-                          lineHeight: layout.typography.sm * 1.3,
-                        },
-                      ]}
-                    >
-                      {order.products.length > 2
-                        ? `${order.products.slice(0, 2).join(", ")} +${
-                            order.products.length - 2
-                          } ${t("more")}`
-                        : order.products.join(", ")}
-                    </Text>
-                  </View>
+                      <Text
+                        style={[
+                          styles.orderLabel,
+                          {
+                            fontSize: layout.typography.sm,
+                            color: theme.colors.textSecondary,
+                            marginBottom: layout.spacing.xs / 2,
+                          },
+                        ]}
+                      >
+                        {t("products")}:
+                      </Text>
+                      <Text
+                        style={[
+                          styles.productPreview,
+                          {
+                            fontSize: layout.typography.sm,
+                            color: theme.colors.text,
+                            lineHeight: layout.typography.sm * 1.3,
+                          },
+                        ]}
+                      >
+                        {order.products.length > 2
+                          ? `${order.products.slice(0, 2).join(", ")} +${
+                              order.products.length - 2
+                            } ${t("more")}`
+                          : order.products.join(", ")}
+                      </Text>
+                    </View>
+                  )}
 
                   <View
                     style={[
@@ -1006,7 +1055,7 @@ export default function Orders() {
                         },
                       ]}
                     >
-                      {order.items} {order.items === 1 ? t("item") : t("items")}
+                      {order.items || 0} {(order.items || 0) === 1 ? t("item") : t("items")}
                     </Text>
                   </View>
                   <View
@@ -1039,7 +1088,7 @@ export default function Orders() {
                         },
                       ]}
                     >
-                      {formatCurrency(order.total)}
+                      {formatCurrency(order.total || 0)}
                     </Text>
                   </View>
                 </View>
@@ -1136,11 +1185,18 @@ export default function Orders() {
                   color={theme.colors.text}
                 />
               </TouchableOpacity>
-              
-              <View style={{ flex: 1, alignItems: "center", paddingHorizontal: layout.spacing.md }}>
+
+              <View
+                style={{
+                  flex: 1,
+                  alignItems: "center",
+                  paddingHorizontal: layout.spacing.md,
+                }}
+              >
                 <View
                   style={{
-                    backgroundColor: getStatusColor(selectedOrder.status) + "15",
+                    backgroundColor:
+                      getStatusColor(selectedOrder.status || "pending") + "15",
                     paddingHorizontal: layout.spacing.md,
                     paddingVertical: 6,
                     borderRadius: layout.borderRadius.xl,
@@ -1150,19 +1206,19 @@ export default function Orders() {
                   <Text
                     style={{
                       fontSize: layout.typography.xs,
-                      
-                      color: getStatusColor(selectedOrder.status),
+
+                      color: getStatusColor(selectedOrder.status || "pending"),
                       textTransform: "uppercase",
                       letterSpacing: 0.5,
                     }}
                   >
-                    {selectedOrder.status}
+                    {selectedOrder.status || "pending"}
                   </Text>
                 </View>
                 <Text
                   style={{
                     fontSize: layout.typography.xl,
-                    
+
                     color: theme.colors.text,
                     textAlign: "center",
                     marginBottom: 2,
@@ -1180,7 +1236,7 @@ export default function Orders() {
                   {formatDate(selectedOrder.date)}
                 </Text>
               </View>
-              
+
               <TouchableOpacity
                 style={{
                   width: 40,
@@ -1232,7 +1288,7 @@ export default function Orders() {
                       height: 56,
                       borderRadius: 28,
                       backgroundColor:
-                        getStatusColor(selectedOrder.status) + "15",
+                        getStatusColor(selectedOrder.status || "pending") + "15",
                       alignItems: "center",
                       justifyContent: "center",
                       marginRight: isRTL ? 0 : layout.spacing.md,
@@ -1240,9 +1296,9 @@ export default function Orders() {
                     }}
                   >
                     <Ionicons
-                      name={getStatusIcon(selectedOrder.status)}
+                      name={getStatusIcon(selectedOrder.status || "pending")}
                       size={28}
-                      color={getStatusColor(selectedOrder.status)}
+                      color={getStatusColor(selectedOrder.status || "pending")}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -1257,17 +1313,17 @@ export default function Orders() {
                       <Text
                         style={{
                           fontSize: layout.typography.xl,
-                          
+
                           color: theme.colors.text,
                           textAlign: isRTL ? "right" : "left",
                         }}
                       >
-                        {getStatusText(selectedOrder.status)}
+                        {getStatusText(selectedOrder.status || "pending")}
                       </Text>
                       <View
                         style={{
                           backgroundColor:
-                            getStatusColor(selectedOrder.status) + "20",
+                            getStatusColor(selectedOrder.status || "pending") + "20",
                           paddingVertical: 4,
                           paddingHorizontal: layout.spacing.sm,
                           borderRadius: layout.borderRadius.md,
@@ -1276,11 +1332,11 @@ export default function Orders() {
                         <Text
                           style={{
                             fontSize: 10,
-                            
-                            color: getStatusColor(selectedOrder.status),
+
+                            color: getStatusColor(selectedOrder.status || "pending"),
                           }}
                         >
-                          {selectedOrder.status.toUpperCase()}
+                          {(selectedOrder.status || "pending").toUpperCase()}
                         </Text>
                       </View>
                     </View>
@@ -1308,7 +1364,7 @@ export default function Orders() {
                   <Text
                     style={{
                       fontSize: layout.typography.md,
-                      
+
                       color: theme.colors.text,
                       marginBottom: layout.spacing.lg,
                       textAlign: isRTL ? "right" : "left",
@@ -1334,38 +1390,37 @@ export default function Orders() {
                       icon: "airplane",
                     },
                     {
-                      status: "inroad",
-                      label: t("inroad"),
-                      icon: "car",
-                    },
-                    {
-                      status: "completed",
+                      status: "delivered",
                       label: t("delivered"),
                       icon: "checkmark-done",
                     },
                   ].map((step, index) => {
                     const isActive =
-                      ["pending", "processing", "inroad", "completed"].includes(
+                      ["pending", "processing", "shipped", "delivered"].includes(
                         selectedOrder.status
                       ) &&
                       (index === 0 ||
                         (index === 1 &&
-                          ["processing", "inroad", "completed"].includes(
+                          ["processing", "shipped", "delivered"].includes(
                             selectedOrder.status
                           )) ||
-                        (index === 2 && ["inroad", "completed"].includes(selectedOrder.status)) ||
-                        (index === 3 && ["inroad", "completed"].includes(selectedOrder.status)) ||
-                        (index === 4 && selectedOrder.status === "completed"));
+                        (index === 2 &&
+                          ["shipped", "delivered"].includes(
+                            selectedOrder.status
+                          )) ||
+                        (index === 3 && selectedOrder.status === "delivered"));
 
                     const isCompleted =
                       index === 0 ||
                       (index === 1 &&
-                        ["processing", "inroad", "completed"].includes(
+                        ["processing", "shipped", "delivered"].includes(
                           selectedOrder.status
                         )) ||
-                      (index === 2 && ["inroad", "completed"].includes(selectedOrder.status)) ||
-                      (index === 3 && ["inroad", "completed"].includes(selectedOrder.status)) ||
-                      (index === 4 && selectedOrder.status === "completed");
+                      (index === 2 &&
+                        ["shipped", "delivered"].includes(
+                          selectedOrder.status
+                        )) ||
+                      (index === 3 && selectedOrder.status === "delivered");
 
                     return (
                       <View
@@ -1393,7 +1448,7 @@ export default function Orders() {
                             }}
                           />
                         )}
-                        
+
                         <View
                           style={{
                             width: 32,
@@ -1462,7 +1517,7 @@ export default function Orders() {
                   <Text
                     style={{
                       fontSize: layout.typography.lg,
-                      
+
                       color: theme.colors.text,
                       textAlign: isRTL ? "right" : "left",
                     }}
@@ -1480,97 +1535,132 @@ export default function Orders() {
                     <Text
                       style={{
                         fontSize: layout.typography.xs,
-                        
+
                         color: theme.colors.primary,
                       }}
                     >
-                      {selectedOrder.items} {selectedOrder.items === 1 ? t("item") : t("items")}
+                      {Array.isArray(selectedOrder.items) ? selectedOrder.items.length : (selectedOrder.items || 0)}{" "}
+                      {(Array.isArray(selectedOrder.items) ? selectedOrder.items.length : (selectedOrder.items || 0)) === 1 ? t("item") : t("items")}
                     </Text>
                   </View>
                 </View>
 
-                {selectedOrder.products.map((product, index) => (
-                  <View
-                    key={index}
-                    style={{
-                      flexDirection: isRTL ? "row-reverse" : "row",
-                      alignItems: "center",
-                      paddingVertical: layout.spacing.md,
-                      borderBottomWidth:
-                        index < selectedOrder.products.length - 1
-                          ? StyleSheet.hairlineWidth
-                          : 0,
-                      borderBottomColor: theme.colors.border,
-                    }}
-                  >
+                {loadingDetails ? (
+                  <View style={{ paddingVertical: layout.spacing.xl, alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                    <Text style={{ color: theme.colors.textSecondary, fontSize: layout.typography.sm, marginTop: layout.spacing.sm }}>
+                      {t("loadingOrderDetails")}
+                    </Text>
+                  </View>
+                ) : Array.isArray(selectedOrder.items) && selectedOrder.items.length > 0 ? (
+                  selectedOrder.items.map((item, index) => (
                     <View
+                      key={item.id || index}
                       style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: layout.borderRadius.lg,
-                        backgroundColor: theme.colors.background,
+                        flexDirection: isRTL ? "row-reverse" : "row",
                         alignItems: "center",
-                        justifyContent: "center",
-                        marginRight: isRTL ? 0 : layout.spacing.md,
-                        marginLeft: isRTL ? layout.spacing.md : 0,
-                        borderWidth: 1,
-                        borderColor: theme.colors.border,
+                        paddingVertical: layout.spacing.md,
+                        borderBottomWidth:
+                          index < selectedOrder.items.length - 1
+                            ? StyleSheet.hairlineWidth
+                            : 0,
+                        borderBottomColor: theme.colors.border,
                       }}
                     >
-                      <Text
-                        style={{ fontSize: 28, color: theme.colors.primary }}
-                      >
-                        📦
-                      </Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={{
-                          fontSize: layout.typography.md,
-                          
-                          color: theme.colors.text,
-                          marginBottom: layout.spacing.xs / 2,
-                          textAlign: isRTL ? "right" : "left",
-                        }}
-                      >
-                        {product}
-                      </Text>
                       <View
                         style={{
-                          flexDirection: isRTL ? "row-reverse" : "row",
+                          width: 56,
+                          height: 56,
+                          borderRadius: layout.borderRadius.lg,
+                          backgroundColor: theme.colors.background,
                           alignItems: "center",
-                          gap: layout.spacing.sm,
+                          justifyContent: "center",
+                          marginRight: isRTL ? 0 : layout.spacing.md,
+                          marginLeft: isRTL ? layout.spacing.md : 0,
+                          borderWidth: 1,
+                          borderColor: theme.colors.border,
+                          overflow: 'hidden',
                         }}
                       >
+                        {item.image ? (
+                          <Image
+                            source={{ uri: `${getApiBaseUrl()}${item.image}` }}
+                            style={{ width: '100%', height: '100%' }}
+                            resizeMode="cover"
+                            onError={(e) => console.log('❌ Image load error:', e.nativeEvent.error)}
+                          />
+                        ) : (
+                          <Text
+                            style={{ fontSize: 28, color: theme.colors.primary }}
+                          >
+                            📦
+                          </Text>
+                        )}
+                      </View>
+                      <View style={{ flex: 1 }}>
                         <Text
                           style={{
-                            fontSize: layout.typography.sm,
-                            color: theme.colors.textSecondary,
+                            fontSize: layout.typography.md,
+
+                            color: theme.colors.text,
+                            marginBottom: layout.spacing.xs / 2,
+                            textAlign: isRTL ? "right" : "left",
                           }}
                         >
-                          {t("quantity")}: 1
+                          {item.product_name || t("product")}
                         </Text>
                         <View
                           style={{
-                            width: 4,
-                            height: 4,
-                            borderRadius: 2,
-                            backgroundColor: theme.colors.textSecondary,
-                          }}
-                        />
-                        <Text
-                          style={{
-                            fontSize: layout.typography.sm,
-                            color: theme.colors.primary,
-                            
+                            flexDirection: isRTL ? "row-reverse" : "row",
+                            alignItems: "center",
+                            gap: layout.spacing.sm,
                           }}
                         >
-                          {formatCurrency(selectedOrder.total / selectedOrder.items)}
-                        </Text>
+                          <Text
+                            style={{
+                              fontSize: layout.typography.sm,
+                              color: theme.colors.textSecondary,
+                            }}
+                          >
+                            {t("quantity")}: {item.quantity || 1}
+                          </Text>
+                          <View
+                            style={{
+                              width: 4,
+                              height: 4,
+                              borderRadius: 2,
+                              backgroundColor: theme.colors.textSecondary,
+                            }}
+                          />
+                          <Text
+                            style={{
+                              fontSize: layout.typography.sm,
+                              color: theme.colors.primary,
+                            }}
+                          >
+                            {formatCurrency(item.price || 0)}
+                          </Text>
+                        </View>
                       </View>
                     </View>
+                  ))
+                ) : (
+                  <View
+                    style={{
+                      paddingVertical: layout.spacing.lg,
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: theme.colors.textSecondary,
+                        fontSize: layout.typography.sm,
+                      }}
+                    >
+                      {t("noProductDetailsAvailable")}
+                    </Text>
                   </View>
-                ))}
+                )}
               </View>
 
               {/* Order Summary */}
@@ -1588,7 +1678,7 @@ export default function Orders() {
                 <Text
                   style={{
                     fontSize: layout.typography.lg,
-                    
+
                     color: theme.colors.text,
                     marginBottom: layout.spacing.lg,
                     textAlign: isRTL ? "right" : "left",
@@ -1596,23 +1686,28 @@ export default function Orders() {
                 >
                   {t("orderSummary")}
                 </Text>
-                {[
-                  {
-                    label: t("subtotal"),
-                    value: formatCurrency(selectedOrder.total * 0.9),
-                    icon: "receipt-outline",
-                  },
-                  {
-                    label: t("shipping"),
-                    value: formatCurrency(selectedOrder.total * 0.05),
-                    icon: "car-outline",
-                  },
-                  {
-                    label: t("tax"),
-                    value: formatCurrency(selectedOrder.total * 0.05),
-                    icon: "document-text-outline",
-                  },
-                ].map((item, index) => (
+                {(() => {
+                  // Calculate subtotal from actual items if available
+                  const subtotal = Array.isArray(selectedOrder.items) && selectedOrder.items.length > 0
+                    ? selectedOrder.items.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0)
+                    : (selectedOrder.total || 0);
+                  
+                  // Get shipping/delivery cost from order data if available
+                  const shipping = selectedOrder.shipping_cost || selectedOrder.delivery_cost || 5000; // Default 5000 IQD if not set
+    
+                  return [
+                    {
+                      label: t("subtotal"),
+                      value: formatCurrency(subtotal),
+                      icon: "receipt-outline",
+                    },
+                    {
+                      label: t("delivery") || t("shipping"),
+                      value: formatCurrency(shipping),
+                      icon: "car-outline",
+                    },
+                  ];
+                })().map((item, index) => (
                   <View
                     key={index}
                     style={{
@@ -1651,7 +1746,7 @@ export default function Orders() {
                     <Text
                       style={{
                         fontSize: layout.typography.md,
-                        
+
                         color: theme.colors.text,
                         textAlign: isRTL ? "right" : "left",
                         writingDirection: "ltr",
@@ -1680,7 +1775,7 @@ export default function Orders() {
                   <Text
                     style={{
                       fontSize: layout.typography.xl,
-                      
+
                       color: theme.colors.text,
                       textAlign: isRTL ? "right" : "left",
                     }}
@@ -1690,57 +1785,15 @@ export default function Orders() {
                   <Text
                     style={{
                       fontSize: layout.typography["2xl"],
-                      
+
                       color: theme.colors.primary,
                       textAlign: isRTL ? "right" : "left",
                       writingDirection: "ltr",
                     }}
                   >
-                    {formatCurrency(selectedOrder.total)}
+                    {formatCurrency(window.orderTotal || selectedOrder.total || 0)}
                   </Text>
                 </View>
-              </View>
-
-              {/* Action Buttons */}
-              <View
-                style={{
-                  marginHorizontal: layout.containerPadding,
-                  marginBottom: layout.spacing["2xl"],
-                  gap: layout.spacing.sm,
-                }}
-              >
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: theme.colors.card,
-                    paddingVertical: layout.spacing.md,
-                    borderRadius: layout.borderRadius.xl,
-                    alignItems: "center",
-                    flexDirection: isRTL ? "row-reverse" : "row",
-                    justifyContent: "center",
-                    borderWidth: 1,
-                    borderColor: theme.colors.border,
-                  }}
-                >
-                  <Ionicons
-                    name="chatbubble-ellipses-outline"
-                    size={layout.iconSizes.md}
-                    color={theme.colors.primary}
-                    style={{
-                      marginRight: isRTL ? 0 : layout.spacing.sm,
-                      marginLeft: isRTL ? layout.spacing.sm : 0,
-                    }}
-                  />
-                  <Text
-                    style={{
-                      color: theme.colors.text,
-                      fontSize: layout.typography.lg,
-                      
-                      textAlign: isRTL ? "right" : "left",
-                    }}
-                  >
-                    {t("contactSupport")}
-                  </Text>
-                </TouchableOpacity>
               </View>
             </ScrollView>
           </SafeAreaView>
@@ -2336,10 +2389,16 @@ export default function Orders() {
                 >
                   {[
                     {
-                      value: "completed",
-                      label: t("completed"),
+                      value: "delivered",
+                      label: t("delivered"),
                       icon: "checkmark-circle",
                       shortLabel: "✓",
+                    },
+                    {
+                      value: "shipped",
+                      label: t("shipped"),
+                      icon: "car",
+                      shortLabel: "🚗",
                     },
                     {
                       value: "processing",

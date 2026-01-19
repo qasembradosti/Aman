@@ -8,6 +8,7 @@ import notificationsReducer from './slices/notificationsSlice';
 import usersReducer from './slices/usersSlice';
 import dashboardReducer from './slices/dashboardSlice';
 import storesReducer from './slices/storesSlice';
+import withdrawalsReducer from './slices/withdrawalsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -20,6 +21,7 @@ export const store = configureStore({
     users: usersReducer,
     dashboard: dashboardReducer,
     stores: storesReducer,
+    withdrawals: withdrawalsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

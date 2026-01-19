@@ -10,6 +10,7 @@ import productRoutes from './routes/ProductRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import walletRoutes from './routes/walletRoutes.js';
+import adminWalletRoutes from './routes/adminWalletRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import userRoutes from './routes/userRoutes.js';
@@ -21,6 +22,7 @@ import dashboardRoutes from './routes/dashboardRoutes.js';
 import brandRoutes from './routes/brandRoutes.js';
 import adminBrandRoutes from './routes/adminBrandRoutes.js';
 import storeRoutes from './routes/storeRoutes.js';
+import withdrawalRoutes from './routes/withdrawalRoutes.js';
 import db from './config/knex.js';
 import { runStartupSchemaSetup } from './services/schemaSetup.js';
 import setupSocketIO from './utils/socketIO.js';
@@ -61,6 +63,7 @@ const routes = [
     productRoutes,
     categoryRoutes,
     walletRoutes,
+    adminWalletRoutes,
     notificationRoutes,
     userRoutes,
     authRoutes,
@@ -71,7 +74,8 @@ const routes = [
     orderRoutes,
     reviewRoutes,
     dashboardRoutes,
-    storeRoutes
+    storeRoutes,
+    withdrawalRoutes
 ];
 
 routes.forEach((route) => {

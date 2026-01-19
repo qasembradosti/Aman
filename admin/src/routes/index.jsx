@@ -13,6 +13,8 @@ import Reviews from '../pages/reviews/Reviews';
 import Notifications from '../pages/notifications/Notifications';
 import Users from '../pages/users/Users';
 import Banners from '../pages/banners/Banners';
+import Withdrawals from '../pages/withdrawals/Withdrawals';
+import Wallets from '../pages/wallets/Wallets';
 import NotFound from '../pages/NotFound';
 
 const router = createBrowserRouter([
@@ -59,6 +61,14 @@ const router = createBrowserRouter([
       {
         path: 'banners',
         element: <Banners />,
+      },
+      {
+        path: 'withdrawals',
+        element: <Withdrawals />,
+      },
+      {
+        path: 'wallets',
+        element: <Wallets />,
       },
     ],
   },

@@ -42,6 +42,22 @@ export const fetchWalletHistory = createAsyncThunk(
   }
 );
 
+export const createWithdrawalRequest = createAsyncThunk(
+  'wallet/createWithdrawalRequest',
+  async ({ amount, payment_details, user_note }, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/api/withdrawals', {
+        amount,
+        payment_details,
+        user_note,
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to create withdrawal request');
+    }
+  }
+);
+
 const walletSlice = createSlice({
   name: 'wallet',
   initialState: {
@@ -112,6 +128,18 @@ const walletSlice = createSlice({
         state.history = action.payload;
       })
       .addCase(fetchWalletHistory.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // Create withdrawal request
+      .addCase(createWithdrawalRequest.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createWithdrawalRequest.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(createWithdrawalRequest.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

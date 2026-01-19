@@ -88,6 +88,32 @@ export const deleteOrder = createAsyncThunk(
   }
 );
 
+// Withdraw commission
+export const withdrawCommission = createAsyncThunk(
+  'orders/withdrawCommission',
+  async (orderId, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_URL}/orders/${orderId}/withdraw-commission`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return rejectWithValue(data.message || 'Failed to withdraw commission');
+      }
+      
+      return { orderId, ...data };
+    } catch (error) {
+      return rejectWithValue(error.message || 'Network error');
+    }
+  }
+);
+
 const ordersSlice = createSlice({
   name: 'orders',
   initialState: {
@@ -169,6 +195,26 @@ const ordersSlice = createSlice({
         state.items = state.items.filter((item) => item.id !== action.payload);
       })
       .addCase(deleteOrder.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // Withdraw commission
+      .addCase(withdrawCommission.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(withdrawCommission.fulfilled, (state, action) => {
+        state.loading = false;
+        // Mark the order as commission withdrawn
+        const order = state.items.find((item) => item.id === action.payload.orderId);
+        if (order) {
+          order.commission_withdrawn = true;
+        }
+        if (state.currentOrder?.id === action.payload.orderId) {
+          state.currentOrder.commission_withdrawn = true;
+        }
+      })
+      .addCase(withdrawCommission.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

@@ -1,17 +1,28 @@
 import Order from '../models/order.js';
 import User from '../models/user.js';
+import Wallet from '../models/wallet.js';
 
 // Get all orders with pagination and filters
 export const getOrders = async (req, res) => {
   try {
     const { page = 1, limit = 20, status, search } = req.query;
+    const userId = req.user?.userId; // Get user ID from JWT token
+    const userRole = req.user?.role;
     
-    const result = await Order.getAll({
+    // If user is not admin/superadmin, filter by user_id
+    const filters = {
       page: parseInt(page),
       limit: parseInt(limit),
       status,
       search
-    });
+    };
+    
+    // Only show user's own orders unless they're admin
+    if (userRole !== 'superadmin' && userRole !== 'admin' && userId) {
+      filters.user_id = userId;
+    }
+    
+    const result = await Order.getAll(filters);
 
     res.json(result);
   } catch (error) {
@@ -137,5 +148,67 @@ export const getOrderStats = async (req, res) => {
   } catch (error) {
     console.error('Error fetching order stats:', error);
     res.status(500).json({ message: 'Failed to fetch order statistics', error: error.message });
+  }
+};
+
+// Withdraw commission for delivered order
+export const withdrawCommission = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get order details
+    const order = await Order.getById(id);
+    
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Check if order is delivered
+    if (order.status !== 'delivered') {
+      return res.status(400).json({ 
+        message: 'Commission can only be withdrawn for delivered orders' 
+      });
+    }
+
+    // Check if commission already withdrawn
+    const alreadyWithdrawn = await Order.isCommissionWithdrawn(id);
+    if (alreadyWithdrawn) {
+      return res.status(400).json({ 
+        message: 'Commission has already been withdrawn for this order' 
+      });
+    }
+
+    // Calculate total commission
+    const totalCommission = await Order.calculateCommission(id);
+
+    if (totalCommission <= 0) {
+      return res.status(400).json({ 
+        message: 'No commission available for this order' 
+      });
+    }
+
+    // Credit the user's wallet
+    const result = await Wallet.credit(
+      order.user_id, 
+      totalCommission,
+      `Commission for order #${id}`,
+      { order_id: id, type: 'commission' }
+    );
+
+    // Mark commission as withdrawn
+    await Order.markCommissionWithdrawn(id);
+
+    res.json({ 
+      message: 'Commission withdrawn successfully',
+      commission: totalCommission,
+      newBalance: result.balance,
+      orderId: id
+    });
+  } catch (error) {
+    console.error('Error withdrawing commission:', error);
+    res.status(500).json({ 
+      message: 'Failed to withdraw commission', 
+      error: error.message 
+    });
   }
 };

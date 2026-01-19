@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../store/slices/authSlice";
 import { fetchWallet } from "../../store/slices/walletSlice";
+import { fetchOrders } from "../../store/slices/ordersSlice";
 import { useLanguage } from "../../utils/LanguageContext";
 import { useTheme } from "../../utils/ThemeContext";
 import LanguageSelector from "../../components/LanguageSelector";
@@ -46,11 +47,19 @@ export default function Profile() {
   // Get auth state from Redux
   const { isAuthenticated, user, loading } = useSelector((state) => state.auth);
   const { balance: walletBalance, loading: walletLoading } = useSelector((state) => state.wallet);
+  const { items: orders } = useSelector((state) => state.orders);
+  
   useEffect(() => {
     if (isAuthenticated && user?.id) {
       dispatch(fetchWallet({ user_id: user.id }));
+      dispatch(fetchOrders({}));
     }
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, dispatch]);
+
+  // Calculate statistics from orders
+  const totalOrders = orders?.length || 0;
+  const pendingOrders = orders?.filter(order => order.status === 'pending')?.length || 0;
+  const totalSales = orders?.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0) || 0;
 
   const handleLogin = () => {
     router.push("/(auth)/login");
@@ -226,7 +235,7 @@ export default function Profile() {
         >
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: theme.colors.text }]}>
-              12
+              {totalOrders}
             </Text>
             <Text
               style={[styles.statLabel, { color: theme.colors.textSecondary }]}
@@ -242,7 +251,7 @@ export default function Profile() {
           />
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: theme.colors.text }]}>
-              3
+              {pendingOrders}
             </Text>
             <Text
               style={[styles.statLabel, { color: theme.colors.textSecondary }]}
@@ -258,7 +267,7 @@ export default function Profile() {
           />
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: theme.colors.text }]}>
-              $1,234
+              {totalSales.toLocaleString()} {t("currency") || "IQD"}
             </Text>
             <Text
               style={[styles.statLabel, { color: theme.colors.textSecondary }]}

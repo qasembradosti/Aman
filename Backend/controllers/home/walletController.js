@@ -10,7 +10,7 @@ export const getWallet = async (req, res) => {
       const authHeader = req.headers?.authorization;
       const token = authHeader && authHeader.split(' ')[1];
       if (token) {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET );
         if (decoded?.userId) userId = Number(decoded.userId);
       }
     } catch (_) {
