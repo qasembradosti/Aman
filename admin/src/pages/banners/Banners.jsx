@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
-import api from '../../services/api';
+import { useState, useEffect } from "react";
+import { toast } from "react-hot-toast";
+import api from "../../services/api";
 import {
   Plus,
   Edit2,
@@ -10,7 +10,8 @@ import {
   MoveUp,
   MoveDown,
   Image as ImageIcon,
-} from 'lucide-react';
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function Banners() {
   const [banners, setBanners] = useState([]);
@@ -18,10 +19,10 @@ export default function Banners() {
   const [showModal, setShowModal] = useState(false);
   const [editingBanner, setEditingBanner] = useState(null);
   const [formData, setFormData] = useState({
-    title: '',
-    subtitle: '',
-    image_url: '',
-    link_url: '',
+    title: "",
+    subtitle: "",
+    image_url: "",
+    link_url: "",
     is_active: true,
     display_order: 0,
   });
@@ -32,11 +33,11 @@ export default function Banners() {
 
   const fetchBanners = async () => {
     try {
-      const response = await api.get('/banners');
+      const response = await api.get("/banners");
       setBanners(response.data.data || []);
     } catch (error) {
-      toast.error('Failed to fetch banners');
-      console.error('Error fetching banners:', error);
+      toast.error("Failed to fetch banners");
+      console.error("Error fetching banners:", error);
     } finally {
       setLoading(false);
     }
@@ -47,47 +48,47 @@ export default function Banners() {
     try {
       if (editingBanner) {
         await api.put(`/banners/${editingBanner.id}`, formData);
-        toast.success('Banner updated successfully');
+        toast.success("Banner updated successfully");
       } else {
-        await api.post('/banners', formData);
-        toast.success('Banner created successfully');
+        await api.post("/banners", formData);
+        toast.success("Banner created successfully");
       }
       setShowModal(false);
       resetForm();
       fetchBanners();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to save banner');
+      toast.error(error.response?.data?.message || "Failed to save banner");
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this banner?')) return;
-    
+    if (!confirm("Are you sure you want to delete this banner?")) return;
+
     try {
       await api.delete(`/banners/${id}`);
-      toast.success('Banner deleted successfully');
+      toast.success("Banner deleted successfully");
       fetchBanners();
     } catch (error) {
-      toast.error('Failed to delete banner');
+      toast.error("Failed to delete banner");
     }
   };
 
   const handleToggleActive = async (id) => {
     try {
       await api.patch(`/banners/${id}/toggle`);
-      toast.success('Banner status updated');
+      toast.success("Banner status updated");
       fetchBanners();
     } catch (error) {
-      toast.error('Failed to update banner status');
+      toast.error("Failed to update banner status");
     }
   };
 
   const handleMoveUp = async (banner, index) => {
     if (index === 0) return;
     const prevBanner = banners[index - 1];
-    
+
     try {
-      await api.put('/banners/order/update', {
+      await api.put("/banners/order/update", {
         orders: [
           { id: banner.id, display_order: prevBanner.display_order },
           { id: prevBanner.id, display_order: banner.display_order },
@@ -95,16 +96,16 @@ export default function Banners() {
       });
       fetchBanners();
     } catch (error) {
-      toast.error('Failed to update order');
+      toast.error("Failed to update order");
     }
   };
 
   const handleMoveDown = async (banner, index) => {
     if (index === banners.length - 1) return;
     const nextBanner = banners[index + 1];
-    
+
     try {
-      await api.put('/banners/order/update', {
+      await api.put("/banners/order/update", {
         orders: [
           { id: banner.id, display_order: nextBanner.display_order },
           { id: nextBanner.id, display_order: banner.display_order },
@@ -112,7 +113,7 @@ export default function Banners() {
       });
       fetchBanners();
     } catch (error) {
-      toast.error('Failed to update order');
+      toast.error("Failed to update order");
     }
   };
 
@@ -120,9 +121,9 @@ export default function Banners() {
     setEditingBanner(banner);
     setFormData({
       title: banner.title,
-      subtitle: banner.subtitle || '',
+      subtitle: banner.subtitle || "",
       image_url: banner.image_url,
-      link_url: banner.link_url || '',
+      link_url: banner.link_url || "",
       is_active: banner.is_active,
       display_order: banner.display_order,
     });
@@ -132,10 +133,10 @@ export default function Banners() {
   const resetForm = () => {
     setEditingBanner(null);
     setFormData({
-      title: '',
-      subtitle: '',
-      image_url: '',
-      link_url: '',
+      title: "",
+      subtitle: "",
+      image_url: "",
+      link_url: "",
       is_active: true,
       display_order: 0,
     });
@@ -145,21 +146,22 @@ export default function Banners() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Banners</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Banners
+          </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
             Manage home page banner sliders
           </p>
         </div>
-        <button
+        <Button
           onClick={() => {
             resetForm();
             setShowModal(true);
           }}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-5 h-5" />
           Add Banner
-        </button>
+        </Button>
       </div>
 
       {loading ? (
@@ -172,7 +174,7 @@ export default function Banners() {
             <div
               key={banner.id}
               className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden ${
-                !banner.is_active ? 'opacity-60' : ''
+                !banner.is_active ? "opacity-60" : ""
               }`}
             >
               <div className="flex">
@@ -204,7 +206,9 @@ export default function Banners() {
                     )}
                     <div className="flex gap-4 mt-3 text-sm text-gray-500 dark:text-gray-400">
                       <span>Order: {banner.display_order}</span>
-                      <span>Status: {banner.is_active ? '🟢 Active' : '🔴 Inactive'}</span>
+                      <span>
+                        Status: {banner.is_active ? "🟢 Active" : "🔴 Inactive"}
+                      </span>
                     </div>
                   </div>
 
@@ -234,7 +238,7 @@ export default function Banners() {
                     <button
                       onClick={() => handleToggleActive(banner.id)}
                       className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                      title={banner.is_active ? 'Deactivate' : 'Activate'}
+                      title={banner.is_active ? "Deactivate" : "Activate"}
                     >
                       {banner.is_active ? (
                         <Eye className="w-5 h-5" />
@@ -280,7 +284,7 @@ export default function Banners() {
           <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                {editingBanner ? 'Edit Banner' : 'Create New Banner'}
+                {editingBanner ? "Edit Banner" : "Create New Banner"}
               </h2>
 
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -292,7 +296,9 @@ export default function Banners() {
                     type="text"
                     required
                     value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, title: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="Special Offers"
                   />
@@ -305,7 +311,9 @@ export default function Banners() {
                   <input
                     type="text"
                     value={formData.subtitle}
-                    onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, subtitle: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="Discover amazing deals"
                   />
@@ -319,7 +327,9 @@ export default function Banners() {
                     type="url"
                     required
                     value={formData.image_url}
-                    onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, image_url: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="https://example.com/banner.jpg"
                   />
@@ -339,7 +349,9 @@ export default function Banners() {
                   <input
                     type="url"
                     value={formData.link_url}
-                    onChange={(e) => setFormData({ ...formData, link_url: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, link_url: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="https://example.com/offers"
                   />
@@ -352,7 +364,12 @@ export default function Banners() {
                   <input
                     type="number"
                     value={formData.display_order}
-                    onChange={(e) => setFormData({ ...formData, display_order: parseInt(e.target.value) })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        display_order: parseInt(e.target.value),
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     min="0"
                   />
@@ -363,10 +380,15 @@ export default function Banners() {
                     type="checkbox"
                     id="is_active"
                     checked={formData.is_active}
-                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, is_active: e.target.checked })
+                    }
                     className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                   />
-                  <label htmlFor="is_active" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label
+                    htmlFor="is_active"
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
                     Active
                   </label>
                 </div>
@@ -376,7 +398,7 @@ export default function Banners() {
                     type="submit"
                     className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                   >
-                    {editingBanner ? 'Update' : 'Create'}
+                    {editingBanner ? "Update" : "Create"}
                   </button>
                   <button
                     type="button"
