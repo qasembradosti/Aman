@@ -101,11 +101,15 @@ export default function Products() {
   const closeDialog = () =>
     setDialog({ visible: false, title: "", message: "" });
   const [refreshing, setRefreshing] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const pageSize = 20;
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBrand, setSelectedBrand] = useState("all");
-  const [selectedCategory, setSelectedCategory] = useState(routeCategory || "all");
+  const [selectedCategory, setSelectedCategory] = useState(
+    routeCategory || "all",
+  );
   const [sortBy, setSortBy] = useState("latest");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
@@ -121,25 +125,65 @@ export default function Products() {
   const { user } = useSelector((state) => state.auth);
 
   useEffect(() => {
-    const fetchParams = { limit: pageSize, offset: (currentPage - 1) * pageSize };
-    
+    const fetchParams = { limit: pageSize, offset: 0 };
+
     // Include category filter in API request if category is selected
     if (routeCategory && routeCategory !== "all") {
       fetchParams.category_id = routeCategory;
     }
-    
+
     dispatch(fetchProducts(fetchParams));
     dispatch(fetchBrands({ limit: 10 }));
     dispatch(fetchCategories({ limit: 100 }));
-  }, [dispatch, currentPage, pageSize, routeCategory]);
+    setOffset(pageSize);
+    setHasMore(true);
+  }, [dispatch, routeCategory]);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
-    setCurrentPage(1);
-    dispatch(fetchProducts({ limit: pageSize, offset: 0 })).finally(() =>
-      setRefreshing(false),
-    );
-  }, [dispatch, pageSize]);
+    const fetchParams = { limit: pageSize, offset: 0 };
+    if (routeCategory && routeCategory !== "all") {
+      fetchParams.category_id = routeCategory;
+    }
+    dispatch(fetchProducts(fetchParams))
+      .then((result) => {
+        setOffset(pageSize);
+        setHasMore(result.payload?.items?.length >= pageSize);
+        setRefreshing(false);
+      })
+      .catch(() => setRefreshing(false));
+  }, [dispatch, routeCategory]);
+
+  const loadMore = React.useCallback(() => {
+    if (loadingMore || !hasMore || productsLoading) return;
+
+    setLoadingMore(true);
+    const fetchParams = { limit: pageSize, offset, append: true };
+    if (routeCategory && routeCategory !== "all") {
+      fetchParams.category_id = routeCategory;
+    }
+
+    dispatch(fetchProducts(fetchParams))
+      .then((result) => {
+        const newItems = result.payload?.items || [];
+        setOffset((prev) => prev + pageSize);
+        setHasMore(newItems.length >= pageSize);
+        setLoadingMore(false);
+      })
+      .catch(() => setLoadingMore(false));
+  }, [dispatch, loadingMore, hasMore, offset, routeCategory, productsLoading]);
+
+  const handleScroll = (event) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 20;
+    const isCloseToBottom =
+      layoutMeasurement.height + contentOffset.y >=
+      contentSize.height - paddingToBottom;
+
+    if (isCloseToBottom) {
+      loadMore();
+    }
+  };
 
   const handleShareProduct = async (id, name) => {
     try {
@@ -287,7 +331,7 @@ export default function Products() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => router.push("/")}
           style={styles.backButton}
         >
           <Ionicons
@@ -312,6 +356,8 @@ export default function Products() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        onScroll={handleScroll}
+        scrollEventThrottle={400}
       >
         {/* Search Input */}
         <View
@@ -496,14 +542,13 @@ export default function Products() {
                           color: theme.colors.primary,
                           fontSize: layout.productPriceSize,
                           textAlign: isRTL ? "right" : "left",
-                          fontWeight: "700",
                         },
                       ]}
                     >
-                      
                       {typeof product.price === "number"
                         ? product.sell_price
-                        : (Number(product.sell_price))} IQD
+                        : Number(product.sell_price)}{" "}
+                      IQD
                     </Text>
                     <TouchableOpacity
                       style={[
@@ -549,68 +594,29 @@ export default function Products() {
           )}
         </View>
 
-        {/* Pagination Controls */}
-        {!productsLoading && products.length > 0 && (
-          <View
-            style={[
-              styles.paginationContainer,
-              { paddingHorizontal: layout.horizontalPadding },
-            ]}
-          >
-            <TouchableOpacity
-              style={[
-                styles.paginationButton,
-                {
-                  opacity: currentPage === 1 ? 0.5 : 1,
-                  backgroundColor: theme.colors.primary,
-                },
-              ]}
-              onPress={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              activeOpacity={0.7}
+        {/* Load More Indicator */}
+        {loadingMore && (
+          <View style={{ paddingVertical: 20, alignItems: "center" }}>
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+            <Text
+              style={{
+                color: theme.colors.textSecondary,
+                marginTop: 8,
+                fontSize: 12,
+              }}
             >
-              <Ionicons
-                name="chevron-back"
-                size={20}
-                color="#fff"
-                style={{ marginRight: 4 }}
-              />
-              <Text style={styles.paginationButtonText}>
-                {t("previous") || "Previous"}
-              </Text>
-            </TouchableOpacity>
-
-            <View style={styles.pageIndicator}>
-              <Text style={[styles.pageNumber, { color: theme.colors.text }]}>
-                {currentPage}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.paginationButton,
-                {
-                  opacity: products.length < pageSize ? 0.5 : 1,
-                  backgroundColor: theme.colors.primary,
-                },
-              ]}
-              onPress={() => setCurrentPage(currentPage + 1)}
-              disabled={products.length < pageSize}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.paginationButtonText}>
-                {t("next") || "Next"}
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color="#fff"
-                style={{ marginLeft: 4 }}
-              />
-            </TouchableOpacity>
+              {t("loadingMore") || "Loading more products..."}
+            </Text>
           </View>
         )}
 
+        {!hasMore && products.length > 0 && (
+          <View style={{ paddingVertical: 20, alignItems: "center" }}>
+            <Text style={{ color: theme.colors.textSecondary, fontSize: 12 }}>
+              {t("noMoreProducts") || "No more products to load"}
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       <InfoDialog
@@ -1108,7 +1114,7 @@ const styles = StyleSheet.create({
   },
   pageNumber: {
     fontSize: 16,
-    fontWeight: "700",
+
     textAlign: "center",
   },
   brandsSection: {
@@ -1117,7 +1123,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "700",
+
     marginBottom: 12,
   },
   brandsList: {
@@ -1154,10 +1160,6 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderWidth: 1,
     height: 48,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
   },
   searchIcon: {
     marginRight: 10,
@@ -1165,7 +1167,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    fontWeight: "500",
     paddingVertical: 0,
   },
   clearButton: {
@@ -1210,7 +1211,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: "700",
   },
   modalCloseButton: {
     padding: 4,

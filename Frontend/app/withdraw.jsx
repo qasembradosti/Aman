@@ -203,7 +203,7 @@ export default function WithdrawScreen() {
           ]}
         >
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() =>  router.push('/')}
             style={styles.backButton}
           >
             <Ionicons

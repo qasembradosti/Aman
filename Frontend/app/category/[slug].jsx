@@ -159,7 +159,7 @@ export default function CategoryScreen() {
       ]}
     >
       <View style={[styles.header, { backgroundColor: theme.colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() =>  router.push('/')} style={styles.backBtn}>
           <Ionicons
             name={isRTL ? "arrow-forward" : "arrow-back"}
             size={22}

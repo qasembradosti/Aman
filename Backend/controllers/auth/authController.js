@@ -197,7 +197,7 @@ const getProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { first_name, last_name, phone, email } = req.body;
+    const { first_name, last_name, phone, email, avatar } = req.body;
 
     // Find existing user
     const existingUser = await User.findById(userId);
@@ -229,6 +229,7 @@ const updateProfile = async (req, res) => {
       }
     }
     if (email !== undefined) updateData.email = email;
+    if (avatar !== undefined) updateData.avatar = avatar;
 
     // Update user
     const updatedUser = await User.update(userId, updateData);

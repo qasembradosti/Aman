@@ -16,6 +16,7 @@ import { fetchWallet } from "../../store/slices/walletSlice";
 import { fetchOrders } from "../../store/slices/ordersSlice";
 import { useLanguage } from "../../utils/LanguageContext";
 import { useTheme } from "../../utils/ThemeContext";
+import { getApiBaseUrl } from "../../utils/apiConfig";
 import LanguageSelector from "../../components/LanguageSelector";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import { History } from "lucide-react-native";
@@ -43,6 +44,7 @@ export default function Profile() {
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
+  const API_BASE_URL = getApiBaseUrl();
 
   // Get auth state from Redux
   const { isAuthenticated, user, loading } = useSelector((state) => state.auth);
@@ -120,13 +122,26 @@ export default function Profile() {
             <View
               style={[styles.avatar, { borderColor: theme.colors.primary }]}
             >
-              <Ionicons name="person" size={40} color={theme.colors.primary} />
+              {isAuthenticated && user?.avatar ? (
+                <Image
+                  source={{
+                    uri: user.avatar.startsWith("http")
+                      ? user.avatar
+                      : `${API_BASE_URL}${user.avatar}`,
+                  }}
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Ionicons name="person" size={40} color={theme.colors.primary} />
+              )}
             </View>
             <TouchableOpacity
               style={[
                 styles.editAvatarButton,
                 { backgroundColor: theme.colors.primary },
               ]}
+              onPress={() => router.push("/edit-profile")}
             >
               <Ionicons name="camera" size={16} color="#fff" />
             </TouchableOpacity>
@@ -226,56 +241,6 @@ export default function Profile() {
           </View>
         </View>
 
-        {/* Stats */}
-        <View
-          style={[
-            styles.statsContainer,
-            { backgroundColor: theme.colors.card },
-          ]}
-        >
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.colors.text }]}>
-              {totalOrders}
-            </Text>
-            <Text
-              style={[styles.statLabel, { color: theme.colors.textSecondary }]}
-            >
-              {t("orders")}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statDivider,
-              { backgroundColor: theme.colors.border },
-            ]}
-          />
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.colors.text }]}>
-              {pendingOrders}
-            </Text>
-            <Text
-              style={[styles.statLabel, { color: theme.colors.textSecondary }]}
-            >
-              {t("pending")}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statDivider,
-              { backgroundColor: theme.colors.border },
-            ]}
-          />
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.colors.text }]}>
-              {totalSales.toLocaleString()} {t("currency") || "IQD"}
-            </Text>
-            <Text
-              style={[styles.statLabel, { color: theme.colors.textSecondary }]}
-            >
-              {t("totalSpent")}
-            </Text>
-          </View>
-        </View>
 
         {/* Menu Items */}
         <View style={styles.menuContainer}>
@@ -472,7 +437,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
+    overflow: "hidden",
     // borderColor provided inline via theme
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
   },
   editAvatarButton: {
     position: "absolute",

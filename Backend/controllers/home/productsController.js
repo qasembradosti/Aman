@@ -135,7 +135,7 @@ export const updateProduct = async (req, res) => {
         const users = await db('users').select('id');
         
         const discountText = updateData.discount_type === 'fixed' 
-          ? `$${newDiscount} off` 
+          ? `IQD ${newDiscount} off` 
           : `${newDiscount}% off`;
         
         const title = '🎉 New Discount Available!';

@@ -114,7 +114,7 @@ export default function WithdrawalRequestsScreen() {
         ]}
       >
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() =>  router.push('/')}
           style={styles.backButton}
         >
           <Ionicons

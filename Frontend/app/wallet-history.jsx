@@ -44,7 +44,7 @@ export default function WalletHistory() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}> 
       <View style={[styles.header, { backgroundColor: theme.colors.card }]}> 
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() =>  router.push('/')} style={styles.backButton}>
           <Ionicons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>

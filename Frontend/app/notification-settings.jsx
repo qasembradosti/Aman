@@ -216,7 +216,7 @@ export default function NotificationSettings() {
         flexDirection: isRTL ? "row-reverse" : "row",
       }]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() =>  router.push('/')}
           style={styles.backButton}
         >
           <Ionicons

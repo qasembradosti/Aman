@@ -41,35 +41,9 @@ export default function ProductDetail() {
 
   // Helper function to get localized text
   const getLocalizedText = (product, field) => {
-    if (!product) return '';
-    
-    const languageMap = {
-      'ar': 'ar',
-      'en': 'en',
-      'ku': 'ku'
-    };
-    
-    const lang = languageMap[language] || 'en';
-    const fieldWithLang = `${field}_${lang}`;
-    
-    // Try language-specific field first
-    if (product[fieldWithLang]) {
-      return product[fieldWithLang];
-    }
-    
-    // Fallback to base field
-    if (product[field]) {
-      return product[field];
-    }
-    
-    // Fallback to English if available
-    if (lang !== 'en' && product[`${field}_en`]) {
-      return product[`${field}_en`];
-    }
-    
-    return '';
+    const localizedField = `${field}_${language}`;
+    return product[localizedField] || product[field] || "";
   };
-
   // Robust theme access: fall back to safe defaults if provider isn't mounted
   let theme;
   try {
@@ -89,7 +63,7 @@ export default function ProductDetail() {
   }
   const { id } = useLocalSearchParams();
   const { items: products, loading: productsLoading } = useSelector(
-    (state) => state.products
+    (state) => state.products,
   );
   const { user } = useSelector((state) => state.auth);
 
@@ -132,29 +106,31 @@ export default function ProductDetail() {
         { label: "Brand", value: dbProduct.brand_name || "Premium Brand" },
         {
           label: "Model",
-          value: dbProduct.product_code || "PRD-" + String(dbProduct.id).padStart(4, "0"),
+          value:
+            dbProduct.product_code ||
+            "PRD-" + String(dbProduct.id).padStart(4, "0"),
         },
       ];
-      
+
       // Add size if available
       if (dbProduct.size) {
         specs.push({ label: "Size", value: dbProduct.size });
       }
-      
+
       // Add volume if available
       if (dbProduct.volume) {
         specs.push({ label: "Volume", value: dbProduct.volume });
       }
-      
+
       // Add default specs
       specs.push(
         { label: "Weight", value: "500g" },
-        { label: "Dimensions", value: "15x10x5 cm" }
+        { label: "Dimensions", value: "15x10x5 cm" },
       );
-      
+
       return {
         id: dbProduct.id,
-        name: getLocalizedText(dbProduct, 'title') || getLocalizedText(dbProduct, 'name') || dbProduct.title || dbProduct.name,
+        name: getLocalizedText(dbProduct, "name"),
         price: dbProduct.price,
         base_price: dbProduct.base_price,
         originalPrice:
@@ -162,8 +138,12 @@ export default function ProductDetail() {
           Math.round(dbProduct.price * 1.25 * 100) / 100,
         rating: dbProduct.rating ?? 4.2,
         reviews: dbProduct.reviews || 0,
-        description: getLocalizedText(dbProduct, 'description') || "Great product with excellent quality.",
-        model: dbProduct.product_code || "PRD-" + String(dbProduct.id).padStart(4, "0"),
+        description:
+          getLocalizedText(dbProduct, "description") ||
+          "Great product with excellent quality.",
+        model:
+          dbProduct.product_code ||
+          "PRD-" + String(dbProduct.id).padStart(4, "0"),
         features: dbProduct.features || [
           "High-quality materials",
           "Durable construction",
@@ -182,10 +162,10 @@ export default function ProductDetail() {
         volume: dbProduct.volume,
         colors: (() => {
           try {
-            return Array.isArray(dbProduct.colors) 
-              ? dbProduct.colors 
-              : typeof dbProduct.colors === 'string' 
-                ? JSON.parse(dbProduct.colors) 
+            return Array.isArray(dbProduct.colors)
+              ? dbProduct.colors
+              : typeof dbProduct.colors === "string"
+                ? JSON.parse(dbProduct.colors)
                 : null;
           } catch {
             return null;
@@ -214,13 +194,13 @@ export default function ProductDetail() {
             average: 0,
             count: 0,
             breakdown: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-          }
+          },
         );
         setReviews((reviewsRes.data && reviewsRes.data.data) || []);
       } catch (err) {
         if (cancelled) return;
         setReviewsError(
-          err?.response?.data?.message || "Failed to load reviews"
+          err?.response?.data?.message || "Failed to load reviews",
         );
       } finally {
         if (!cancelled) setReviewsLoading(false);
@@ -238,7 +218,7 @@ export default function ProductDetail() {
       ? Number(reviewSummary?.average || 0).toFixed(1)
       : (product?.rating ?? 0).toFixed(1);
   const displayedReviewCount = Number(
-    reviewSummary?.count || product?.reviews || 0
+    reviewSummary?.count || product?.reviews || 0,
   );
 
   // Submit a new review
@@ -265,14 +245,14 @@ export default function ProductDetail() {
           average: 0,
           count: 0,
           breakdown: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-        }
+        },
       );
       setReviews((reviewsRes.data && reviewsRes.data.data) || []);
       setNewRating(0);
       setNewComment("");
     } catch (err) {
       setReviewsError(
-        err?.response?.data?.message || "Failed to submit review"
+        err?.response?.data?.message || "Failed to submit review",
       );
     } finally {
       setSubmittingReview(false);
@@ -285,7 +265,8 @@ export default function ProductDetail() {
     return products
       .filter(
         (p) =>
-          p.category_id === dbProduct.category_id && String(p.id) !== String(id)
+          p.category_id === dbProduct.category_id &&
+          String(p.id) !== String(id),
       )
       .slice(0, 5)
       .map((p) => ({
@@ -299,10 +280,10 @@ export default function ProductDetail() {
 
   const handleShare = async () => {
     try {
-      const userId = user?.id || 'unknown';
+      const userId = user?.id || "unknown";
       const productId = product?.id || id;
       const checkoutUrl = `https://checkout.aman-store.com/checkout?userId=${userId}&productId=${productId}`;
-      
+
       const result = await Share.share({
         message: `${product.name}\n\n${checkoutUrl}`,
         title: product.name,
@@ -377,7 +358,6 @@ export default function ProductDetail() {
             color: theme.colors.text,
             marginTop: 16,
             fontSize: 18,
-            fontWeight: "600",
           }}
         >
           Product not found
@@ -390,9 +370,9 @@ export default function ProductDetail() {
             backgroundColor: theme.colors.primary,
             borderRadius: 8,
           }}
-          onPress={() => router.back()}
+          onPress={() => router.push("/")}
         >
-          <Text style={{ color: "#fff", fontWeight: "600" }}>Go Back</Text>
+          <Text style={{ color: "#fff" }}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -420,7 +400,7 @@ export default function ProductDetail() {
               backgroundColor: theme.colors.background + "DD",
             },
           ]}
-          onPress={() => router.back()}
+          onPress={() => router.push("/")}
         >
           <Ionicons
             name={isRTL ? "arrow-forward" : "arrow-back"}
@@ -457,7 +437,7 @@ export default function ProductDetail() {
               styles.overlayButton,
               { backgroundColor: "rgba(0,0,0,0.5)" },
             ]}
-            onPress={() => router.back()}
+            onPress={() => router.push("/")}
           >
             <Ionicons
               name={isRTL ? "arrow-forward" : "arrow-back"}
@@ -495,7 +475,7 @@ export default function ProductDetail() {
               const offsetY = event.nativeEvent.contentOffset.y;
               headerOpacity.setValue(offsetY > 250 ? 1 : offsetY / 250);
             },
-          }
+          },
         )}
         scrollEventThrottle={16}
       >
@@ -509,11 +489,11 @@ export default function ProductDetail() {
             showsHorizontalScrollIndicator={false}
             onScroll={Animated.event(
               [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-              { useNativeDriver: false }
+              { useNativeDriver: false },
             )}
             onMomentumScrollEnd={(event) => {
               const index = Math.round(
-                event.nativeEvent.contentOffset.x / SCREEN_WIDTH
+                event.nativeEvent.contentOffset.x / SCREEN_WIDTH,
               );
               setSelectedImage(index);
             }}
@@ -697,7 +677,9 @@ export default function ProductDetail() {
 
             {/* Colors Section (if available) */}
             {product.colors && product.colors.length > 0 && (
-              <View style={[styles.colorsSection, { marginTop: layout.spacing.md }]}>
+              <View
+                style={[styles.colorsSection, { marginTop: layout.spacing.md }]}
+              >
                 <Text
                   style={[
                     styles.colorsLabel,
@@ -711,7 +693,12 @@ export default function ProductDetail() {
                 >
                   {t("availableColors") || "Available Colors"}:
                 </Text>
-                <View style={[styles.colorsContainer, { flexDirection: rowDirection, flexWrap: "wrap" }]}>
+                <View
+                  style={[
+                    styles.colorsContainer,
+                    { flexDirection: rowDirection, flexWrap: "wrap" },
+                  ]}
+                >
                   {product.colors.map((color, index) => (
                     <View
                       key={index}
@@ -766,7 +753,7 @@ export default function ProductDetail() {
                     style={[
                       styles.originalPrice,
                       {
-                        color: 'black',
+                        color: "black",
                         fontSize: layout.typography.md,
                       },
                     ]}
@@ -839,6 +826,7 @@ export default function ProductDetail() {
                     fontSize: layout.typography.xl,
                     marginLeft: isRTL ? 0 : layout.spacing.sm,
                     marginRight: isRTL ? layout.spacing.sm : 0,
+                    direction: isRTL ? "rtl" : "ltr",
                   },
                 ]}
               >
@@ -852,7 +840,6 @@ export default function ProductDetail() {
                   color: theme.colors.textSecondary,
                   fontSize: layout.typography.md,
                   lineHeight: layout.typography.md * 1.6,
-                  textAlign: isRTL ? "right" : "left",
                   marginTop: layout.spacing.sm,
                   direction: isRTL ? "rtl" : "ltr",
                 },
@@ -1070,7 +1057,6 @@ export default function ProductDetail() {
                   style={{
                     color: theme.colors.text,
                     fontSize: layout.typography.lg,
-                    fontWeight: "700",
                   }}
                 >
                   {Number(reviewSummary.average || 0).toFixed(1)}
@@ -1125,8 +1111,8 @@ export default function ProductDetail() {
                             Math.round(
                               ((reviewSummary.breakdown?.[s] || 0) /
                                 Math.max(1, reviewSummary.count)) *
-                                100
-                            )
+                                100,
+                            ),
                           )}%`,
                           height: 6,
                           borderRadius: 3,
@@ -1186,7 +1172,7 @@ export default function ProductDetail() {
                               name="star"
                               size={14}
                               color="#FFB800"
-                            />
+                            />,
                           );
                         if (hasHalf)
                           stars.push(
@@ -1195,7 +1181,7 @@ export default function ProductDetail() {
                               name="star-half"
                               size={14}
                               color="#FFB800"
-                            />
+                            />,
                           );
                         const remaining = 5 - stars.length;
                         for (let i = 0; i < remaining; i++)
@@ -1205,7 +1191,7 @@ export default function ProductDetail() {
                               name="star-outline"
                               size={14}
                               color="#FFB800"
-                            />
+                            />,
                           );
                         return stars;
                       })()}
@@ -1241,7 +1227,7 @@ export default function ProductDetail() {
                 style={{
                   color: theme.colors.text,
                   fontSize: layout.typography.md,
-                  fontWeight: "600",
+
                   marginBottom: layout.spacing.sm,
                   textAlign,
                 }}
@@ -1300,7 +1286,7 @@ export default function ProductDetail() {
                 {submittingReview ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={{ color: "#fff", fontWeight: "700" }}>
+                  <Text style={{ color: "#fff" }}>
                     {t("submitReview") || "Submit Review"}
                   </Text>
                 )}
@@ -1626,9 +1612,7 @@ const styles = StyleSheet.create({
   colorsSection: {
     marginVertical: 8,
   },
-  colorsLabel: {
-    fontWeight: "600",
-  },
+  colorsLabel: {},
   colorsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1639,7 +1623,6 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   colorText: {
-    fontWeight: "500",
   },
   priceSection: {
     marginTop: 4,
@@ -1755,9 +1738,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  relatedProductPrice: {
-    fontWeight: "700",
-  },
+  relatedProductPrice: {},
   // Bottom Actions
   bottomActions: {
     borderTopWidth: StyleSheet.hairlineWidth,

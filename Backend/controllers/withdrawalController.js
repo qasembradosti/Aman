@@ -115,8 +115,8 @@ export const approveWithdrawalRequest = async (req, res) => {
       });
     }
 
-    // Credit (add money) to user's wallet
-    await Wallet.credit(
+    // Debit (subtract money) from user's wallet
+    await Wallet.debit(
       request.user_id,
       request.amount,
       `Withdrawal approved - Request #${id}`,

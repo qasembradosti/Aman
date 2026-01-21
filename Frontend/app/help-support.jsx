@@ -177,7 +177,7 @@ export default function HelpSupport() {
         ]}
       >
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() =>  router.push('/')}
           style={styles.backButton}
         >
           <Ionicons

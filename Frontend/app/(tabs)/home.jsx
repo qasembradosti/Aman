@@ -67,7 +67,7 @@ const useResponsiveLayout = () => {
   const columns = isLandscape ? 3 : isLargePhone ? 3 : 2;
   const totalGapWidth = cardGap * (columns - 1);
   const cardWidth = Math.floor(
-    (width - horizontalPadding * 2 - totalGapWidth) / columns
+    (width - horizontalPadding * 2 - totalGapWidth) / columns,
   );
 
   // Responsive dimensions
@@ -117,34 +117,10 @@ export default function Home() {
 
   // Helper function to get localized text
   const getLocalizedText = (product, field) => {
-    if (!product) return '';
-    
-    const languageMap = {
-      'ar': 'ar',
-      'en': 'en',
-      'ku': 'ku',
-      'om': 'om'
-    };
-    
-    const lang = languageMap[language] || 'en';
-    const fieldWithLang = `${field}_${lang}`;
-    
-    // Try language-specific field first
-    if (product[fieldWithLang]) {
-      return product[fieldWithLang];
-    }
-    
-    // Fallback to base field
-    if (product[field]) {
-      return product[field];
-    }
-    
-    // Fallback to English if available
-    if (lang !== 'en' && product[`${field}_en`]) {
-      return product[`${field}_en`];
-    }
-    
-    return '';
+
+    const localizedField = `${field}_${language}`;
+    return product[localizedField] || product[field] || "";
+
   };
   // Dialog state for errors/info
   const [dialog, setDialog] = useState({
@@ -165,25 +141,12 @@ export default function Home() {
     meta,
   } = useSelector((state) => state.products);
   const { items: categories, loading: categoriesLoading } = useSelector(
-    (state) => state.categories
+    (state) => state.categories,
   );
   const { isAuthenticated, user } = useSelector((state) => state.auth);
 
-  // State for selected category and subcategories
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [categoryProducts, setCategoryProducts] = useState([]);
-  const [categoryProductsLoading, setCategoryProductsLoading] = useState(false);
-  const [categoryProductsOffset, setCategoryProductsOffset] = useState(0);
-  const [categoryProductsTotal, setCategoryProductsTotal] = useState(0);
-  const [loadingMoreCategory, setLoadingMoreCategory] = useState(false);
-
   // Get parent categories (categories with no parent_id)
   const parentCategories = categories.filter((cat) => cat.parent_id === null);
-
-  // Get subcategories for the selected category
-  const subCategories = selectedCategory
-    ? categories.filter((cat) => cat.parent_id === selectedCategory.id)
-    : [];
 
   // Infinite scroll state
   const [loadingMore, setLoadingMore] = useState(false);
@@ -197,43 +160,6 @@ export default function Home() {
     dispatch(fetchProducts({ limit: pageLimit, offset: 0 }));
     dispatch(fetchCategories({})); // Fetch all categories without limit
   }, [dispatch]);
-
-  // Fetch category products when category is selected
-  useEffect(() => {
-    if (selectedCategory) {
-      setCategoryProductsLoading(true);
-      setCategoryProducts([]);
-      setCategoryProductsOffset(0);
-      
-      // Get all category IDs including subcategories
-      const categoryIds = [selectedCategory.id];
-      const subs = categories.filter((cat) => cat.parent_id === selectedCategory.id);
-      if (subs.length > 0) {
-        categoryIds.push(...subs.map(sub => sub.id));
-      }
-      
-      dispatch(fetchProducts({ 
-        limit: pageLimit, 
-        offset: 0,
-        category_id: categoryIds.join(',') 
-      }))
-        .unwrap()
-        .then((result) => {
-          setCategoryProducts(result.items || []);
-          setCategoryProductsTotal(result.total || 0);
-          setCategoryProductsOffset(pageLimit);
-        })
-        .catch(() => {
-          setCategoryProducts([]);
-          setCategoryProductsTotal(0);
-        })
-        .finally(() => setCategoryProductsLoading(false));
-    } else {
-      setCategoryProducts([]);
-      setCategoryProductsTotal(0);
-      setCategoryProductsOffset(0);
-    }
-  }, [selectedCategory, categories, dispatch]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -252,41 +178,16 @@ export default function Home() {
     if (products.length < pageLimit) return; // avoid firing before initial page is filled
     setLoadingMore(true);
     dispatch(
-      fetchProducts({ limit: pageLimit, offset: products.length, append: true })
+      fetchProducts({
+        limit: pageLimit,
+        offset: products.length,
+        append: true,
+      }),
     )
       .unwrap()
       .catch(() => {})
       .finally(() => setLoadingMore(false));
   }, [dispatch, loadingMore, hasMore, products.length, productsLoading]);
-
-  const loadMoreCategoryProducts = useCallback(() => {
-    if (!selectedCategory) return;
-    if (loadingMoreCategory) return;
-    if (categoryProductsLoading) return;
-    if (categoryProducts.length >= categoryProductsTotal) return;
-    
-    const categoryIds = [selectedCategory.id];
-    const subs = categories.filter((cat) => cat.parent_id === selectedCategory.id);
-    if (subs.length > 0) {
-      categoryIds.push(...subs.map(sub => sub.id));
-    }
-    
-    setLoadingMoreCategory(true);
-    dispatch(
-      fetchProducts({ 
-        limit: pageLimit, 
-        offset: categoryProductsOffset,
-        category_id: categoryIds.join(',')
-      })
-    )
-      .unwrap()
-      .then((result) => {
-        setCategoryProducts(prev => [...prev, ...(result.items || [])]);
-        setCategoryProductsOffset(prev => prev + pageLimit);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingMoreCategory(false));
-  }, [selectedCategory, loadingMoreCategory, categoryProductsLoading, categoryProducts.length, categoryProductsTotal, categoryProductsOffset, categories, dispatch]);
 
   const resolveCategoryImageUri = (category) => {
     const imageUrl = category?.image_url || category?.image;
@@ -301,9 +202,9 @@ export default function Home() {
 
   const handleShareProduct = async (id, name) => {
     try {
-      const userId = user?.id || 'unknown';
+      const userId = user?.id || "unknown";
       const checkoutUrl = `https://checkout.aman-store.com/checkout?userId=${userId}&productId=${id}`;
-      
+
       const result = await Share.share({
         message: `${name}\n\n${checkoutUrl}`,
         title: name,
@@ -339,12 +240,12 @@ export default function Home() {
     const hasHalf = rating - full >= 0.5;
     for (let i = 0; i < full; i++) {
       stars.push(
-        <Ionicons key={`full-${i}`} name="star" size={12} color="#FFB800" />
+        <Ionicons key={`full-${i}`} name="star" size={12} color="#FFB800" />,
       );
     }
     if (hasHalf) {
       stars.push(
-        <Ionicons key="half" name="star-half" size={12} color="#FFB800" />
+        <Ionicons key="half" name="star-half" size={12} color="#FFB800" />,
       );
     }
     const remaining = 5 - stars.length;
@@ -355,7 +256,7 @@ export default function Home() {
           name="star-outline"
           size={12}
           color="#FFB800"
-        />
+        />,
       );
     }
     return stars;
@@ -476,21 +377,13 @@ export default function Home() {
                   key={category.id}
                   style={({ pressed }) => [
                     styles.categoryCard,
-                    selectedCategory?.id === category.id && {
-                      opacity: 1,
-                    },
                     pressed && {
                       transform: [{ scale: 0.95 }],
                     },
                   ]}
                   onPress={() => {
-                    if (selectedCategory?.id === category.id) {
-                      setSelectedCategory(null);
-                    } else {
-                      setSelectedCategory(category);
-                    }
+                    router.push(`/products?category=${category.id}`);
                   }}
-                  onLongPress={() => router.push(`/category/${category.slug}`)}
                 >
                   {({ pressed }) => (
                     <View>
@@ -498,12 +391,8 @@ export default function Home() {
                         style={[
                           styles.categoryImageContainer,
                           {
-                            borderColor:
-                              selectedCategory?.id === category.id
-                                ? theme.colors.primary
-                                : theme.colors.border,
-                            borderWidth:
-                              selectedCategory?.id === category.id ? 2 : 1,
+                            borderColor: theme.colors.border,
+                            borderWidth: 1,
                             elevation: pressed ? 0 : 3,
                             shadowOpacity: pressed ? 0 : 0.1,
                           },
@@ -519,10 +408,7 @@ export default function Home() {
                           style={[
                             styles.categoryOverlay,
                             {
-                              backgroundColor:
-                                selectedCategory?.id === category.id
-                                  ? `${theme.colors.primary}99`
-                                  : `${theme.colors.primary}66`,
+                              backgroundColor: `${theme.colors.primary}66`,
                             },
                           ]}
                         />
@@ -533,10 +419,7 @@ export default function Home() {
                           {
                             color: theme.colors.text,
                             fontSize: 11,
-                            fontWeight:
-                              selectedCategory?.id === category.id
-                                ? "600"
-                                : "500",
+                            fontWeight: "500",
                           },
                         ]}
                       >
@@ -548,332 +431,7 @@ export default function Home() {
               ))
             ) : null}
           </ScrollView>
-
-          {/* Subcategories */}
-          {selectedCategory && subCategories.length > 0 && (
-            <View style={{ marginTop: 12 }}>
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  {
-                    color: theme.colors.text,
-                    fontSize: layout.sectionTitleSize - 2,
-                    paddingHorizontal: layout.horizontalPadding,
-                    marginBottom: 8,
-                  },
-                ]}
-              >
-                {t("subCategories")}
-              </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={{ paddingLeft: layout.horizontalPadding }}
-              >
-                {subCategories.map((subCategory) => (
-                  <TouchableOpacity
-                    key={subCategory.id}
-                    style={{
-                      paddingHorizontal: 16,
-                      paddingVertical: 8,
-                      backgroundColor: theme.colors.card,
-                      borderRadius: 20,
-                      marginRight: 10,
-                      borderWidth: 1,
-                      borderColor: theme.colors.border,
-                    }}
-                    onPress={() => router.push(`/category/${subCategory.slug}`)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={{
-                        color: theme.colors.text,
-                        fontSize: 13,
-                      }}
-                    >
-                      {subCategory.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
         </View>
-
-        {/* Category Products Section */}
-        {selectedCategory && (
-          <View style={styles.section}>
-            <View
-              style={[
-                styles.sectionHeader,
-                { paddingHorizontal: layout.horizontalPadding },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  {
-                    color: theme.colors.text,
-                    fontSize: layout.sectionTitleSize,
-                  },
-                ]}
-              >
-                {selectedCategory.name} {t("products")}
-              </Text>
-              <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-                {categoryProducts.length > 0 && (
-                  <TouchableOpacity 
-                    onPress={() => router.push(`/products?category=${selectedCategory.id}`)}
-                  >
-                    <Text
-                      style={[
-                        styles.seeAll,
-                        {
-                          color: theme.colors.primary,
-                          fontSize: layout.isSmallPhone ? 13 : 14,
-                        },
-                      ]}
-                    >
-                      {t("seeAll")}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity onPress={() => setSelectedCategory(null)}>
-                  <Ionicons 
-                    name="close-circle-outline" 
-                    size={24} 
-                    color={theme.colors.primary} 
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-            
-            {categoryProductsLoading && categoryProducts.length === 0 ? (
-              <View
-                style={[
-                  styles.productsGrid,
-                  {
-                    flexDirection: isRTL ? "row-reverse" : "row",
-                    paddingHorizontal: layout.horizontalPadding,
-                    gap: layout.cardGap,
-                  },
-                ]}
-              >
-                {[1, 2, 3, 4].map((i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.productCard,
-                      {
-                        backgroundColor: theme.colors.card,
-                        width: layout.cardWidth,
-                        borderColor: theme.colors.border,
-                        borderWidth: StyleSheet.hairlineWidth,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.productImage,
-                        {
-                          height: layout.isSmallPhone
-                            ? 100
-                            : layout.isMediumPhone
-                            ? 110
-                            : 120,
-                          backgroundColor: theme.colors.border,
-                        },
-                      ]}
-                    />
-                    <View style={styles.productInfo}>
-                      <View
-                        style={{
-                          width: "100%",
-                          height: 14,
-                          backgroundColor: theme.colors.border,
-                          borderRadius: 4,
-                          marginBottom: 8,
-                        }}
-                      />
-                    </View>
-                  </View>
-                ))}
-              </View>
-            ) : categoryProducts.length > 0 ? (
-              <>
-                <View
-                  style={[
-                    styles.productsGrid,
-                    {
-                      flexDirection: isRTL ? "row-reverse" : "row",
-                      paddingHorizontal: layout.horizontalPadding,
-                      gap: layout.cardGap,
-                    },
-                  ]}
-                >
-                  {categoryProducts.map((product) => (
-                    <Pressable
-                      key={product.id}
-                      style={({ pressed }) => [
-                        styles.productCard,
-                        {
-                          backgroundColor: theme.colors.card,
-                          width: layout.cardWidth,
-                        },
-                        pressed && styles.productCardPressed,
-                      ]}
-                      onPress={() => router.push(`/product/${product.id}`)}
-                    >
-                      <View
-                        style={[
-                          styles.productImage,
-                          {
-                            height: layout.isSmallPhone
-                              ? 90
-                              : layout.isMediumPhone
-                              ? 100
-                              : 110,
-                          },
-                        ]}
-                      >
-                        <Image
-                          source={{
-                            uri: getProductImageUrl(
-                              product,
-                              "https://via.placeholder.com/400"
-                            ),
-                          }}
-                          style={styles.productImageImg}
-                          resizeMode="cover"
-                        />
-                        <View
-                          style={[
-                            styles.bonusTag,
-                            { backgroundColor: theme.colors.primary },
-                          ]}
-                        >
-                          <Text style={styles.bonusTagText}>
-                            IQD {product.commission_price}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={styles.productInfo}>
-                        <Text
-                          numberOfLines={2}
-                          style={[
-                            styles.productName,
-                            {
-                              color: theme.colors.text,
-                              fontSize: layout.productNameSize,
-                            },
-                          ]}
-                        >
-                          {getLocalizedText(product, 'title') || getLocalizedText(product, 'name') || product.name}
-                        </Text>
-                        <View style={styles.ratingRow}>
-                          <View style={styles.starsRow}>
-                            {renderStars(product.rating || 4.0)}
-                          </View>
-                          <Text
-                            numberOfLines={1}
-                            style={[
-                              styles.ratingText,
-                              { color: theme.colors.textSecondary },
-                            ]}
-                          >
-                            {product.rating || 4.0}
-                          </Text>
-                        </View>
-                        <View style={styles.bottomRow}>
-                          <Text
-                            style={[
-                              styles.productPrice,
-                              {
-                                color: theme.colors.primary,
-                                fontSize: layout.productPriceSize,
-                              },
-                            ]}
-                          >
-                            IQD {product.sell_price}
-                          </Text>
-                          <TouchableOpacity
-                            style={[
-                              styles.shareButton,
-                              {
-                                backgroundColor: theme.colors.primary,
-                                width: layout.isSmallPhone ? 32 : 36,
-                                height: layout.isSmallPhone ? 32 : 36,
-                                borderRadius: layout.isSmallPhone ? 16 : 18,
-                              },
-                            ]}
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              handleShareProduct(product.id, getLocalizedText(product, 'title') || getLocalizedText(product, 'name') || product.title);
-                            }}
-                          >
-                            <Ionicons
-                              name="share-outline"
-                              size={layout.isSmallPhone ? 16 : 18}
-                              color="#fff"
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    </Pressable>
-                  ))}
-                </View>
-                {loadingMoreCategory && (
-                  <View
-                    style={{
-                      paddingVertical: 12,
-                      alignItems: "center",
-                    }}
-                  >
-                    <Text style={{ color: theme.colors.textSecondary }}>
-                      {t("loadingMore")}...
-                    </Text>
-                  </View>
-                )}
-                {categoryProducts.length < categoryProductsTotal && (
-                  <View
-                    style={{
-                      paddingVertical: 12,
-                      alignItems: "center",
-                      paddingHorizontal: layout.horizontalPadding,
-                    }}
-                  >
-                    <TouchableOpacity
-                      onPress={loadMoreCategoryProducts}
-                      style={{
-                        paddingVertical: 10,
-                        paddingHorizontal: 24,
-                        backgroundColor: theme.colors.primary,
-                        borderRadius: 8,
-                      }}
-                    >
-                      <Text style={{ color: "#fff", fontSize: 14 }}>
-                        {t("loadMore")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-                {categoryProducts.length >= categoryProductsTotal && categoryProducts.length > 0 && (
-                  <View style={{ paddingVertical: 8, alignItems: "center" }}>
-                    <Text style={{ color: theme.colors.textSecondary }}>
-                      {t("noMoreItems")}
-                    </Text>
-                  </View>
-                )}
-              </>
-            ) : (
-              <View style={{ paddingVertical: 24, alignItems: "center" }}>
-                <Text style={{ color: theme.colors.textSecondary, fontSize: 14 }}>
-                  {t("noProductsFound")}
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
 
         {/* Recently Added (last 3 days) — moved after Categories */}
         {(() => {
@@ -934,7 +492,7 @@ export default function Home() {
                         source={{
                           uri: getProductImageUrl(
                             product,
-                            "https://via.placeholder.com/400"
+                            "https://via.placeholder.com/400",
                           ),
                         }}
                         style={{ width: "100%", height: "100%" }}
@@ -949,7 +507,7 @@ export default function Home() {
                           fontSize: layout.isSmallPhone ? 12 : 13,
                         }}
                       >
-                        {getLocalizedText(product, 'title') || getLocalizedText(product, 'name') || product.name}
+                        {getLocalizedText(product, "name")}
                       </Text>
                       <Text
                         style={{
@@ -957,11 +515,9 @@ export default function Home() {
                           fontSize: layout.isSmallPhone ? 13 : 14,
                         }}
                       >
-                        {typeof product?.sell_price === "number"
-                          ? product.sell_price
-                          : typeof product?.price === "number"
-                          ? product.price
-                          : product?.base_price} IQD
+                        {isRTL
+                          ? `${product.sell_price} دینار `
+                          : `${product.sell_price} IQD`}
                       </Text>
                     </View>
                   </Pressable>
@@ -1036,8 +592,8 @@ export default function Home() {
                           height: layout.isSmallPhone
                             ? 100
                             : layout.isMediumPhone
-                            ? 110
-                            : 120,
+                              ? 110
+                              : 120,
                           backgroundColor: theme.colors.border,
                         },
                       ]}
@@ -1105,8 +661,8 @@ export default function Home() {
                         height: layout.isSmallPhone
                           ? 90
                           : layout.isMediumPhone
-                          ? 100
-                          : 110,
+                            ? 100
+                            : 110,
                       },
                     ]}
                   >
@@ -1114,24 +670,26 @@ export default function Home() {
                       source={{
                         uri: getProductImageUrl(
                           product,
-                          "https://via.placeholder.com/400"
+                          "https://via.placeholder.com/400",
                         ),
                       }}
                       style={styles.productImageImg}
                       resizeMode="cover"
                     />
-                    {/* Seller bonus tag (top-left) */}
-
-                    <View
-                      style={[
-                        styles.bonusTag,
-                        { backgroundColor: theme.colors.primary },
-                      ]}
-                    >
-                      <Text style={styles.bonusTagText}>
-                        IQD {product.commission_price}
-                      </Text>
-                    </View>
+                    {product.commission_price && (
+                      <View
+                        style={[
+                          styles.bonusTag,
+                          { backgroundColor: theme.colors.primary },
+                        ]}
+                      >
+                        <Text style={styles.bonusTagText}>
+                          {isRTL
+                            ? `${product.commission_price} دینار `
+                            : `${product.commission_price} IQD`}
+                        </Text>
+                      </View>
+                    )}
                   </View>
 
                   {/* Product info section */}
@@ -1147,7 +705,9 @@ export default function Home() {
                         },
                       ]}
                     >
-                      {getLocalizedText(product, 'title') || getLocalizedText(product, 'name') || product.name}
+                      {getLocalizedText(product, "title") ||
+                        getLocalizedText(product, "name") ||
+                        product.name}
                     </Text>
 
                     {/* Rating */}
@@ -1177,7 +737,9 @@ export default function Home() {
                           },
                         ]}
                       >
-                        IQD {product.sell_price}
+                        {isRTL
+                          ? `${product.sell_price} دینار `
+                          : `${product.sell_price} IQD`}
                       </Text>
                       <TouchableOpacity
                         style={[
@@ -1191,7 +753,12 @@ export default function Home() {
                         ]}
                         onPress={(e) => {
                           e.stopPropagation();
-                          handleShareProduct(product.id, getLocalizedText(product, 'title') || getLocalizedText(product, 'name') || product.title);
+                          handleShareProduct(
+                            product.id,
+                            getLocalizedText(product, "title") ||
+                              getLocalizedText(product, "name") ||
+                              product.title,
+                          );
                         }}
                       >
                         <Ionicons

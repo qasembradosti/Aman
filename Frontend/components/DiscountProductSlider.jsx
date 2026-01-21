@@ -50,7 +50,10 @@ export default function DiscountProductSlider() {
     const base = Number(p?.base_price);
     const sell = Number(p?.sell_price ?? p?.price);
     const hasFieldDiscount = typeof p?.discount === "number" && p.discount > 0;
-    return (Number.isFinite(base) && Number.isFinite(sell) && sell < base) || hasFieldDiscount;
+    return (
+      (Number.isFinite(base) && Number.isFinite(sell) && sell < base) ||
+      hasFieldDiscount
+    );
   };
 
   const discountProducts = products.filter(isDiscounted);
@@ -103,18 +106,24 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
   // Image selection consistent with Home
   const imageUrl = getProductImageUrl(
     product,
-    "https://via.placeholder.com/300"
+    "https://via.placeholder.com/300",
   );
 
   // Price fields
   const base = Number(product?.base_price);
   const sell = Number(product?.sell_price ?? product?.price);
   let discountPercent = 0;
-  if (Number.isFinite(base) && base > 0 && Number.isFinite(sell) && sell < base) {
+  if (
+    Number.isFinite(base) &&
+    base > 0 &&
+    Number.isFinite(sell) &&
+    sell < base
+  ) {
     discountPercent = Math.round(((base - sell) / base) * 100);
   } else if (typeof product?.discount === "number" && product.discount > 0) {
     // If only "discount" known, use it directly if it's percentage
-    discountPercent = product.discount_type === "percentage" ? Math.round(product.discount) : 0;
+    discountPercent =
+      product.discount_type === "percentage" ? Math.round(product.discount) : 0;
   }
 
   return (
@@ -135,7 +144,11 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
 
       {/* Product Image with Gradient */}
       <View style={styles.imageContainer}>
-        <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.image}
+          resizeMode="cover"
+        />
         <LinearGradient
           colors={["transparent", "rgba(0,0,0,0.3)"]}
           style={styles.imageGradient}
@@ -144,7 +157,10 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
 
       {/* Product Info */}
       <View style={styles.info}>
-        <Text style={[styles.name, { color: theme.colors.text }]} numberOfLines={2}>
+        <Text
+          style={[styles.name, { color: theme.colors.text }]}
+          numberOfLines={2}
+        >
           {product.name}
         </Text>
 
@@ -152,7 +168,9 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
         {product.rating && (
           <View style={styles.ratingRow}>
             <Star size={12} color="#FFA500" fill="#FFA500" />
-            <Text style={[styles.rating, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[styles.rating, { color: theme.colors.textSecondary }]}
+            >
               {product.rating.toFixed(1)}
             </Text>
           </View>
@@ -164,9 +182,17 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
             <Text style={[styles.price, { color: theme.colors.primary }]}>
               {Number.isFinite(sell) ? `$${sell}` : ""}
             </Text>
-            {Number.isFinite(base) && base > (Number.isFinite(sell) ? sell : 0) ? (
-              <Text style={[styles.originalPrice, { color: theme.colors.textSecondary }]}>
-                ${base}
+            {Number.isFinite(base) &&
+            base > (Number.isFinite(sell) ? sell : 0) ? (
+              <Text
+                style={[
+                  styles.originalPrice,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
+                {isRTL
+                  ? `${product.base_price} دینار `
+                  : `${product.base_price} IQD`}
               </Text>
             ) : null}
           </View>
@@ -198,7 +224,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    
+
     letterSpacing: -0.5,
   },
   scrollContent: {
@@ -233,7 +259,7 @@ const styles = StyleSheet.create({
   discountText: {
     color: "#fff",
     fontSize: 12,
-    
+
     letterSpacing: 0.5,
   },
   imageContainer: {
@@ -258,7 +284,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 13,
-    
+
     marginBottom: 6,
     lineHeight: 16,
     minHeight: 32,
@@ -271,7 +297,6 @@ const styles = StyleSheet.create({
   },
   rating: {
     fontSize: 11,
-    
   },
   priceRow: {
     flexDirection: "row",
@@ -285,12 +310,12 @@ const styles = StyleSheet.create({
   },
   price: {
     fontSize: 18,
-    
+
     letterSpacing: -0.5,
   },
   originalPrice: {
     fontSize: 13,
-    
+
     textDecorationLine: "line-through",
   },
 });
