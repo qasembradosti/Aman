@@ -28,6 +28,16 @@ import {
   DialogBody,
   DialogFooter,
 } from "../../components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
 import { Input } from "../../components/ui/input";
 import {
   Select,
@@ -103,17 +113,21 @@ const Withdrawals = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm("Are you sure you want to delete this withdrawal request?")) {
-      return;
-    }
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: null });
 
+  const handleDeleteClick = (id) => {
+    setDeleteConfirm({ open: true, id });
+  };
+
+  const handleDeleteConfirm = async () => {
     try {
-      await dispatch(deleteWithdrawal(id)).unwrap();
+      await dispatch(deleteWithdrawal(deleteConfirm.id)).unwrap();
       toast.success("Withdrawal request deleted");
+      setDeleteConfirm({ open: false, id: null });
     } catch (error) {
       console.error("Failed to delete withdrawal:", error);
       toast.error(error || "Failed to delete withdrawal request");
+      setDeleteConfirm({ open: false, id: null });
     }
   };
 
@@ -296,7 +310,7 @@ const Withdrawals = () => {
                       )}
                       {request.status !== "approved" && (
                         <Button
-                          onClick={() => handleDelete(request.id)}
+                          onClick={() => handleDeleteClick(request.id)}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50"
                           title="Delete"
                         >
@@ -431,6 +445,32 @@ const Withdrawals = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={deleteConfirm.open}
+        onOpenChange={(open) => setDeleteConfirm({ ...deleteConfirm, open })}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              withdrawal request from the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setDeleteConfirm({ open: false, id: null })}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} variant="destructive">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

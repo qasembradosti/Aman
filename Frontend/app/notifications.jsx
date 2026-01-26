@@ -159,7 +159,7 @@ export default function Notifications() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
         <TouchableOpacity
-          onPress={() =>  router.push('/')}
+          onPress={() => router.canGoBack?.() ? router.back() : router.replace('/(tabs)/home')}
           style={styles.backButton}
         >
           <ArrowLeft

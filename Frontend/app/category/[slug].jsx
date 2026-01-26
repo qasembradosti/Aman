@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   View,
@@ -28,6 +28,7 @@ export default function CategoryScreen() {
   const { slug } = useLocalSearchParams();
   const router = useRouter();
   const dispatch = useDispatch();
+  const navigationInProgress = useRef(false);
   const { t, isRTL } = useLanguage();
   const { theme } = useTheme();
   const API_BASE_URL = getApiBaseUrl();
@@ -115,7 +116,13 @@ export default function CategoryScreen() {
         pressed && styles.cardPressed,
         pressed && { borderColor: theme.colors.primary },
       ]}
-      onPress={() => router.push(`/product/${item.id}`)}
+      onPress={() => {
+        if (!navigationInProgress.current) {
+          navigationInProgress.current = true;
+          router.push(`/product/${item.id}`);
+          setTimeout(() => { navigationInProgress.current = false; }, 500);
+        }
+      }}
     >
       {/* Image at top */}
       <View style={styles.imageWrap}>
@@ -159,7 +166,7 @@ export default function CategoryScreen() {
       ]}
     >
       <View style={[styles.header, { backgroundColor: theme.colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}>
-        <TouchableOpacity onPress={() =>  router.push('/')} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.canGoBack?.() ? router.back() : router.replace('/(tabs)/home')} style={styles.backBtn}>
           <Ionicons
             name={isRTL ? "arrow-forward" : "arrow-back"}
             size={22}

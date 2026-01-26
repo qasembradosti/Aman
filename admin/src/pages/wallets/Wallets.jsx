@@ -12,6 +12,16 @@ import {
   Users,
   DollarSign
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogBody,
+  DialogFooter,
+} from "../../components/ui/dialog";
+import { Button } from "../../components/ui/button";
+import { Label } from "../../components/ui/label";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -334,92 +344,97 @@ export default function Wallets() {
       </div>
 
       {/* Modal */}
-      {showModal && selectedWallet && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-          <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                {modalType === 'credit' ? 'Add Money' : 'Deduct Money'}
-              </h3>
-              
-              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600">User</p>
-                <p className="font-medium text-gray-900">
-                  {selectedWallet.first_name || selectedWallet.last_name 
-                    ? `${selectedWallet.first_name || ''} ${selectedWallet.last_name || ''}`.trim()
-                    : selectedWallet.username}
-                </p>
-                <p className="text-sm text-gray-600 mt-2">Current Balance</p>
-                <p className="font-semibold text-lg text-gray-900">
-                  {formatCurrency(selectedWallet.balance)} {selectedWallet.currency}
-                </p>
-              </div>
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {modalType === 'credit' ? 'Add Money' : 'Deduct Money'}
+            </DialogTitle>
+          </DialogHeader>
 
-              <form onSubmit={handleSubmit}>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Amount ({selectedWallet.currency})
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter amount"
-                    required
-                  />
+          <DialogBody className="space-y-4">
+            {selectedWallet && (
+              <>
+                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">User</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {selectedWallet.first_name || selectedWallet.last_name 
+                      ? `${selectedWallet.first_name || ''} ${selectedWallet.last_name || ''}`.trim()
+                      : selectedWallet.username}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Current Balance</p>
+                  <p className="font-semibold text-lg text-gray-900 dark:text-white">
+                    {formatCurrency(selectedWallet.balance)} {selectedWallet.currency}
+                  </p>
                 </div>
 
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Note (Optional)
-                  </label>
-                  <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Add a note about this transaction"
-                  />
-                </div>
+                <form onSubmit={handleSubmit} id="wallet-form">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="amount">
+                        Amount ({selectedWallet.currency})
+                      </Label>
+                      <input
+                        id="amount"
+                        type="number"
+                        step="0.01"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="Enter amount"
+                        required
+                      />
+                    </div>
 
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    disabled={processing}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={processing}
-                    className={`flex-1 px-4 py-2 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 flex items-center justify-center ${
-                      modalType === 'credit'
-                        ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                        : 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-                    }`}
-                  >
-                    {processing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        {modalType === 'credit' ? <Plus className="w-4 h-4 mr-2" /> : <Minus className="w-4 h-4 mr-2" />}
-                        {modalType === 'credit' ? 'Add Money' : 'Deduct Money'}
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+                    <div>
+                      <Label htmlFor="note">
+                        Note (Optional)
+                      </Label>
+                      <textarea
+                        id="note"
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="Add a note about this transaction"
+                      />
+                    </div>
+                  </div>
+                </form>
+              </>
+            )}
+          </DialogBody>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCloseModal}
+              disabled={processing}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="wallet-form"
+              disabled={processing}
+              variant={modalType === 'credit' ? 'default' : 'destructive'}
+            >
+              {processing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  {modalType === 'credit' ? <Plus className="w-4 h-4 mr-2" /> : <Minus className="w-4 h-4 mr-2" />}
+                  {modalType === 'credit' ? 'Add Money' : 'Deduct Money'}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

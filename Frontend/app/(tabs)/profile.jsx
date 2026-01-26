@@ -77,12 +77,6 @@ export default function Profile() {
       onPress: () => router.push("/edit-profile"),
     },
     {
-      icon: "notifications-outline",
-      title: t("notifications"),
-      subtitle: t("customizeNotifications"),
-      onPress: () => router.push("/notification-settings"),
-    },
-    {
       icon: "language-outline",
       title: locale === "en" ? "Language" : locale === "ar" ? "اللغة" : "زمان",
       subtitle:

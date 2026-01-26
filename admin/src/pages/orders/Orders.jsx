@@ -285,7 +285,7 @@ const Orders = () => {
             <DialogClose onClick={closeDetailModal} />
           </DialogHeader>
 
-          <DialogBody className="space-y-6">
+          <DialogBody className="space-y-6 max-h-[70vh] overflow-y-auto">
             {loadingDetail ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-primary-600" />

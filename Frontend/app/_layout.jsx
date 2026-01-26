@@ -14,7 +14,7 @@ import { NotificationSocketProvider } from "../utils/NotificationSocketProvider"
 import { Provider, useDispatch, useSelector } from "react-redux";
 import { store } from "../store/store";
 import { loadTokenFromStorage } from "../store/slices/authSlice";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import * as Font from "expo-font";
 import SplashScreen from "../components/SplashScreen";
 import authEvents from "../utils/authEvents";
@@ -72,15 +72,19 @@ function AuthGate({ children }) {
   const isNavigationReady = !!navigationState?.key;
 
   // Normalize phone verification truthiness coming from API (true/1/'1'/"true")
-  const isPhoneVerified = (val) =>
-    val === true || val === 1 || val === "1" || val === "true";
+  const isPhoneVerified = useCallback((val) =>
+    val === true || val === 1 || val === "1" || val === "true", []);
   // Activation requires both phone verified and active status (if status present). Treat missing user as not ready yet.
-  const isActiveStatus = (val) =>
-    val === "active" || val === "ACTIVATED" || val === 1;
-  const needsActivation =
+  const isActiveStatus = useCallback((val) =>
+    val === "active" || val === "ACTIVATED" || val === 1, []);
+  
+  const needsActivation = useMemo(() =>
     isAuthenticated &&
     !!user &&
-    (!isPhoneVerified(user?.phone_verified) || !isActiveStatus(user?.status));
+    (!isPhoneVerified(user?.phone_verified) || !isActiveStatus(user?.status)),
+    [isAuthenticated, user, isPhoneVerified, isActiveStatus]
+  );
+  
   const rootSegment = segments?.[0];
   const leafSegment = segments?.[1];
   const inAuthGroup = rootSegment === "(auth)";
@@ -89,11 +93,11 @@ function AuthGate({ children }) {
   // Stabilize segment changes to avoid re-running the effect on every render due to array identity.
   const segmentKey = Array.isArray(segments) ? segments.join("/") : "";
 
-  const safeReplace = (target) => {
+  const safeReplace = useCallback((target) => {
     if (pathname !== target) {
       router.replace(target);
     }
-  };
+  }, [pathname, router]);
 
   useEffect(() => {
     if (!isNavigationReady) return;
@@ -124,8 +128,8 @@ function AuthGate({ children }) {
     needsActivation,
     inAuthGroup,
     onVerifyPhone,
-    pathname,
     segmentKey,
+    safeReplace,
   ]);
 
   return children;
@@ -146,10 +150,10 @@ export default function RootLayout() {
       } catch (error) {
         setFontsLoaded(true);
       } finally {
-        // Add a minimum delay to show the splash screen animation
+        // Reduced delay for faster app startup
         setTimeout(() => {
           setIsAppReady(true);
-        }, 3000);
+        }, 500);
       }
     }
 
@@ -171,18 +175,35 @@ export default function RootLayout() {
                 <NotificationSocketProvider>
                   <AuthGate>
                     <StatusBar style="auto" />
-                    <Stack screenOptions={{ headerShown: false }}>
+                    <Stack 
+                      screenOptions={{ 
+                        headerShown: false,
+                        animation: 'default',
+                        gestureEnabled: true,
+                        gestureDirection: 'horizontal',
+                      }}
+                    >
                       <Stack.Screen
                         name="(auth)"
-                        options={{ headerShown: false }}
+                        options={{ 
+                          headerShown: false,
+                          animation: 'fade'
+                        }}
                       />
                       <Stack.Screen
                         name="(tabs)"
-                        options={{ headerShown: false }}
+                        options={{ 
+                          headerShown: false,
+                          animation: 'fade'
+                        }}
                       />
                       <Stack.Screen
                         name="product/[id]"
-                        options={{ headerShown: false }}
+                        options={{ 
+                          headerShown: false,
+                          presentation: 'card',
+                          gestureEnabled: true
+                        }}
                       />
                       <Stack.Screen
                         name="withdraw"

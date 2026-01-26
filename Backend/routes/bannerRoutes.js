@@ -21,8 +21,8 @@ router.get('/banners/active', getActiveBanners);
 // Admin routes (protected)
 router.get('/banners', authenticateToken, getAllBanners);
 router.get('/banners/:id', authenticateToken, getBannerById);
-router.post('/banners', authenticateToken, createBanner);
-router.put('/banners/:id', authenticateToken, updateBanner);
+router.post('/banners', authenticateToken, imageUploader.single('image'), createBanner);
+router.put('/banners/:id', authenticateToken, imageUploader.single('image'), updateBanner);
 router.delete('/banners/:id', authenticateToken, deleteBanner);
 router.patch('/banners/:id/toggle', authenticateToken, toggleBannerActive);
 router.put('/banners/order/update', authenticateToken, updateBannerOrder);

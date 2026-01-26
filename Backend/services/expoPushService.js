@@ -1,7 +1,9 @@
 import { Expo } from 'expo-server-sdk';
 
-// Create a new Expo SDK client
-const expo = new Expo();
+// Create a new Expo SDK client with optimized settings
+const expo = new Expo({
+  useFcmV1: true, // Use the newer FCM v1 API for better performance
+});
 
 /**
  * Send push notification to a single device using Expo Push Token
@@ -67,14 +69,25 @@ export const sendPushNotificationBatch = async (pushTokens, notification) => {
     const chunks = expo.chunkPushNotifications(messages);
     const tickets = [];
 
-    for (const chunk of chunks) {
+    // Process chunks in parallel for better performance
+    const chunkPromises = chunks.map(async (chunk) => {
       try {
         const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-        tickets.push(...ticketChunk);
+        return ticketChunk;
       } catch (error) {
         console.error('❌ Error sending chunk:', error);
+        return [];
       }
-    }
+    });
+
+    const results = await Promise.allSettled(chunkPromises);
+    
+    // Collect all successful tickets
+    results.forEach(result => {
+      if (result.status === 'fulfilled' && result.value) {
+        tickets.push(...result.value);
+      }
+    });
 
     console.log(`📤 Push notifications sent to ${validTokens.length} devices`);
     return { success: true, sent: validTokens.length, tickets };

@@ -1,10 +1,20 @@
 import { body } from 'express-validator';
 
 export const productValidation = [
-  body('name')
+  body('name_en')
     .isString()
     .isLength({ min: 2 })
-    .withMessage('Product name must be at least 2 characters'),
+    .withMessage('Product name (English) must be at least 2 characters'),
+  body('name_ku')
+    .optional()
+    .isString()
+    .isLength({ min: 2 })
+    .withMessage('Product name (Kurdish) must be at least 2 characters'),
+  body('name_ar')
+    .optional()
+    .isString()
+    .isLength({ min: 2 })
+    .withMessage('Product name (Arabic) must be at least 2 characters'),
   body('base_price')
     .notEmpty()
     .withMessage('Base price is required')

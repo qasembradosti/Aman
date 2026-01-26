@@ -26,6 +26,7 @@ import InfoDialog from "../../components/InfoDialog";
 import HomeHeader from "../../components/HomeHeader";
 import BannerSlider from "../../components/BannerSlider";
 import DiscountProductSlider from "../../components/DiscountProductSlider";
+import { useRef } from "react";
 // Custom Text component with font
 const Text = ({ style, ...props }) => {
   const { fontFamily } = useLanguage();
@@ -110,17 +111,18 @@ const useResponsiveLayout = () => {
 export default function Home() {
   const router = useRouter();
   const dispatch = useDispatch();
-  const { t, isRTL, language } = useLanguage();
-  const { theme, toggleTheme, isDark } = useTheme();
+  const { t, isRTL, locale } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const layout = useResponsiveLayout();
   const API_BASE_URL = getApiBaseUrl();
+  const navigationInProgress = useRef(false);
 
   // Helper function to get localized text
   const getLocalizedText = (product, field) => {
-
-    const localizedField = `${field}_${language}`;
+    // Ensure language has a default fallback
+    const lang = locale;
+    const localizedField = `${field}_${lang}`;
     return product[localizedField] || product[field] || "";
-
   };
   // Dialog state for errors/info
   const [dialog, setDialog] = useState({
@@ -485,7 +487,15 @@ export default function Home() {
                       { backgroundColor: theme.colors.card },
                       pressed && styles.productCardPressed,
                     ]}
-                    onPress={() => router.push(`/product/${product.id}`)}
+                    onPress={() => {
+                      if (!navigationInProgress.current) {
+                        navigationInProgress.current = true;
+                        router.push(`/product/${product.id}`);
+                        setTimeout(() => {
+                          navigationInProgress.current = false;
+                        }, 500);
+                      }
+                    }}
                   >
                     <View style={styles.recentImage}>
                       <Image
@@ -651,7 +661,15 @@ export default function Home() {
                     },
                     pressed && styles.productCardPressed,
                   ]}
-                  onPress={() => router.push(`/product/${product.id}`)}
+                  onPress={() => {
+                    if (!navigationInProgress.current) {
+                      navigationInProgress.current = true;
+                      router.push(`/product/${product.id}`);
+                      setTimeout(() => {
+                        navigationInProgress.current = false;
+                      }, 500);
+                    }
+                  }}
                 >
                   {/* Image at top */}
                   <View
@@ -678,10 +696,7 @@ export default function Home() {
                     />
                     {product.commission_price && (
                       <View
-                        style={[
-                          styles.bonusTag,
-                          { backgroundColor: theme.colors.primary },
-                        ]}
+                        style={[styles.bonusTag, { backgroundColor: "green" }]}
                       >
                         <Text style={styles.bonusTagText}>
                           {isRTL
@@ -705,9 +720,7 @@ export default function Home() {
                         },
                       ]}
                     >
-                      {getLocalizedText(product, "title") ||
-                        getLocalizedText(product, "name") ||
-                        product.name}
+                      {getLocalizedText(product, "name")}
                     </Text>
 
                     {/* Rating */}
@@ -755,9 +768,7 @@ export default function Home() {
                           e.stopPropagation();
                           handleShareProduct(
                             product.id,
-                            getLocalizedText(product, "title") ||
-                              getLocalizedText(product, "name") ||
-                              product.title,
+                            getLocalizedText(product, "name"),
                           );
                         }}
                       >

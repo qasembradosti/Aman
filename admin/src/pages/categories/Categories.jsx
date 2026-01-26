@@ -47,7 +47,16 @@ import {
 } from "../../components/ui/select";
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
-import { ConfirmDialog } from "../../components/ui/confirm-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
 
 const API_BASE =
   import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:3000";
@@ -563,7 +572,7 @@ const Categories = () => {
             onSubmit={handleSubmit}
             className="flex flex-col flex-1 overflow-hidden"
           >
-            <DialogBody className="space-y-5">
+            <DialogBody className="space-y-5 max-h-[70vh] overflow-y-auto">
               <div>
                 <Label>Name (Default)</Label>
                 <Input
@@ -722,16 +731,30 @@ const Categories = () => {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <ConfirmDialog
+      <AlertDialog
         open={deleteConfirm.open}
         onOpenChange={(open) => setDeleteConfirm({ ...deleteConfirm, open })}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Category"
-        message="Are you sure you want to delete this category? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-        variant="danger"
-      />
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Category</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this category? This action cannot
+              be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setDeleteConfirm({ open: false, id: null })}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} variant="destructive">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -159,20 +159,20 @@ export const sendToUser = async (req, res) => {
       global.io.to(`user:${user_id}`).emit('new_notification', notification);
     }
 
-    // Send push notification if user has a push token
-    try {
-      const user = await db('users').where({ id: user_id }).select('push_token').first();
-      if (user?.push_token) {
-        await sendPushNotification(user.push_token, {
-          title,
-          body: message,
-          data: { notificationId: notification.id }
-        });
+    // Send push notification if user has a push token (non-blocking)
+    const user = await db('users').where({ id: user_id }).select('push_token').first();
+    if (user?.push_token) {
+      sendPushNotification(user.push_token, {
+        title,
+        body: message,
+        data: { notificationId: notification.id }
+      })
+      .then(() => {
         console.log(`📱 Push notification sent to user ${user_id}`);
-      }
-    } catch (pushError) {
-      console.error('⚠️ Push notification failed:', pushError.message);
-      // Don't fail the request if push fails
+      })
+      .catch(pushError => {
+        console.error('⚠️ Push notification failed:', pushError.message);
+      });
     }
 
     res.status(201).json({
@@ -202,16 +202,24 @@ export const sendToAllUsers = async (req, res) => {
     }
 
     // Create one notification for each user (marked as global so users can't delete them)
-    const notifications = [];
-    for (const user of users) {
-      const notification = await Notification.create({
-        user_id: user.id,
-        title,
-        message,
-        is_global: true // Mark as global notification
-      });
-      notifications.push(notification);
-    }
+    // Use batch insert for better performance
+    const notificationData = users.map(user => ({
+      user_id: user.id,
+      title,
+      message,
+      is_global: true, // Mark as global notification
+      is_read: false,
+      created_at: new Date(),
+      updated_at: new Date()
+    }));
+
+    // Batch insert all notifications at once
+    const insertedIds = await db('notifications').insert(notificationData).returning('id');
+    
+    // Get first notification for response
+    const sampleNotification = await db('notifications')
+      .where({ id: insertedIds[0]?.id || insertedIds[0] })
+      .first();
 
     // Broadcast to all connected users via Socket.io
     if (global.io) {
@@ -222,29 +230,30 @@ export const sendToAllUsers = async (req, res) => {
       });
     }
 
-    // Send push notifications to all users with push tokens
-    try {
-      const pushTokens = users
-        .filter(user => user.push_token)
-        .map(user => user.push_token);
-      
-      if (pushTokens.length > 0) {
-        await sendPushNotificationBatch(pushTokens, {
-          title,
-          body: message,
-          data: { type: 'broadcast' }
-        });
+    // Send push notifications asynchronously (don't wait for completion)
+    const pushTokens = users
+      .filter(user => user.push_token)
+      .map(user => user.push_token);
+    
+    if (pushTokens.length > 0) {
+      // Send push notifications in background without blocking response
+      sendPushNotificationBatch(pushTokens, {
+        title,
+        body: message,
+        data: { type: 'broadcast' }
+      })
+      .then(() => {
         console.log(`📱 Push notifications sent to ${pushTokens.length} devices`);
-      }
-    } catch (pushError) {
-      console.error('⚠️ Batch push notification failed:', pushError.message);
-      // Don't fail the request if push fails
+      })
+      .catch(pushError => {
+        console.error('⚠️ Batch push notification failed:', pushError.message);
+      });
     }
 
     res.status(201).json({
       message: `Notification sent to ${users.length} users`,
       count: users.length,
-      sample: notifications[0] // Return first notification as sample
+      sample: sampleNotification // Return first notification as sample
     });
   } catch (error) {
     console.error('Send to all users error:', error);

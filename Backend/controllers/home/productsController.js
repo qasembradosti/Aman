@@ -1,5 +1,6 @@
 import Product from '../../models/product.js';
 import ProductImage from '../../models/productImage.js';
+import ProductVideo from '../../models/productVideo.js';
 import Notification from '../../models/notification.js';
 import db from '../../config/knex.js';
 
@@ -17,6 +18,13 @@ const toImageUrl = (baseUrl, imagePath) => {
   return `${baseUrl}/images/products/${imagePath}`;
 };
 
+const toVideoUrl = (baseUrl, videoPath) => {
+  if (!videoPath) return null;
+  if (String(videoPath).startsWith('http')) return videoPath;
+  if (String(videoPath).startsWith('/')) return `${baseUrl}${videoPath}`;
+  return `${baseUrl}/videos/products/${videoPath}`;
+};
+
 const listProductImages = async (req, productId) => {
   const baseUrl = getBaseUrl(req);
   const images = await ProductImage.listByProduct(productId);
@@ -32,26 +40,43 @@ const listProductImages = async (req, productId) => {
   });
 };
 
+const listProductVideos = async (req, productId) => {
+  const baseUrl = getBaseUrl(req);
+  const videos = await ProductVideo.listByProduct(productId);
+  return videos.map(vid => {
+    const videoUrl = toVideoUrl(baseUrl, vid.video_url);
+    return {
+      id: vid.id,
+      filename: vid.video_url,
+      url: videoUrl,
+      video_url: videoUrl,
+      is_main: !!vid.is_main
+    };
+  });
+};
+
 export const listProducts = async (req, res) => {
   try {
     const result = await Product.findAll(req.query);
     const products = result.data || result;
     
-    // Fetch images for each product
-    const productsWithImages = await Promise.all(
+    // Fetch images and videos for each product
+    const productsWithMedia = await Promise.all(
       products.map(async (product) => {
         const images = await listProductImages(req, product.id);
+        const videos = await listProductVideos(req, product.id);
         return {
           ...product,
-          images
+          images,
+          videos
         };
       })
     );
     
     if (result.data) {
-      res.json({ ...result, data: productsWithImages });
+      res.json({ ...result, data: productsWithMedia });
     } else {
-      res.json(productsWithImages);
+      res.json(productsWithMedia);
     }
   } catch (err) {
     res.status(500).json({ message: 'Failed to list products', error: err.message });
@@ -171,7 +196,8 @@ export const updateProduct = async (req, res) => {
     }
     
     const images = await listProductImages(req, product.id);
-    res.json({ ...product, images });
+    const videos = await listProductVideos(req, product.id);
+    res.json({ ...product, images, videos });
   } catch (err) {
     res.status(500).json({ message: 'Failed to update product', error: err.message });
   }
@@ -199,7 +225,8 @@ export const getProduct = async (req, res) => {
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
     const images = await listProductImages(req, product.id);
-    res.json({ ...product, images });
+    const videos = await listProductVideos(req, product.id);
+    res.json({ ...product, images, videos });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch product', error: err.message });
   }

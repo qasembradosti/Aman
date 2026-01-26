@@ -177,7 +177,7 @@ export default function HelpSupport() {
         ]}
       >
         <TouchableOpacity
-          onPress={() =>  router.push('/')}
+          onPress={() => router.canGoBack?.() ? router.back() : router.replace('/(tabs)/home')}
           style={styles.backButton}
         >
           <Ionicons

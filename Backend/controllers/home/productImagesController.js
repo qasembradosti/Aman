@@ -1,7 +1,5 @@
 import Product from '../../models/product.js';
 import ProductImage from '../../models/productImage.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
 const getBaseUrl = (req) => {
   const forwardedProto = req.headers['x-forwarded-proto'];
@@ -50,7 +48,9 @@ export const listProductImages = async (req, res) => {
     const rows = await ProductImage.listByProduct(id);
     const images = rows.map(r => {
       const url = toImageUrl(baseUrl, r.image_url);
-      return { id: r.id, filename: r.image_url, url, image_url: url, is_main: !!r.is_main };
+      return {
+        id: r.id, filename: r.image_url, url, image_url: url, is_main: !!r.is_main
+      };
     });
     res.json({ images });
   } catch (err) {

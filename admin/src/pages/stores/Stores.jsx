@@ -41,7 +41,16 @@ import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
-import { ConfirmDialog } from "../../components/ui/confirm-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
 import { Switch } from "../../components/ui/switch";
 
 const API_BASE =
@@ -380,7 +389,7 @@ const Stores = () => {
               {editingStore ? "Edit Store" : "Create New Store"}
             </DialogTitle>
           </DialogHeader>
-          <DialogBody>
+          <DialogBody className="space-y-5 max-h-[70vh] overflow-y-auto">
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Image Upload */}
               <div className="space-y-2">
@@ -570,17 +579,33 @@ const Stores = () => {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <ConfirmDialog
+      <AlertDialog
         open={deleteConfirm.open}
         onOpenChange={(open) =>
           setDeleteConfirm({ open, id: deleteConfirm.id })
         }
-        onConfirm={handleDeleteConfirm}
-        title="Delete Store"
-        description="Are you sure you want to delete this store? This action cannot be undone. Products associated with this store will have their store reference removed."
-        confirmText="Delete"
-        cancelText="Cancel"
-      />
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Store</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this store? This action cannot be
+              undone. Products associated with this store will have their store
+              reference removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setDeleteConfirm({ open: false, id: null })}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} variant="destructive">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

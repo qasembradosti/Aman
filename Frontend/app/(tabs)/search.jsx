@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -47,6 +47,7 @@ export default function Search() {
   const [recentSearches, setRecentSearches] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const navigationInProgress = useRef(false);
   
   // Redux state
   const { items: products, loading: productsLoading } = useSelector((state) => state.products);
@@ -257,7 +258,13 @@ export default function Search() {
                       },
                       pressed && { borderColor: theme.colors.primary },
                     ]}
-                    onPress={() => router.push(`/product/${product.id}`)}
+                    onPress={() => {
+                      if (!navigationInProgress.current) {
+                        navigationInProgress.current = true;
+                        router.push(`/product/${product.id}`);
+                        setTimeout(() => { navigationInProgress.current = false; }, 500);
+                      }
+                    }}
                   >
                     <Image
                       source={{

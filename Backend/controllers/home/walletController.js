@@ -1,5 +1,4 @@
 import Wallet from '../../models/wallet.js';
-import { ensureWalletTables } from '../../services/schemaSetup.js';
 import jwt from 'jsonwebtoken';
 
 export const getWallet = async (req, res) => {
@@ -41,7 +40,6 @@ export const getWallet = async (req, res) => {
     const missingTable = code === 'ER_NO_SUCH_TABLE' || /no such table/i.test(msg) || /does not exist/i.test(msg);
     if (missingTable) {
       try {
-        await ensureWalletTables();
         const wallet = await attempt();
         return res.json(wallet);
       } catch (e2) {

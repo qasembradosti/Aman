@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -92,6 +92,7 @@ export default function Products() {
   const { t, isRTL, language } = useLanguage();
   const { theme } = useTheme();
   const layout = useResponsiveLayout();
+  const navigationInProgress = useRef(false);
 
   const [dialog, setDialog] = useState({
     visible: false,
@@ -139,7 +140,7 @@ export default function Products() {
     setHasMore(true);
   }, [dispatch, routeCategory]);
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     const fetchParams = { limit: pageSize, offset: 0 };
     if (routeCategory && routeCategory !== "all") {
@@ -154,7 +155,7 @@ export default function Products() {
       .catch(() => setRefreshing(false));
   }, [dispatch, routeCategory]);
 
-  const loadMore = React.useCallback(() => {
+  const loadMore = useCallback(() => {
     if (loadingMore || !hasMore || productsLoading) return;
 
     setLoadingMore(true);
@@ -331,7 +332,7 @@ export default function Products() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
         <TouchableOpacity
-          onPress={() => router.push("/")}
+          onPress={() => router.canGoBack?.() ? router.back() : router.replace('/(tabs)/home')}
           style={styles.backButton}
         >
           <Ionicons
@@ -448,7 +449,13 @@ export default function Products() {
                   pressed && styles.productCardPressed,
                   pressed && { borderColor: theme.colors.primary },
                 ]}
-                onPress={() => router.push(`/product/${product.id}`)}
+                onPress={() => {
+                  if (!navigationInProgress.current) {
+                    navigationInProgress.current = true;
+                    router.push(`/product/${product.id}`);
+                    setTimeout(() => { navigationInProgress.current = false; }, 500);
+                  }
+                }}
               >
                 <View
                   style={[

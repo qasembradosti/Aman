@@ -47,6 +47,7 @@ app.use(cors());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
+app.use('/videos', express.static(path.join(__dirname, 'public', 'videos')));
 app.use('/documents', express.static(path.join(__dirname, 'public', 'documents')));
 app.use('/avatars', express.static(path.join(__dirname, 'public', 'avatars')));
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));

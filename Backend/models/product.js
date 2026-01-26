@@ -31,8 +31,12 @@ const Product = {
     // Search filter
     if (q) {
       query.where(function () {
-        this.whereILike('products.name', `%${q}%`)
-          .orWhereILike('products.description', `%${q}%`);
+        this.whereILike('products.name_en', `%${q}%`)
+          .orWhereILike('products.name_ku', `%${q}%`)
+          .orWhereILike('products.name_ar', `%${q}%`)
+          .orWhereILike('products.description_en', `%${q}%`)
+          .orWhereILike('products.description_ku', `%${q}%`)
+          .orWhereILike('products.description_ar', `%${q}%`)
       });
     }
 
@@ -64,7 +68,7 @@ const Product = {
     const total = Number(totalRow?.total || 0);
 
     // Apply sorting and pagination
-    const validSortFields = ['created_at', 'base_price', 'name'];
+    const validSortFields = ['created_at', 'base_price', 'name_en'];
     const sortField = validSortFields.includes(sort) ? sort : 'created_at';
     const sortOrder = order === 'asc' ? 'asc' : 'desc';
 
@@ -103,15 +107,21 @@ const Product = {
   // Create a new product
   create: async (productData) => {
     const {
-      name,
+      name_en,
+      name_ku,  
+      name_ar,
       category_id,
       brand_id,
       base_price,
       sell_price,
       commission_price,
       in_stock,
-      description,
-      key_features,
+      description_en,
+      description_ku,
+      description_ar,
+      key_features_en,
+      key_features_ku,
+      key_features_ar,
       discount,
       discount_type,
       discount_expires,
@@ -121,20 +131,23 @@ const Product = {
       colors,
     } = productData;
 
-    if (!name || base_price == null) {
-      throw new Error('name and base_price are required');
-    }
 
     const [id] = await db('products').insert({
-      name,
+      name_en,
+      name_ku,  
+      name_ar,
       category_id: category_id || null,
       brand_id: brand_id || null,
       base_price,
       sell_price: sell_price || null,
       commission_price: commission_price || null,
       in_stock: in_stock !== undefined ? in_stock : true,
-      description: description || null,
-      key_features: key_features ? JSON.stringify(key_features) : null,
+      description_ku: description_ku || null,
+      description_en: description_en || null,
+      description_ar: description_ar || null,
+      key_features_en: key_features_en ? JSON.stringify(key_features_en) : null,
+      key_features_ku: key_features_ku ? JSON.stringify(key_features_ku) : null,
+      key_features_ar: key_features_ar ? JSON.stringify(key_features_ar) : null,
       discount: discount || 0,
       discount_type: discount_type || 'percentage',
       discount_expires: discount_expires || null,

@@ -240,7 +240,7 @@ export default function CategoriesScreen() {
         ]}
       >
         <TouchableOpacity 
-          onPress={() => selectedParent ? setSelectedParent(null) : ( router.push('/'))} 
+          onPress={() => selectedParent ? setSelectedParent(null) : (router.canGoBack?.() ? router.back() : router.replace('/(tabs)/home'))} 
           style={[
             styles.headerButton,
             {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import { productService } from "../services/productService";
 import { orderService } from "../services/orderService";
 import { translations, getDirection, getAlign } from "../utils/translations";
@@ -41,13 +41,13 @@ const ImageSlider = ({ images }) => {
 
   const goToPrevious = () => {
     setCurrentIndex((prevIndex) =>
-      prevIndex === 0 ? imageList.length - 1 : prevIndex - 1
+      prevIndex === 0 ? imageList.length - 1 : prevIndex - 1,
     );
   };
 
   const goToNext = () => {
     setCurrentIndex((prevIndex) =>
-      prevIndex === imageList.length - 1 ? 0 : prevIndex + 1
+      prevIndex === imageList.length - 1 ? 0 : prevIndex + 1,
     );
   };
 
@@ -155,7 +155,7 @@ const ImageSlider = ({ images }) => {
 
 const Checkout = () => {
   const navigate = useNavigate();
-  
+
   // Get URL parameters
   const urlParams = new URLSearchParams(window.location.search);
   const productId = urlParams.get("productId");
@@ -163,7 +163,7 @@ const Checkout = () => {
 
   // Language state
   const [language, setLanguage] = useState(() => {
-    return localStorage.getItem('language') || 'en';
+    return localStorage.getItem("language") || "en";
   });
   const t = translations[language];
   const dir = getDirection(language);
@@ -191,7 +191,7 @@ const Checkout = () => {
 
   // Save language preference
   useEffect(() => {
-    localStorage.setItem('language', language);
+    localStorage.setItem("language", language);
     document.documentElement.dir = dir;
     document.documentElement.lang = language;
   }, [language, dir]);
@@ -205,7 +205,7 @@ const Checkout = () => {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentProducts = relatedProducts.slice(
     indexOfFirstItem,
-    indexOfLastItem
+    indexOfLastItem,
   );
   const totalPages = Math.ceil(relatedProducts.length / itemsPerPage);
 
@@ -304,7 +304,7 @@ const Checkout = () => {
       const related = await productService.getRelatedProducts(
         brandId,
         categoryId,
-        excludeId
+        excludeId,
       );
       setRelatedProducts(related);
     } catch (err) {
@@ -320,7 +320,7 @@ const Checkout = () => {
 
     if (existingItem) {
       if (existingItem.quantity >= stock) {
-        setCartError(t.stockError.replace('{stock}', stock));
+        setCartError(t.stockError.replace("{stock}", stock));
         setTimeout(() => setCartError(null), 3000);
         return;
       }
@@ -328,8 +328,8 @@ const Checkout = () => {
         cart.map((item) =>
           item.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
-            : item
-        )
+            : item,
+        ),
       );
     } else {
       setCart([...cart, { ...product, quantity: 1 }]);
@@ -351,14 +351,16 @@ const Checkout = () => {
     if (item) {
       const stock = item.stock || item.quantity_in_stock || 999;
       if (quantity > stock) {
-        setCartError(t.stockError.replace('{stock}', stock));
+        setCartError(t.stockError.replace("{stock}", stock));
         setTimeout(() => setCartError(null), 3000);
         return;
       }
     }
 
     setCart(
-      cart.map((item) => (item.id === productId ? { ...item, quantity } : item))
+      cart.map((item) =>
+        item.id === productId ? { ...item, quantity } : item,
+      ),
     );
     setCartError(null);
   };
@@ -406,7 +408,7 @@ const Checkout = () => {
 
     // Validate userId
     if (!userId) {
-      toast.error('User ID is required. Please check the URL.');
+      toast.error("User ID is required. Please check the URL.");
       return;
     }
 
@@ -437,30 +439,34 @@ const Checkout = () => {
         items: items,
         total_amount: totalPrice,
         shipping_address: shipping_address,
-        payment_method: 'cash_on_delivery',
+        payment_method: "cash_on_delivery",
         notes: `Delivery Price: ${formData.delivery_price}, Commission: ${formData.commission_price}`,
         status: "pending",
       };
 
-      console.log('Creating order:', orderData);
+      console.log("Creating order:", orderData);
       const response = await orderService.createOrder(orderData);
-      console.log('Order response:', response);
+      console.log("Order response:", response);
 
       toast.success(
-        t.orderSuccess.replace('{total}', `${totalPrice.toLocaleString()} ${t.currency}`),
-        { duration: 3000 }
+        t.orderSuccess.replace(
+          "{total}",
+          `${totalPrice.toLocaleString()} ${t.currency}`,
+        ),
+        { duration: 3000 },
       );
 
       // Clear cart
       setCart([]);
-      
+
       // Redirect to success page with order ID
       setTimeout(() => {
         navigate(`/success?orderId=${response.orderId}`);
       }, 1000);
     } catch (err) {
-      console.error('Order creation error:', err);
-      const errorMessage = err.response?.data?.message || err.message || t.orderFailed;
+      console.error("Order creation error:", err);
+      const errorMessage =
+        err.response?.data?.message || err.message || t.orderFailed;
       toast.error(errorMessage);
     } finally {
       setSubmitting(false);
@@ -492,7 +498,11 @@ const Checkout = () => {
               Page Not Found
             </h1>
             <p className="text-lg text-gray-600 mb-2">
-              {!userId && !productId ? 'User ID and Product ID are required.' : !userId ? 'User ID is required.' : 'Product ID is required.'}
+              {!userId && !productId
+                ? "User ID and Product ID are required."
+                : !userId
+                  ? "User ID is required."
+                  : "Product ID is required."}
             </p>
             <p className="text-sm text-gray-500">
               Please check the URL and try again.
@@ -569,9 +579,7 @@ const Checkout = () => {
             <h1 className="text-3xl font-bold text-gray-800 mb-3">
               {t.productNotFound}
             </h1>
-            <p className="text-lg text-gray-600">
-              {t.productNotFoundDesc}
-            </p>
+            <p className="text-lg text-gray-600">{t.productNotFoundDesc}</p>
           </div>
         </div>
       </div>
@@ -579,37 +587,40 @@ const Checkout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-primary-50 via-blue-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8" dir={dir}>
+    <div
+      className="min-h-screen bg-linear-to-br from-primary-50 via-blue-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8"
+      dir={dir}
+    >
       <div className="max-w-7xl mx-auto">
         {/* Language Switcher */}
         <div className="flex justify-end mb-6">
           <div className="bg-white rounded-xl shadow-lg p-1.5 sm:p-2 flex gap-1 sm:gap-2 overflow-x-auto">
             <button
-              onClick={() => changeLanguage('en')}
+              onClick={() => changeLanguage("en")}
               className={`px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base whitespace-nowrap ${
-                language === 'en'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                language === "en"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-600 hover:bg-gray-100"
               }`}
             >
               English
             </button>
             <button
-              onClick={() => changeLanguage('ar')}
+              onClick={() => changeLanguage("ar")}
               className={`px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base whitespace-nowrap ${
-                language === 'ar'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                language === "ar"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-600 hover:bg-gray-100"
               }`}
             >
               العربية
             </button>
             <button
-              onClick={() => changeLanguage('ku')}
+              onClick={() => changeLanguage("ku")}
               className={`px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base whitespace-nowrap ${
-                language === 'ku'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                language === "ku"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-600 hover:bg-gray-100"
               }`}
             >
               کوردی
@@ -728,7 +739,9 @@ const Checkout = () => {
                   </div>
                 </div>
 
-                {(product.description || product.description_en || product.description_ar || product.description_ku) && (
+                {(product.description_en ||
+                  product.description_ar ||
+                  product.description_ku) && (
                   <div className="bg-gray-50 rounded-xl p-6">
                     <h4 className="text-lg font-bold gap-2 text-gray-900 mb-3 flex items-center">
                       <svg
@@ -747,11 +760,11 @@ const Checkout = () => {
                       <p>{t.productDescription}</p>
                     </h4>
                     <p className="text-gray-700 leading-relaxed text-base">
-                      {language === 'en' 
-                        ? (product.description_en || product.description)
-                        : language === 'ar'
-                        ? (product.description_ar || product.description)
-                        : (product.description || product.description_ku)}
+                      {language === "en"
+                        ? product.description_en
+                        : language === "ar"
+                          ? product.description_ar
+                          : product.description_ku}
                     </p>
                   </div>
                 )}
@@ -849,7 +862,10 @@ const Checkout = () => {
                       d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"
                     />
                   </svg>
-                  <span>{t.quantity} <span className="text-red-500 ml-1">{t.required}</span></span>
+                  <span>
+                    {t.quantity}{" "}
+                    <span className="text-red-500 ml-1">{t.required}</span>
+                  </span>
                 </label>
                 <input
                   type="number"
@@ -882,7 +898,10 @@ const Checkout = () => {
                       d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
                     />
                   </svg>
-                  <span>{t.city} <span className="text-red-500 ml-1">{t.required}</span></span>
+                  <span>
+                    {t.city}{" "}
+                    <span className="text-red-500 ml-1">{t.required}</span>
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -915,7 +934,10 @@ const Checkout = () => {
                       d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
                     />
                   </svg>
-                  <span>{t.phone} <span className="text-red-500 ml-1">{t.required}</span></span>
+                  <span>
+                    {t.phone}{" "}
+                    <span className="text-red-500 ml-1">{t.required}</span>
+                  </span>
                 </label>
                 <input
                   type="tel"
@@ -954,7 +976,8 @@ const Checkout = () => {
                       d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                     />
                   </svg>
-                  {t.address} <span className="text-red-500 ml-1">{t.required}</span>
+                  {t.address}{" "}
+                  <span className="text-red-500 ml-1">{t.required}</span>
                 </label>
                 <textarea
                   id="address"
@@ -1057,7 +1080,9 @@ const Checkout = () => {
                         <div className="flex gap-3">
                           {item.images && item.images[0] && (
                             <img
-                              src={item.images[0].url || item.images[0].image_url}
+                              src={
+                                item.images[0].url || item.images[0].image_url
+                              }
                               alt={item.title || item.name || "Product"}
                               className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg shrink-0"
                             />
@@ -1067,7 +1092,9 @@ const Checkout = () => {
                               {item.title || item.name || "Product"}
                             </h4>
                             <p className="text-xs sm:text-sm text-primary-600 font-semibold">
-                              {(item.sell_price || item.price)?.toLocaleString()}{" "}
+                              {(
+                                item.sell_price || item.price
+                              )?.toLocaleString()}{" "}
                               {t.currency}
                             </p>
                           </div>
@@ -1093,7 +1120,9 @@ const Checkout = () => {
                         </div>
                         {/* Quantity Controls Row */}
                         <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                          <span className="text-xs sm:text-sm text-gray-600 font-medium">Quantity:</span>
+                          <span className="text-xs sm:text-sm text-gray-600 font-medium">
+                            Quantity:
+                          </span>
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
@@ -1125,21 +1154,25 @@ const Checkout = () => {
 
                 <div className="space-y-3">
                   <div className="flex justify-between items-center text-gray-700 bg-white rounded-lg p-3 gap-2">
-                    <span className="font-semibold text-sm sm:text-base">{t.productsTotal}</span>
+                    <span className="font-semibold text-sm sm:text-base">
+                      {t.productsTotal}
+                    </span>
                     <span className="font-bold text-gray-900 text-sm sm:text-base text-right">
                       {cart
                         .reduce(
                           (sum, item) =>
                             sum +
                             (item.sell_price || item.price) * item.quantity,
-                          0
+                          0,
                         )
                         .toLocaleString()}{" "}
                       {t.currency}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-gray-700 bg-white rounded-lg p-3 gap-2">
-                    <span className="font-semibold text-sm sm:text-base">{t.deliveryFee}</span>
+                    <span className="font-semibold text-sm sm:text-base">
+                      {t.deliveryFee}
+                    </span>
                     <span className="font-bold text-gray-900 text-sm sm:text-base text-right">
                       {formData.delivery_price.toLocaleString()} {t.currency}
                     </span>

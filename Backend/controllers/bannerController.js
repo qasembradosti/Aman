@@ -60,12 +60,25 @@ export const getBannerById = async (req, res) => {
 // Create banner
 export const createBanner = async (req, res) => {
   try {
-    const { title, subtitle, image_url, link_url, is_active, display_order } = req.body;
+    const { title, subtitle, link_url, is_active, display_order } = req.body;
 
-    if (!title || !image_url) {
+    if (!title) {
       return res.status(400).json({
         success: false,
-        message: 'Title and image URL are required'
+        message: 'Title is required'
+      });
+    }
+
+    // Check if image file was uploaded
+    let image_url = null;
+    if (req.file) {
+      image_url = `/images/products/${req.file.filename}`;
+    } else if (req.body.image_url) {
+      image_url = req.body.image_url;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Image is required'
       });
     }
 
@@ -97,7 +110,7 @@ export const createBanner = async (req, res) => {
 export const updateBanner = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, subtitle, image_url, link_url, is_active, display_order } = req.body;
+    const { title, subtitle, link_url, is_active, display_order } = req.body;
 
     const existingBanner = await Banner.getById(id);
     if (!existingBanner) {
@@ -110,10 +123,16 @@ export const updateBanner = async (req, res) => {
     const bannerData = {};
     if (title !== undefined) bannerData.title = title;
     if (subtitle !== undefined) bannerData.subtitle = subtitle;
-    if (image_url !== undefined) bannerData.image_url = image_url;
     if (link_url !== undefined) bannerData.link_url = link_url;
     if (is_active !== undefined) bannerData.is_active = is_active;
     if (display_order !== undefined) bannerData.display_order = display_order;
+    
+    // Handle image update
+    if (req.file) {
+      bannerData.image_url = `/images/products/${req.file.filename}`;
+    } else if (req.body.image_url !== undefined) {
+      bannerData.image_url = req.body.image_url;
+    }
 
     const banner = await Banner.update(id, bannerData);
     res.status(200).json({

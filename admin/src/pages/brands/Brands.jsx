@@ -35,7 +35,16 @@ import { Textarea } from "../../components/ui/textarea";
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
 import { Switch } from "../../components/ui/switch";
-import { ConfirmDialog } from "../../components/ui/confirm-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
 
 const Brands = () => {
   const [brands, setBrands] = useState([]);
@@ -550,20 +559,38 @@ const Brands = () => {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <ConfirmDialog
+      <AlertDialog
         open={deleteConfirm.open}
         onOpenChange={(open) =>
           setDeleteConfirm({ open, id: deleteConfirm.id })
         }
-        onConfirm={() => handleDelete(deleteConfirm.id)}
-        confirmButtonProps={{ disabled: deleting }}
-        title="Delete Brand"
-        description={
-          deleting
-            ? "Deleting brand..."
-            : "Are you sure you want to delete this brand? This action cannot be undone."
-        }
-      />
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Brand</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleting
+                ? "Deleting brand..."
+                : "Are you sure you want to delete this brand? This action cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setDeleteConfirm({ open: false, id: null })}
+              disabled={deleting}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => handleDelete(deleteConfirm.id)}
+              disabled={deleting}
+              variant="destructive"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

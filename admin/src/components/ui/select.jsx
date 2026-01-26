@@ -57,7 +57,7 @@ function SelectContent({
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
-          "bg-white text-gray-900 relative z-[9999] max-h-96 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-md border border-gray-200 shadow-lg",
+          "bg-white text-gray-900 relative z-9999 max-h-96 min-w-(--radix-select-trigger-width) overflow-hidden rounded-md border border-gray-200 shadow-lg",
           className
         )}
         position={position}
@@ -92,7 +92,7 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-gray-100 focus:text-gray-900 hover:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-gray-100 focus:text-gray-900 hover:bg-gray-100 data-disabled:pointer-events-none data-disabled:opacity-50",
         className
       )}
       {...props}>

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   StyleSheet,
@@ -68,7 +68,7 @@ export default function ProductSlider({ products, title }) {
 }
 
 function ProductCard({ product, onPress, theme, isDark }) {
-  const [isFavorite, setIsFavorite] = React.useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   // Get first image or fallback
   const imageUrl = getProductImageUrl(

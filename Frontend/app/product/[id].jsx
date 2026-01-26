@@ -35,13 +35,16 @@ export default function ProductDetail() {
   const router = useRouter();
   const dispatch = useDispatch();
   const layout = useResponsiveLayout();
-  const { t, isRTL, language } = useLanguage();
+  const { t, isRTL, locale } = useLanguage();
   const rowDirection = isRTL ? "row-reverse" : "row";
   const textAlign = isRTL ? "right" : "left";
+  const navigationInProgress = useRef(false);
 
   // Helper function to get localized text
   const getLocalizedText = (product, field) => {
-    const localizedField = `${field}_${language}`;
+    // Ensure language has a default fallback
+    const lang = locale;
+    const localizedField = `${field}_${lang}`;
     return product[localizedField] || product[field] || "";
   };
   // Robust theme access: fall back to safe defaults if provider isn't mounted
@@ -131,7 +134,7 @@ export default function ProductDetail() {
       return {
         id: dbProduct.id,
         name: getLocalizedText(dbProduct, "name"),
-        price: dbProduct.price,
+        price: dbProduct.sell_price,
         base_price: dbProduct.base_price,
         originalPrice:
           dbProduct.original_price ||
@@ -174,7 +177,7 @@ export default function ProductDetail() {
       };
     }
     return null;
-  }, [dbProduct, id, language]);
+  }, [dbProduct, id, locale]);
 
   // Fetch reviews and rating summary
   useEffect(() => {
@@ -370,7 +373,11 @@ export default function ProductDetail() {
             backgroundColor: theme.colors.primary,
             borderRadius: 8,
           }}
-          onPress={() => router.push("/")}
+          onPress={() =>
+            router.canGoBack?.()
+              ? router.back()
+              : router.replace("/(tabs)/home")
+          }
         >
           <Text style={{ color: "#fff" }}>Go Back</Text>
         </TouchableOpacity>
@@ -400,7 +407,11 @@ export default function ProductDetail() {
               backgroundColor: theme.colors.background + "DD",
             },
           ]}
-          onPress={() => router.push("/")}
+          onPress={() =>
+            router.canGoBack?.()
+              ? router.back()
+              : router.replace("/(tabs)/home")
+          }
         >
           <Ionicons
             name={isRTL ? "arrow-forward" : "arrow-back"}
@@ -412,7 +423,7 @@ export default function ProductDetail() {
           style={[styles.floatingHeaderTitle, { color: theme.colors.text }]}
           numberOfLines={1}
         >
-          {product.name}
+          {getLocalizedText(product, "name")}
         </Text>
         <TouchableOpacity
           style={[
@@ -437,7 +448,11 @@ export default function ProductDetail() {
               styles.overlayButton,
               { backgroundColor: "rgba(0,0,0,0.5)" },
             ]}
-            onPress={() => router.push("/")}
+            onPress={() =>
+              router.canGoBack?.()
+                ? router.back()
+                : router.replace("/(tabs)/home")
+            }
           >
             <Ionicons
               name={isRTL ? "arrow-forward" : "arrow-back"}
@@ -570,35 +585,20 @@ export default function ProductDetail() {
                   color: theme.colors.text,
                   fontSize: layout.typography["2xl"],
                   marginBottom: layout.spacing.xs,
-                  textAlign: isRTL ? "right" : "left",
+                  direction: isRTL ? "rtl" : "ltr",
                 },
               ]}
             >
-              {product.name}
+              {getLocalizedText(product, "name")}
             </Text>
-
-            {/* Model Number */}
-            <Text
-              style={[
-                styles.modelText,
-                {
-                  color: theme.colors.textSecondary,
-                  fontSize: layout.typography.sm,
-                  marginBottom: layout.spacing.md,
-                  textAlign: isRTL ? "right" : "left",
-                },
-              ]}
-            >
-              {t("model") || "Model"}: {product.model}
-            </Text>
-
             {/* Rating & Reviews */}
             <View
               style={[
                 styles.ratingRow,
                 {
                   marginBottom: layout.spacing.md,
-                  flexDirection: rowDirection,
+                  flexDirection: "row",
+                  direction: isRTL ? "rtl" : "ltr",
                 },
               ]}
             >
@@ -734,12 +734,7 @@ export default function ProductDetail() {
 
             {/* Price Section */}
             <View style={styles.priceSection}>
-              <View
-                style={[
-                  styles.priceRow,
-                  { flexDirection: isRTL ? "row-reverse" : "row" },
-                ]}
-              >
+              <View style={[styles.priceRow]}>
                 <View
                   style={[
                     styles.priceDetails,
@@ -758,7 +753,9 @@ export default function ProductDetail() {
                       },
                     ]}
                   >
-                    ${product.base_price}
+                    {isRTL
+                      ? `${product.base_price} دینار`
+                      : `${product.base_price} IQD`}
                   </Text>
                 </View>
               </View>
@@ -791,7 +788,7 @@ export default function ProductDetail() {
                       },
                     ]}
                   >
-                    {t("sellerBonus") || "Seller Bonus"}: ${product.bonus}
+                    {t("sellerBonus")}: ${product.bonus}
                   </Text>
                 </View>
               )}
@@ -816,6 +813,7 @@ export default function ProductDetail() {
               <Ionicons
                 name="information-circle"
                 size={24}
+                style={{ direction: isRTL ? "rtl" : "ltr" }}
                 color={theme.colors.primary}
               />
               <Text
@@ -826,11 +824,10 @@ export default function ProductDetail() {
                     fontSize: layout.typography.xl,
                     marginLeft: isRTL ? 0 : layout.spacing.sm,
                     marginRight: isRTL ? layout.spacing.sm : 0,
-                    direction: isRTL ? "rtl" : "ltr",
                   },
                 ]}
               >
-                {t("aboutProduct") || "About Product"}
+                {t("aboutProduct")}
               </Text>
             </View>
             <Text
@@ -1347,7 +1344,15 @@ export default function ProductDetail() {
                         transform: [{ translateY: -2 }, { scale: 0.98 }],
                       },
                     ]}
-                    onPress={() => router.push(`/product/${item.id}`)}
+                    onPress={() => {
+                      if (!navigationInProgress.current) {
+                        navigationInProgress.current = true;
+                        router.push(`/product/${item.id}`);
+                        setTimeout(() => {
+                          navigationInProgress.current = false;
+                        }, 500);
+                      }
+                    }}
                   >
                     <View style={styles.relatedProductImage}>
                       <Image
@@ -1370,7 +1375,7 @@ export default function ProductDetail() {
                         ]}
                         numberOfLines={2}
                       >
-                        {item.name}
+                        {getLocalizedText(item, "name")}
                       </Text>
                       <View
                         style={[
@@ -1622,8 +1627,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "transparent",
   },
-  colorText: {
-  },
+  colorText: {},
   priceSection: {
     marginTop: 4,
   },
@@ -1638,9 +1642,7 @@ const styles = StyleSheet.create({
     gap: 4,
     alignItems: "flex-start",
   },
-  originalPrice: {
-    textDecorationLine: "line-through",
-  },
+  originalPrice: {},
   discountBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,

@@ -3,7 +3,16 @@ import { useDispatch, useSelector } from 'react-redux';
 import { logoutAdmin } from '../store/slices/authSlice';
 import { useState } from 'react';
 import { Home, Package, FolderTree, ShoppingCart, MessageSquare, Bell, Users, LogOut, Menu, Image, Tag, Store, Wallet } from 'lucide-react';
-import { ConfirmDialog } from '../components/ui/confirm-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: Home },
@@ -95,16 +104,27 @@ const DashboardLayout = () => {
       </div>
 
       {/* Logout Confirmation Dialog */}
-      <ConfirmDialog
+      <AlertDialog
         open={showLogoutConfirm}
         onOpenChange={setShowLogoutConfirm}
-        onConfirm={handleLogout}
-        title="Logout"
-        message="Are you sure you want to logout?"
-        confirmText="Logout"
-        cancelText="Cancel"
-        variant="warning"
-      />
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Logout</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to logout?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowLogoutConfirm(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleLogout}>
+              Logout
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
