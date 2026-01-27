@@ -103,6 +103,8 @@ export default function DiscountProductSlider() {
 }
 
 function DiscountProductCard({ product, onPress, theme, isDark }) {
+  const { isRTL } = useLanguage();
+  
   // Image selection consistent with Home
   const imageUrl = getProductImageUrl(
     product,
@@ -180,7 +182,9 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
         <View style={styles.priceRow}>
           <View style={styles.priceColumn}>
             <Text style={[styles.price, { color: theme.colors.primary }]}>
-              {Number.isFinite(sell) ? `$${sell}` : ""}
+              {isRTL
+                ? `${sell} دینار `
+                : `${sell} IQD`}
             </Text>
             {Number.isFinite(base) &&
             base > (Number.isFinite(sell) ? sell : 0) ? (
@@ -191,8 +195,8 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
                 ]}
               >
                 {isRTL
-                  ? `${product.base_price} دینار `
-                  : `${product.base_price} IQD`}
+                  ? `${base} دینار `
+                  : `${base} IQD`}
               </Text>
             ) : null}
           </View>

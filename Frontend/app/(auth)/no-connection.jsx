@@ -128,7 +128,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '800',
     color: '#ffffff',
     marginBottom: 16,
     textAlign: 'center',
@@ -152,7 +151,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#ee7301ff',
   },
   autoCheckText: {

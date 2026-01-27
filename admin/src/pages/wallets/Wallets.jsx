@@ -130,8 +130,8 @@ export default function Wallets() {
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    }).format(amount || 0);
+      maximumFractionDigits: 0
+    }).format(amount || 0) + ' IQD';
   };
 
   return (
@@ -159,7 +159,7 @@ export default function Wallets() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Balance</p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalBalance)} IQD</p>
+                <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalBalance)}</p>
               </div>
               <DollarSign className="w-10 h-10 text-green-500" />
             </div>
@@ -169,7 +169,7 @@ export default function Wallets() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Average Balance</p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.avgBalance)} IQD</p>
+                <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.avgBalance)}</p>
               </div>
               <TrendingUp className="w-10 h-10 text-purple-500" />
             </div>
@@ -352,7 +352,7 @@ export default function Wallets() {
             </DialogTitle>
           </DialogHeader>
 
-          <DialogBody className="space-y-4">
+          <DialogBody className="space-y-4 p-2">
             {selectedWallet && (
               <>
                 <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -364,7 +364,7 @@ export default function Wallets() {
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Current Balance</p>
                   <p className="font-semibold text-lg text-gray-900 dark:text-white">
-                    {formatCurrency(selectedWallet.balance)} {selectedWallet.currency}
+                    {formatCurrency(selectedWallet.balance)}
                   </p>
                 </div>
 
@@ -372,7 +372,7 @@ export default function Wallets() {
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="amount">
-                        Amount ({selectedWallet.currency})
+                        Amount (IQD)
                       </Label>
                       <input
                         id="amount"

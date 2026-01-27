@@ -444,7 +444,6 @@ const toastStyles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontWeight: '600',
     marginBottom: 2,
   },
   body: {

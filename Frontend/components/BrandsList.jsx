@@ -1,20 +1,27 @@
-import React from 'react';
-import { View, Text, FlatList, TouchableOpacity, Image, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import React from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function BrandsList({ brands = [] }) {
   const router = useRouter();
 
   const handleBrandPress = (brand) => {
     router.push({
-      pathname: '/brand/[id]',
-      params: { id: brand.id, name: brand.name }
+      pathname: "/brand/[id]",
+      params: { id: brand.id, name: brand.name },
     });
   };
 
   const handleSeeAll = () => {
-    router.push('/brands');
+    router.push("/brands");
   };
 
   const renderBrandItem = ({ item }) => (
@@ -71,28 +78,26 @@ const styles = StyleSheet.create({
     marginVertical: 16,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
     marginBottom: 12,
   },
   title: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    color: "#333",
   },
   seeAllText: {
     fontSize: 14,
-    color: '#007AFF',
-    fontWeight: '500',
+    color: "#007AFF",
   },
   listContainer: {
     paddingHorizontal: 16,
     gap: 12,
   },
   brandItem: {
-    alignItems: 'center',
+    alignItems: "center",
     marginRight: 16,
     width: 80,
   },
@@ -100,11 +105,11 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -116,15 +121,15 @@ const styles = StyleSheet.create({
     borderRadius: 24,
   },
   placeholderLogo: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   brandName: {
     fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
     maxWidth: 80,
   },
 });

@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
@@ -13,9 +14,9 @@ import Text from "../../components/ui/Text";
 import apiService from "../../services/apiService";
 import { useLanguage } from "../../utils/LanguageContext";
 import { useTheme } from "../../utils/ThemeContext";
+import { getApiBaseUrl } from "../../utils/apiConfig";
 // Use theme.colors.primary instead of direct constant
 import * as Haptics from "expo-haptics";
-
 
 const computeRanked = (list) =>
   list
@@ -76,10 +77,21 @@ function SegmentedControl({ options, value, onChange, theme }) {
 function Podium({ top3, theme }) {
   if (!top3?.length) return null;
   const [first, second, third] = top3;
+  const API_BASE_URL = getApiBaseUrl();
+
+  const getUserAvatarUrl = (user) => {
+    if (user?.avatar_url) {
+      return user.avatar_url.startsWith("http")
+        ? user.avatar_url
+        : `${API_BASE_URL}${user.avatar_url}`;
+    }
+    return null;
+  };
+
   const PodiumCard = ({ user, rank, size = 64, accent = "#C0C0C0" }) => (
     <View style={[styles.podiumCard, { backgroundColor: theme.colors.card }]}>
       <View style={{ alignItems: "center" }}>
-        <View style={{ position: "absolute", top: -10 }}>
+        <View style={{ position: "absolute", top: -10, zIndex: 1 }}>
           {rank === 1 ? (
             <FontAwesome6 name="crown" size={20} color="#F5C542" />
           ) : (
@@ -90,7 +102,21 @@ function Podium({ top3, theme }) {
             />
           )}
         </View>
-        <Ionicons name="person-circle" size={size} color={accent} />
+        {getUserAvatarUrl(user) ? (
+          <Image
+            source={{ uri: getUserAvatarUrl(user) }}
+            style={{
+              width: size,
+              height: size,
+              borderRadius: size / 2,
+              borderWidth: 2,
+              borderColor: accent,
+            }}
+            resizeMode="cover"
+          />
+        ) : (
+          <Ionicons name="person-circle" size={size} color={accent} />
+        )}
         <Text
           style={[styles.podiumName, { color: theme.colors.text }]}
           numberOfLines={1}
@@ -102,7 +128,12 @@ function Podium({ top3, theme }) {
         </Text>
       </View>
       <View style={[styles.podiumBase, rank === 1 && styles.podiumBaseFirst]}>
-        <Text style={[styles.rankText, rank === 1 && { color: theme.colors.primary }]}>
+        <Text
+          style={[
+            styles.rankText,
+            rank === 1 && { color: theme.colors.primary },
+          ]}
+        >
           {rank}
         </Text>
       </View>
@@ -131,6 +162,17 @@ function Podium({ top3, theme }) {
 }
 
 function RankItem({ item, highlight, theme }) {
+  const API_BASE_URL = getApiBaseUrl();
+
+  const getUserAvatarUrl = (user) => {
+    if (user?.avatar_url) {
+      return user.avatar_url.startsWith("http")
+        ? user.avatar_url
+        : `${API_BASE_URL}${user.avatar_url}`;
+    }
+    return null;
+  };
+
   return (
     <View style={[styles.item, { backgroundColor: theme.colors.card }]}>
       <View style={[styles.rankBadge, highlight && styles.rankBadgeHighlight]}>
@@ -139,11 +181,25 @@ function RankItem({ item, highlight, theme }) {
         </Text>
       </View>
       <View style={styles.avatar}>
-        <Ionicons
-          name="person-circle"
-          size={36}
-          color={highlight ? theme.colors.primary : "#999"}
-        />
+        {getUserAvatarUrl(item) ? (
+          <Image
+            source={{ uri: getUserAvatarUrl(item) }}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              borderWidth: 1,
+              borderColor: highlight ? theme.colors.primary : "#ddd",
+            }}
+            resizeMode="cover"
+          />
+        ) : (
+          <Ionicons
+            name="person-circle"
+            size={36}
+            color={highlight ? theme.colors.primary : "#999"}
+          />
+        )}
       </View>
       <View style={styles.info}>
         <Text
@@ -177,32 +233,41 @@ export default function Rank() {
   const [period, setPeriod] = useState("allTime"); // 'weekly' | 'monthly' | 'yearly' | 'allTime'
   const [scope, setScope] = useState("global"); // 'global' | 'friends'
 
-  const fetchLeaderboard = useCallback(async (selectedPeriod = period) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const apiPeriod = selectedPeriod === 'allTime' ? 'all' : selectedPeriod; // map UI to API
-      const res = await apiService.get('/api/wallet/leaderboard', { params: { limit: 50, period: apiPeriod } });
-      const rows = Array.isArray(res.data) ? res.data : [];
-      // Filter out superadmin users and normalize
-      const normalized = rows
-        .filter(r => r.role !== 'superadmin') // Filter out superadmin
-        .map(r => ({
-          id: r.id,
-          username: r.username,
-          balance: r.balance,
-          rank: r.rank,
-          netChange: r.netChange,
-        }));
-      setData(normalized);
-    } catch (e) {
-      console.warn('Failed to fetch leaderboard, using static fallback', e.message);
-      setError(e.message || 'Failed to load leaderboard');
-      setData(computeRanked(STATIC_LEADERBOARD));
-    } finally {
-      setLoading(false);
-    }
-  }, [period]);
+  const fetchLeaderboard = useCallback(
+    async (selectedPeriod = period) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const apiPeriod = selectedPeriod === "allTime" ? "all" : selectedPeriod; // map UI to API
+        const res = await apiService.get("/api/wallet/leaderboard", {
+          params: { limit: 50, period: apiPeriod },
+        });
+        const rows = Array.isArray(res.data) ? res.data : [];
+        // Filter out superadmin users and normalize
+        const normalized = rows
+          .filter((r) => r.role !== "superadmin") // Filter out superadmin
+          .map((r) => ({
+            id: r.id,
+            username: r.username,
+            balance: r.balance,
+            rank: r.rank,
+            netChange: r.netChange,
+            avatar_url: r.avatar_url || null,
+          }));
+        setData(normalized);
+      } catch (e) {
+        console.warn(
+          "Failed to fetch leaderboard, using static fallback",
+          e.message,
+        );
+        setError(e.message || "Failed to load leaderboard");
+        setData(computeRanked(STATIC_LEADERBOARD));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [period],
+  );
 
   useEffect(() => {
     fetchLeaderboard(period);
@@ -283,14 +348,22 @@ export default function Rank() {
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         ListEmptyComponent={() => (
           <View style={styles.center}>
-            <Text>{loading ? (t?.("loading") || 'Loading...') : (t?.("noUsersYet") || "No users yet")}</Text>
+            <Text>
+              {loading
+                ? t?.("loading") || "Loading..."
+                : t?.("noUsersYet") || "No users yet"}
+            </Text>
           </View>
         )}
         ListFooterComponent={() => (
           <View style={{ marginTop: 12 }}>
             <View style={[styles.item, { backgroundColor: theme.colors.card }]}>
               <View style={[styles.rankBadge, styles.rankBadgeHighlight]}>
-                <Ionicons name="person" size={16} color={theme.colors.primary} />
+                <Ionicons
+                  name="person"
+                  size={16}
+                  color={theme.colors.primary}
+                />
               </View>
               <View style={styles.avatar}>
                 <Ionicons name="person-circle" size={36} color="#999" />
@@ -308,17 +381,27 @@ export default function Rank() {
                     { color: theme.colors.textSecondary },
                   ]}
                 >
-                  #{data.findIndex((u) => u.id === 1) + 1} {t?.("of") || "of"} {" "}
+                  #{data.findIndex((u) => u.id === 1) + 1} {t?.("of") || "of"}{" "}
                   {data.length}
                 </Text>
-                {period !== 'allTime' && (
-                  <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-                    {(period === 'weekly'
-                      ? (t?.('thisWeek') || 'This week')
-                      : period === 'monthly'
-                        ? (t?.('thisMonth') || 'This month')
-                        : (t?.('thisYear') || 'This year')
-                    )}: {typeof data[0]?.netChange === 'number' ? (data[0].netChange >= 0 ? '+' : '') + '$' + data[0].netChange.toFixed(2) : '—'}
+                {period !== "allTime" && (
+                  <Text
+                    style={[
+                      styles.subtitle,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    {period === "weekly"
+                      ? t?.("thisWeek") || "This week"
+                      : period === "monthly"
+                        ? t?.("thisMonth") || "This month"
+                        : t?.("thisYear") || "This year"}
+                    :{" "}
+                    {typeof data[0]?.netChange === "number"
+                      ? (data[0].netChange >= 0 ? "+" : "") +
+                        "$" +
+                        data[0].netChange.toFixed(2)
+                      : "—"}
                   </Text>
                 )}
               </View>
@@ -329,9 +412,13 @@ export default function Rank() {
               </View>
             </View>
             {!!error && (
-              <View style={{ marginTop: 8, alignItems: 'center' }}>
-                <Text style={{ fontSize: 12, color: theme.colors.textSecondary }}>
-                  {t?.('errorLoadingLeaderboard') || 'Error loading leaderboard'}: {error}
+              <View style={{ marginTop: 8, alignItems: "center" }}>
+                <Text
+                  style={{ fontSize: 12, color: theme.colors.textSecondary }}
+                >
+                  {t?.("errorLoadingLeaderboard") ||
+                    "Error loading leaderboard"}
+                  : {error}
                 </Text>
               </View>
             )}
@@ -363,7 +450,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginHorizontal: 2,
   },
-  segmentLabel: { fontSize: 13, fontWeight: "600" },
+  segmentLabel: { fontSize: 13 },
   item: {
     flexDirection: "row",
     alignItems: "center",
@@ -382,10 +469,12 @@ const styles = StyleSheet.create({
   },
   rankBadgeHighlight: { backgroundColor: "#E8E9F8" },
   rankText: { fontSize: 16, color: "#333" },
-  rankTextHighlight: { /* color applied inline via theme when used */ },
+  rankTextHighlight: {
+    /* color applied inline via theme when used */
+  },
   avatar: { marginRight: 12 },
   info: { flex: 1 },
-  username: { fontSize: 16, fontWeight: "600" },
+  username: { fontSize: 16 },
   subtitle: { fontSize: 12 },
   balanceWrap: { marginLeft: 8 },
   balance: { fontSize: 16 /* color applied inline via theme */ },

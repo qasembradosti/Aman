@@ -1478,7 +1478,6 @@ export default function Orders() {
                           <Text
                             style={{
                               fontSize: layout.typography.md,
-                              fontWeight: isCompleted ? "600" : "400",
                               color: isCompleted
                                 ? theme.colors.text
                                 : theme.colors.textSecondary,

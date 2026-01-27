@@ -72,11 +72,21 @@ const Order = {
     const items = await db('order_items')
       .select(
         'order_items.*',
-        'products.name as product_name',
-        'products.description as product_description'
+        'products.name_en',
+        'products.name_ku',
+        'products.name_ar',
+        'products.description_en',
+        'products.description_ku',
+        'products.description_ar'
       )
       .leftJoin('products', 'order_items.product_id', 'products.id')
       .where('order_items.order_id', id);
+
+    // Add product_name field with priority: Kurdish > English > Arabic
+    items.forEach(item => {
+      item.product_name = item.name_ku || item.name_en || item.name_ar || 'N/A';
+      item.product_description = item.description_ku || item.description_en || item.description_ar || '';
+    });
 
     // Get product images for each item
     for (const item of items) {

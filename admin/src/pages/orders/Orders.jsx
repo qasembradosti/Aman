@@ -7,7 +7,16 @@ import {
   updateOrderStatus,
   withdrawCommission,
 } from "../../store/slices/ordersSlice";
-import { Eye, Loader2, Package, Search, Filter, X, Wallet, DollarSign } from "lucide-react";
+import {
+  Eye,
+  Loader2,
+  Package,
+  Search,
+  Filter,
+  X,
+  Wallet,
+  DollarSign,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -57,11 +66,13 @@ const Orders = () => {
     setShowDetailModal(true);
     setLoadingDetail(true);
     try {
-      const fullOrder = await dispatch(fetchOrder(order.id)).unwrap();      console.log('Full order data:', fullOrder);
-      console.log('Order items:', fullOrder.items);
+      const fullOrder = await dispatch(fetchOrder(order.id)).unwrap();
+      console.log("Full order data:", fullOrder);
+      console.log("Order items:", fullOrder.items);
       if (fullOrder.items && fullOrder.items.length > 0) {
-        console.log('First item image:', fullOrder.items[0].image);
-      }      setSelectedOrder(fullOrder);
+        console.log("First item image:", fullOrder.items[0].image);
+      }
+      setSelectedOrder(fullOrder);
     } catch (error) {
       console.error("Failed to fetch order details:", error);
       toast.error("Failed to load order details");
@@ -79,7 +90,7 @@ const Orders = () => {
   const handleStatusChange = async (orderId, newStatus) => {
     try {
       const result = await dispatch(
-        updateOrderStatus({ id: orderId, status: newStatus })
+        updateOrderStatus({ id: orderId, status: newStatus }),
       ).unwrap();
       console.log("Status update result:", result);
       toast.success("Order status updated successfully");
@@ -93,9 +104,13 @@ const Orders = () => {
     if (!selectedOrder) return;
 
     try {
-      const result = await dispatch(withdrawCommission(selectedOrder.id)).unwrap();
-      toast.success(`Commission $${result.commission.toFixed(2)} sent to user's wallet!`);
-      
+      const result = await dispatch(
+        withdrawCommission(selectedOrder.id),
+      ).unwrap();
+      toast.success(
+        `Commission $${result.commission.toFixed(2)} sent to user's wallet!`,
+      );
+
       // Refresh the order details
       const fullOrder = await dispatch(fetchOrder(selectedOrder.id)).unwrap();
       setSelectedOrder(fullOrder);
@@ -108,7 +123,7 @@ const Orders = () => {
   const calculateTotalCommission = (order) => {
     if (!order?.items) return 0;
     return order.items.reduce((sum, item) => {
-      return sum + (Number(item.commission_price || 0) * Number(item.quantity));
+      return sum + Number(item.commission_price || 0) * Number(item.quantity);
     }, 0);
   };
 
@@ -134,7 +149,7 @@ const Orders = () => {
   };
 
   const formatCurrency = (amount) => {
-    return `$${Number(amount || 0).toFixed(2)}`;
+    return `${Number(amount || 0).toLocaleString()} IQD`;
   };
 
   return (
@@ -375,6 +390,51 @@ const Orders = () => {
                           })()}
                         </p>
                       </div>
+
+                      {/* Location Map */}
+                      <div className="col-span-2 mt-3">
+                        {(() => {
+                          try {
+                            const addr =
+                              typeof selectedOrder.shipping_address === "string"
+                                ? JSON.parse(selectedOrder.shipping_address)
+                                : selectedOrder.shipping_address;
+
+                            if (addr?.location_points) {
+                              const coords = addr.location_points.split(",");
+                              const lat = parseFloat(coords[0]?.trim());
+                              const lng = parseFloat(coords[1]?.trim());
+
+                              if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+                                return (
+                                  <>
+                                    <Label className="text-gray-500 mb-2 block">
+                                      Delivery Location
+                                    </Label>
+                                    <div className="bg-gray-50 rounded-lg border-2 border-gray-200 overflow-hidden">
+                                      <div className="relative bg-gray-100 h-60">
+                                        <iframe
+                                          title="Delivery Location Map"
+                                          width="100%"
+                                          height="100%"
+                                          frameBorder="0"
+                                          className="select-none"
+                                          style={{ border: 0,pointerEvents: 'none' }}
+                                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}&layer=mapnik&marker=${lat},${lng}`}
+                                          allowFullScreen
+                                        />
+                                      </div>
+                                    </div>
+                                  </>
+                                );
+                              }
+                            }
+                          } catch (error) {
+                            console.error("Error parsing location:", error);
+                          }
+                          return null;
+                        })()}
+                      </div>
                     </div>
                   </div>
 
@@ -387,13 +447,17 @@ const Orders = () => {
                       {selectedOrder.items?.map((item, index) => (
                         <div
                           key={index}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                          className="flex items-start justify-between gap-3 p-3 bg-gray-50 rounded-lg"
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center overflow-hidden">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <div className="w-25 h-25 bg-gray-200 rounded flex items-center justify-center overflow-hidden shrink-0">
                               {item.image ? (
                                 <img
-                                  src={item.image.startsWith('http') ? item.image : `${API_BASE}${item.image}`}
+                                  src={
+                                    item.image.startsWith("http")
+                                      ? item.image
+                                      : `${API_BASE}${item.image}`
+                                  }
                                   alt=""
                                   className="w-full h-full object-cover"
                                 />
@@ -401,9 +465,9 @@ const Orders = () => {
                                 <Package className="w-5 h-5 text-gray-400" />
                               )}
                             </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">
-                                {item.product_name || item.title}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 wrap-break-word leading-tight mb-1">
+                                {item.product_name}
                               </p>
                               <p className="text-xs text-gray-500">
                                 Qty: {item.quantity} ×{" "}
@@ -411,7 +475,7 @@ const Orders = () => {
                               </p>
                             </div>
                           </div>
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-gray-900 shrink-0 whitespace-nowrap">
                             {formatCurrency(item.quantity * item.price)}
                           </p>
                         </div>
@@ -430,7 +494,8 @@ const Orders = () => {
                         <span className="text-gray-500">Subtotal</span>
                         <span className="font-medium">
                           {formatCurrency(
-                            selectedOrder.subtotal || selectedOrder.total_amount
+                            selectedOrder.subtotal ||
+                              selectedOrder.total_amount,
                           )}
                         </span>
                       </div>
@@ -471,46 +536,61 @@ const Orders = () => {
                             </h4>
                           </div>
                           <span className="text-lg font-bold text-green-600">
-                            {formatCurrency(calculateTotalCommission(selectedOrder))}
+                            {formatCurrency(
+                              calculateTotalCommission(selectedOrder),
+                            )}
                           </span>
                         </div>
-                        
-                        {selectedOrder.status === 'delivered' && !selectedOrder.commission_withdrawn && (
-                          <Button
-                            onClick={handleWithdrawCommission}
-                            className="w-full bg-green-600 hover:bg-green-700 text-white"
-                          >
-                            <Wallet className="w-4 h-4 mr-2" />
-                            Send Commission to User's Wallet
-                          </Button>
-                        )}
-                        
+
+                        {selectedOrder.status === "delivered" &&
+                          !selectedOrder.commission_withdrawn && (
+                            <Button
+                              onClick={handleWithdrawCommission}
+                              className="w-full bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              <Wallet className="w-4 h-4 mr-2" />
+                              Send Commission to User's Wallet
+                            </Button>
+                          )}
+
                         {selectedOrder.commission_withdrawn && (
                           <div className="text-center text-sm text-green-700 font-medium">
                             ✓ Commission has been sent to user's wallet
                           </div>
                         )}
 
-                        {selectedOrder.status !== 'delivered' && (
+                        {selectedOrder.status !== "delivered" && (
                           <div className="text-center text-sm text-gray-600">
-                            Commission will be available after order is delivered
+                            Commission will be available after order is
+                            delivered
                           </div>
                         )}
                       </div>
 
                       {/* Commission Breakdown */}
                       <div className="mt-3 space-y-2">
-                        <p className="text-xs font-medium text-gray-700 mb-2">Commission Breakdown:</p>
-                        {selectedOrder.items?.map((item, index) => (
-                          item.commission_price > 0 && (
-                            <div key={index} className="flex justify-between text-xs text-gray-600 pl-4">
-                              <span>{item.product_name || item.title} (x{item.quantity})</span>
-                              <span className="text-green-600 font-medium">
-                                {formatCurrency(item.commission_price * item.quantity)}
-                              </span>
-                            </div>
-                          )
-                        ))}
+                        <p className="text-xs font-medium text-gray-700 mb-2">
+                          Commission Breakdown:
+                        </p>
+                        {selectedOrder.items?.map(
+                          (item, index) =>
+                            item.commission_price > 0 && (
+                              <div
+                                key={index}
+                                className="flex justify-between text-xs text-gray-600 pl-4"
+                              >
+                                <span>
+                                  {item.product_name || item.title} (x
+                                  {item.quantity})
+                                </span>
+                                <span className="text-green-600 font-medium">
+                                  {formatCurrency(
+                                    item.commission_price * item.quantity,
+                                  )}
+                                </span>
+                              </div>
+                            ),
+                        )}
                       </div>
                     </div>
                   )}
@@ -527,7 +607,7 @@ const Orders = () => {
                             Payment Method
                           </Label>
                           <p className="text-sm font-medium">
-                            {selectedOrder.payment_method}
+                            Pay on Delivary
                           </p>
                         </div>
                         <div>

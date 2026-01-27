@@ -1,7 +1,7 @@
 import express from "express";
 import { listProducts, createProduct, updateProduct, deleteProduct, getProduct, updateProductStock } from "../controllers/home/productsController.js";
 import { createReview, listProductReviews, getReviewSummary } from "../controllers/home/reviewsController.js";
-import { upload } from "../middleware/uploadMiddleware.js";
+import { upload, flexibleUpload } from "../middleware/uploadMiddleware.js";
 import { videoUpload } from "../middleware/videoUploadMiddleware.js";
 import { productValidation } from "../middleware/productValidation.js";
 import { uploadValidation } from "../middleware/uploadValidation.js";
@@ -15,7 +15,7 @@ const router = express.Router();
 router.get("/products", listProducts);
 router.get("/products/:id", getProduct);
 router.post("/products", upload.array('images', 10), productValidation, validateRequest, createProduct);
-router.patch("/products/:id", updateProduct);
+router.patch("/products/:id", flexibleUpload.any(), updateProduct);
 router.delete("/products/:id", deleteProduct);
 
 // Stock update (increment or set)
@@ -30,11 +30,11 @@ router.get("/products/:id/reviews/summary", getReviewSummary);
 router.post("/products/:id/images", upload.array('images', 10), uploadValidation, validateRequest, uploadProductImages);
 router.get("/products/:id/images", listProductImages);
 
-// Videos upload
-router.post("/products/:id/videos", videoUpload.array('videos', 5), uploadProductVideos);
+// Videos upload (single video per product)
+router.post("/products/:id/videos", videoUpload.any(), uploadProductVideos);
 router.get("/products/:id/videos", listProductVideos);
 router.delete("/products/:id/videos/:videoId", deleteProductVideo);
-router.patch("/products/:id/videos/:videoId/main", setMainProductVideo);
+// Removed setMainProductVideo route since only one video per product
 
 
 

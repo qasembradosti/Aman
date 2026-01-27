@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  title: { fontSize: 18, fontWeight: "600" },
+  title: { fontSize: 18 },
   list: { padding: 16 },
   card: {
     width: "48%",
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 13,  marginBottom: 6, minHeight: 32 },
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: "auto" },
-  price: { fontSize: 14, fontWeight: "700" },
+  price: { fontSize: 14 },
   shareBtn: {
     width: 30,
     height: 30,

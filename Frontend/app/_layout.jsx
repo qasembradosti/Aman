@@ -68,23 +68,27 @@ function AuthGate({ children }) {
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   const user = useSelector((state) => state.auth.user);
 
-  // Avoid running redirects before navigation is ready, which can trigger update loops.
   const isNavigationReady = !!navigationState?.key;
 
   // Normalize phone verification truthiness coming from API (true/1/'1'/"true")
-  const isPhoneVerified = useCallback((val) =>
-    val === true || val === 1 || val === "1" || val === "true", []);
-  // Activation requires both phone verified and active status (if status present). Treat missing user as not ready yet.
-  const isActiveStatus = useCallback((val) =>
-    val === "active" || val === "ACTIVATED" || val === 1, []);
-  
-  const needsActivation = useMemo(() =>
-    isAuthenticated &&
-    !!user &&
-    (!isPhoneVerified(user?.phone_verified) || !isActiveStatus(user?.status)),
-    [isAuthenticated, user, isPhoneVerified, isActiveStatus]
+  const isPhoneVerified = useCallback(
+    (val) => val === true || val === 1 || val === "1" || val === "true",
+    [],
   );
-  
+  // Activation requires both phone verified and active status (if status present). Treat missing user as not ready yet.
+  const isActiveStatus = useCallback(
+    (val) => val === "active" || val === "ACTIVATED" || val === 1,
+    [],
+  );
+
+  const needsActivation = useMemo(
+    () =>
+      isAuthenticated &&
+      !!user &&
+      (!isPhoneVerified(user?.phone_verified) || !isActiveStatus(user?.status)),
+    [isAuthenticated, user, isPhoneVerified, isActiveStatus],
+  );
+
   const rootSegment = segments?.[0];
   const leafSegment = segments?.[1];
   const inAuthGroup = rootSegment === "(auth)";
@@ -93,11 +97,14 @@ function AuthGate({ children }) {
   // Stabilize segment changes to avoid re-running the effect on every render due to array identity.
   const segmentKey = Array.isArray(segments) ? segments.join("/") : "";
 
-  const safeReplace = useCallback((target) => {
-    if (pathname !== target) {
-      router.replace(target);
-    }
-  }, [pathname, router]);
+  const safeReplace = useCallback(
+    (target) => {
+      if (pathname !== target) {
+        router.replace(target);
+      }
+    },
+    [pathname, router],
+  );
 
   useEffect(() => {
     if (!isNavigationReady) return;
@@ -175,34 +182,34 @@ export default function RootLayout() {
                 <NotificationSocketProvider>
                   <AuthGate>
                     <StatusBar style="auto" />
-                    <Stack 
-                      screenOptions={{ 
+                    <Stack
+                      screenOptions={{
                         headerShown: false,
-                        animation: 'default',
+                        animation: "default",
                         gestureEnabled: true,
-                        gestureDirection: 'horizontal',
+                        gestureDirection: "horizontal",
                       }}
                     >
                       <Stack.Screen
                         name="(auth)"
-                        options={{ 
+                        options={{
                           headerShown: false,
-                          animation: 'fade'
+                          animation: "fade",
                         }}
                       />
                       <Stack.Screen
                         name="(tabs)"
-                        options={{ 
+                        options={{
                           headerShown: false,
-                          animation: 'fade'
+                          animation: "fade",
                         }}
                       />
                       <Stack.Screen
                         name="product/[id]"
-                        options={{ 
+                        options={{
                           headerShown: false,
-                          presentation: 'card',
-                          gestureEnabled: true
+                          presentation: "card",
+                          gestureEnabled: true,
                         }}
                       />
                       <Stack.Screen

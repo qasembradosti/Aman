@@ -302,8 +302,8 @@ export default function Home() {
         {/* Banner Slider */}
         <BannerSlider />
 
-        {/* Discount Products Slider */}
-        <DiscountProductSlider />
+        {/* Discount Products Slider - Hidden */}
+        {/* <DiscountProductSlider /> */}
 
         {/* Categories */}
         <View style={styles.section}>
@@ -421,7 +421,6 @@ export default function Home() {
                           {
                             color: theme.colors.text,
                             fontSize: 11,
-                            fontWeight: "500",
                           },
                         ]}
                       >
@@ -676,11 +675,7 @@ export default function Home() {
                     style={[
                       styles.productImage,
                       {
-                        height: layout.isSmallPhone
-                          ? 90
-                          : layout.isMediumPhone
-                            ? 100
-                            : 110,
+                        height: layout.cardWidth * 0.75,
                       },
                     ]}
                   >
@@ -717,27 +712,12 @@ export default function Home() {
                         {
                           color: theme.colors.text,
                           fontSize: layout.productNameSize,
+                          minHeight: 32,
                         },
                       ]}
                     >
                       {getLocalizedText(product, "name")}
                     </Text>
-
-                    {/* Rating */}
-                    <View style={styles.ratingRow}>
-                      <View style={styles.starsRow}>
-                        {renderStars(product.rating || 4.0)}
-                      </View>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.ratingText,
-                          { color: theme.colors.textSecondary },
-                        ]}
-                      >
-                        {product.rating || 4.0}
-                      </Text>
-                    </View>
 
                     {/* Price and Share at bottom */}
                     <View style={styles.bottomRow}>
@@ -971,7 +951,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#1a1a1a",
     textAlign: "center",
-    fontWeight: "500",
     marginTop: 2,
   },
   productsGrid: {
@@ -983,29 +962,33 @@ const styles = StyleSheet.create({
   productCard: {
     // width handled inline with responsive layout
     backgroundColor: "#fff",
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: "hidden",
-    marginBottom: 2,
+    marginBottom: 8,
     position: "relative",
-    // No shadow for featured products
-    elevation: 0,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#e6e6e6",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
   },
   productCardPressed: {
     // Lift effect on press
-    transform: [{ translateY: -4 }, { scale: 0.98 }],
-    elevation: 0,
+    transform: [{ scale: 0.97 }],
+    elevation: 1,
+    shadowOpacity: 0.02,
   },
   productImage: {
     width: "100%",
     // height handled inline with responsive layout
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f9f9f9",
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
-    // No image shadows
-    elevation: 0,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   bonusTag: {
     position: "absolute",
@@ -1026,15 +1009,15 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   productInfo: {
-    padding: 8,
+    padding: 10,
     flex: 1,
     justifyContent: "space-between",
   },
   productName: {
     fontSize: 13,
     color: "#1a1a1a",
-    marginBottom: 4,
-    minHeight: 28,
+    marginBottom: 8,
+    lineHeight: 16,
   },
   ratingRow: {
     flexDirection: "row",
@@ -1050,7 +1033,6 @@ const styles = StyleSheet.create({
   },
   productPrice: {
     fontSize: 16,
-
     color: "#1a1a1a",
   },
   ratingContainer: {

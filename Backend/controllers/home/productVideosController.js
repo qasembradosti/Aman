@@ -21,31 +21,33 @@ export const uploadProductVideos = async (req, res) => {
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
     
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: 'No video files uploaded' });
+    // Handle both req.file (single upload) and req.files (array upload)
+    const videoFile = req.file || (req.files && req.files.length > 0 ? req.files[0] : null);
+    
+    if (!videoFile) {
+      return res.status(400).json({ message: 'No video file uploaded' });
     }
     
     const baseUrl = getBaseUrl(req);
-    const persisted = [];
-    const existing = await ProductVideo.listByProduct(product.id);
-    const hasMain = existing.some(vid => vid.is_main);
     
-    for (const [idx, f] of req.files.entries()) {
-      // If no main video exists yet, first of this batch becomes main
-      const rec = await ProductVideo.add(product.id, f.filename, { isMain: !hasMain && idx === 0 });
-      const url = toVideoUrl(baseUrl, rec.video_url);
-      persisted.push({ 
-        id: rec.id, 
-        filename: rec.video_url, 
-        url, 
-        video_url: url, 
-        is_main: !!rec.is_main 
-      });
-    }
+    // Construct the full video path
+    const videoPath = `/videos/products/${videoFile.filename}`;
     
-    res.status(201).json({ videos: persisted });
+    // Add will automatically replace any existing video
+    const rec = await ProductVideo.add(product.id, videoPath);
+    const url = toVideoUrl(baseUrl, rec.video_url);
+    const video = { 
+      id: rec.id, 
+      filename: rec.video_url, 
+      url, 
+      video_url: url, 
+      is_main: true // Always main since only one video
+    };
+    
+    res.status(201).json({ video });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to upload videos', error: err.message });
+    console.error('Upload video error:', err);
+    res.status(500).json({ message: 'Failed to upload video', error: err.message });
   }
 };
 
@@ -57,20 +59,26 @@ export const listProductVideos = async (req, res) => {
     
     const baseUrl = getBaseUrl(req);
     const rows = await ProductVideo.listByProduct(id);
-    const videos = rows.map(r => {
-      const url = toVideoUrl(baseUrl, r.video_url);
-      return {
-        id: r.id, 
-        filename: r.video_url, 
+    
+    // Since only one video per product, return single video object or null
+    if (rows.length === 0) {
+      return res.json({ video: null });
+    }
+    
+    const video = rows[0];
+    const url = toVideoUrl(baseUrl, video.video_url);
+    
+    res.json({ 
+      video: {
+        id: video.id, 
+        filename: video.video_url, 
         url, 
         video_url: url, 
-        is_main: !!r.is_main
-      };
+        is_main: true
+      }
     });
-    
-    res.json({ videos });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to list videos', error: err.message });
+    res.status(500).json({ message: 'Failed to list video', error: err.message });
   }
 };
 

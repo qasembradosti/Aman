@@ -1,7 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -13,6 +12,8 @@ import {
   ActivityIndicator,
   TextInput,
   Pressable,
+  Clipboard,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -28,6 +29,7 @@ import {
   getProductImageUrl,
   getProductImageUrls,
 } from "../../utils/productImages";
+import { Text } from "../../components/ui/Text";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -71,8 +73,15 @@ export default function ProductDetail() {
   const { user } = useSelector((state) => state.auth);
 
   useEffect(() => {
-    dispatch(fetchProducts({ limit: 100 }));
-  }, [dispatch]);
+    // Only fetch if products not already loaded
+    if (products.length === 0) {
+      dispatch(fetchProducts({ limit: 100 })).catch((error) => {
+        console.log("Failed to fetch products:", error);
+        // Silently fail - product might already be in cache
+      });
+    }
+  }, [dispatch, products.length]);
+
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [dialog, setDialog] = useState({
@@ -91,6 +100,7 @@ export default function ProductDetail() {
   const [newRating, setNewRating] = useState(0);
   const [newComment, setNewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
   const [headerOpacity] = useState(new Animated.Value(0));
@@ -158,6 +168,11 @@ export default function ProductDetail() {
         images: (() => {
           const urls = getProductImageUrls(dbProduct);
           return urls.length > 0 ? urls : [null];
+        })(),
+        media: (() => {
+          const imageUrls = getProductImageUrls(dbProduct);
+          const mediaItems = imageUrls.map(url => ({ type: 'image', uri: url }));
+          return mediaItems.length > 0 ? mediaItems : [{ type: 'image', uri: null }];
         })(),
         bonus: dbProduct.bonus,
         product_code: dbProduct.product_code,
@@ -259,6 +274,48 @@ export default function ProductDetail() {
       );
     } finally {
       setSubmittingReview(false);
+    }
+  };
+
+  // Copy product name or description
+  const copyToClipboard = async (text, label) => {
+    try {
+      await Clipboard.setString(text);
+    } catch (err) {
+      setDialog({
+        visible: true,
+        title: t("error") || "Error",
+        message: t("copyFailed") || "Failed to copy"
+      });
+    }
+  };
+
+  // Open media URL in browser for viewing/downloading
+  const downloadMedia = async (uri, type) => {
+    if (downloading) return;
+    
+    try {
+      setDownloading(true);
+      
+      const canOpen = await Linking.canOpenURL(uri);
+      if (canOpen) {
+        await Linking.openURL(uri);
+      } else {
+        setDialog({
+          visible: true,
+          title: t("error") || "Error",
+          message: t("cannotOpen") || "Cannot open this URL"
+        });
+      }
+    } catch (err) {
+      console.error('Open URL error:', err);
+      setDialog({
+        visible: true,
+        title: t("error") || "Error",
+        message: t("openFailed") || "Failed to open media"
+      });
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -498,7 +555,7 @@ export default function ProductDetail() {
         <View style={styles.imageSliderContainer}>
           <FlatList
             ref={flatListRef}
-            data={product.images}
+            data={product.media}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
@@ -512,12 +569,12 @@ export default function ProductDetail() {
               );
               setSelectedImage(index);
             }}
-            keyExtractor={(_, index) => `image-${index}`}
+            keyExtractor={(_, index) => `media-${index}`}
             renderItem={({ item }) => (
               <View style={[styles.imageSlide, { width: SCREEN_WIDTH }]}>
-                {item ? (
+                {item.uri ? (
                   <Image
-                    source={{ uri: item }}
+                    source={{ uri: item.uri }}
                     style={styles.slideImage}
                     resizeMode="cover"
                   />
@@ -535,12 +592,30 @@ export default function ProductDetail() {
                     />
                   </View>
                 )}
+                
+                {/* Download Button */}
+                {item.uri && (
+                  <TouchableOpacity
+                    style={[
+                      styles.downloadButton,
+                      { backgroundColor: "rgba(0,0,0,0.6)" }
+                    ]}
+                    onPress={() => downloadMedia(item.uri, item.type)}
+                    disabled={downloading}
+                  >
+                    {downloading ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Ionicons name="download-outline" size={24} color="#fff" />
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           />
           {/* Pagination Dots */}
           <View style={styles.pagination}>
-            {product.images.map((_, index) => (
+            {product.media.map((item, index) => (
               <View
                 key={index}
                 style={[
@@ -578,19 +653,27 @@ export default function ProductDetail() {
             ]}
           >
             {/* Product Name */}
-            <Text
-              style={[
-                styles.productName,
-                {
-                  color: theme.colors.text,
-                  fontSize: layout.typography["2xl"],
-                  marginBottom: layout.spacing.xs,
-                  direction: isRTL ? "rtl" : "ltr",
-                },
-              ]}
-            >
-              {getLocalizedText(product, "name")}
-            </Text>
+            <View style={[styles.nameWithCopy, { flexDirection: rowDirection, alignItems: 'center', gap: 8 }]}>
+              <Text
+                style={[
+                  styles.productName,
+                  {
+                    color: theme.colors.text,
+                    fontSize: layout.typography["2xl"],
+                    direction: isRTL ? "rtl" : "ltr",
+                    flex: 1,
+                  },
+                ]}
+              >
+                {getLocalizedText(product, "name")}
+              </Text>
+              <TouchableOpacity
+                onPress={() => copyToClipboard(getLocalizedText(product, "name"), t("productName") || "Product name")}
+                style={[styles.copyButton, { backgroundColor: theme.colors.primary + "20" }]}
+              >
+                <Ionicons name="copy-outline" size={20} color={theme.colors.primary} />
+              </TouchableOpacity>
+            </View>
             {/* Rating & Reviews */}
             <View
               style={[
@@ -807,28 +890,31 @@ export default function ProductDetail() {
               },
             ]}
           >
-            <View
-              style={[styles.sectionHeader, { flexDirection: rowDirection }]}
-            >
-              <Ionicons
-                name="information-circle"
-                size={24}
-                style={{ direction: isRTL ? "rtl" : "ltr" }}
-                color={theme.colors.primary}
-              />
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  {
-                    color: theme.colors.text,
-                    fontSize: layout.typography.xl,
-                    marginLeft: isRTL ? 0 : layout.spacing.sm,
-                    marginRight: isRTL ? layout.spacing.sm : 0,
-                  },
-                ]}
+            <View style={[styles.sectionHeader, { gap: layout.spacing.sm, flexDirection: rowDirection, justifyContent: 'space-between', alignItems: 'center' }]}>
+              <View style={{ flexDirection: rowDirection, alignItems: 'center', gap: layout.spacing.sm }}>
+                <Ionicons
+                  name="information-circle"
+                  size={24}
+                  color={theme.colors.primary}
+                />
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    {
+                      color: theme.colors.text,
+                      fontSize: layout.typography.xl,
+                    },
+                  ]}
+                >
+                  {t("aboutProduct")}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => copyToClipboard(product.description, t("description") || "Description")}
+                style={[styles.copyButton, { backgroundColor: theme.colors.primary + "20" }]}
               >
-                {t("aboutProduct")}
-              </Text>
+                <Ionicons name="copy-outline" size={20} color={theme.colors.primary} />
+              </TouchableOpacity>
             </View>
             <Text
               style={[
@@ -1753,5 +1839,39 @@ const styles = StyleSheet.create({
   },
   shareButtonText: {
     color: "#fff",
+  },
+  // Download Button
+  downloadButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Copy Button
+  copyButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  nameWithCopy: {
+    marginBottom: 8,
+  },
+  // Video Placeholder
+  videoPlaceholderText: {
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  playButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
   },
 });

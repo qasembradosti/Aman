@@ -129,7 +129,7 @@ export const translations = {
   
   ku: {
     // Header
-    secureCheckout: "پارێزراو پارەدان",
+    secureCheckout: "پارەدانی پارێزراو ",
     completeYourPurchase: "کڕینەکەت بە سەلامەتی و ئاسانی تەواو بکە",
     
     // Product Details
@@ -138,7 +138,7 @@ export const translations = {
     addToCart: "زیادکردن بۆ سەبەتە",
     productDescription: "پێناسەی بەرهەم",
     freePackaging: "پاکێجکردنی بەخۆڕایی",
-    securePayment: "پارەدانی پارێزراو",
+    securePayment: " پارەدانی پارێزراو ",
     
     // Delivery Information
     deliveryInformation: "زانیاری گەیاندن",

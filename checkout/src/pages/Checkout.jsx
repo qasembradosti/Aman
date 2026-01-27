@@ -1,11 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { Plyr } from "plyr-react";
+import "plyr-react/plyr.css";
+import "../styles/plyr-custom.css";
 import { productService } from "../services/productService";
 import { orderService } from "../services/orderService";
 import { translations, getDirection, getAlign } from "../utils/translations";
 
-const ImageSlider = ({ images }) => {
+const ImageSlider = ({ images, video }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // Handle images array - extract URLs from image objects
@@ -18,8 +21,21 @@ const ImageSlider = ({ images }) => {
     });
   } else if (typeof images === "string") {
     imageList = [images];
+  }
+
+  // Build media array with images and video
+  const mediaList = imageList.map(url => ({ type: 'image', url }));
+  
+  if (video) {
+    mediaList.push({ type: 'video', url: video });
+    console.log('Video added to media list:', video);
   } else {
-    // No valid images
+    console.log('No video to add - video prop is:', video);
+  }
+  console.log('ImageSlider - Final media list:', mediaList);
+
+  if (mediaList.length === 0) {
+    // No valid images or video
     return (
       <div className="relative h-96 overflow-hidden rounded-2xl bg-gray-200 flex items-center justify-center">
         <svg
@@ -41,33 +57,58 @@ const ImageSlider = ({ images }) => {
 
   const goToPrevious = () => {
     setCurrentIndex((prevIndex) =>
-      prevIndex === 0 ? imageList.length - 1 : prevIndex - 1,
+      prevIndex === 0 ? mediaList.length - 1 : prevIndex - 1,
     );
   };
 
   const goToNext = () => {
     setCurrentIndex((prevIndex) =>
-      prevIndex === imageList.length - 1 ? 0 : prevIndex + 1,
+      prevIndex === mediaList.length - 1 ? 0 : prevIndex + 1,
     );
   };
 
   return (
     <div className="relative group">
       <div className="relative w-full aspect-4/3 overflow-hidden rounded-2xl bg-gray-100">
-        <img
-          src={imageList[currentIndex]}
-          alt={`Product ${currentIndex + 1}`}
-          className="w-full h-full object-contain transition-transform duration-500 hover:scale-105"
-          onError={(e) => {
-            e.target.src =
-              'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect fill="%23ddd" width="400" height="400"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em" font-size="20"%3EImage not available%3C/text%3E%3C/svg%3E';
-          }}
-        />
+        {mediaList[currentIndex].type === 'video' ? (
+          <div className="w-full h-full flex items-center justify-center bg-black rounded-2xl overflow-hidden">
+            <Plyr
+              key={mediaList[currentIndex].url}
+              source={{
+                type: 'video',
+                sources: [
+                  {
+                    src: mediaList[currentIndex].url,
+                    type: 'video/mp4',
+                  }
+                ]
+              }}
+              options={{
+                quality: { default: 720, options: [360, 720, 1080] },
+                disableContextMenu: false,
+                ratio: '16:9',
+                autoplay: true,
+                hideControls: true,
+                resetOnEnd: true,
+              }}
+            />
+          </div>
+        ) : (
+          <img
+            src={mediaList[currentIndex].url}
+            alt={`Product ${currentIndex + 1}`}
+            className="w-full h-full object-contain transition-transform duration-500 hover:scale-105"
+            onError={(e) => {
+              e.target.src =
+                'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect fill="%23ddd" width="400" height="400"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em" font-size="20"%3EImage not available%3C/text%3E%3C/svg%3E';
+            }}
+          />
+        )}
 
         {/* linear Overlays */}
         <div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
-        {imageList.length > 1 && (
+        {mediaList.length > 1 && (
           <>
             {/* Previous Button */}
             <button
@@ -111,16 +152,22 @@ const ImageSlider = ({ images }) => {
 
             {/* Dots Indicator */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
-              {imageList.map((_, index) => (
+              {mediaList.map((item, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentIndex(index)}
-                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                  className={`flex items-center justify-center transition-all duration-300 ${
                     index === currentIndex
-                      ? "bg-white w-8"
-                      : "bg-white/50 hover:bg-white/75"
+                      ? "bg-white w-8 h-2.5 rounded-full"
+                      : "bg-white/50 hover:bg-white/75 w-2.5 h-2.5 rounded-full"
                   }`}
-                />
+                >
+                  {item.type === 'video' && index === currentIndex && (
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                    </svg>
+                  )}
+                </button>
               ))}
             </div>
           </>
@@ -128,23 +175,31 @@ const ImageSlider = ({ images }) => {
       </div>
 
       {/* Thumbnails */}
-      {imageList.length > 1 && (
+      {mediaList.length > 1 && (
         <div className="flex gap-3 mt-4 overflow-x-auto pb-2">
-          {imageList.map((img, index) => (
+          {mediaList.map((item, index) => (
             <button
               key={index}
               onClick={() => setCurrentIndex(index)}
-              className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all duration-300 ${
+              className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all duration-300 relative ${
                 index === currentIndex
-                  ? "border-primary-500 ring-2 ring-primary-200"
+                  ? "border-primary-500 ring-primary-200"
                   : "border-gray-200 hover:border-primary-300"
               }`}
             >
-              <img
-                src={img}
-                alt={`Thumbnail ${index + 1}`}
-                className="w-full h-full object-cover"
-              />
+              {item.type === 'video' ? (
+                <div className="w-full h-full flex items-center justify-center bg-black">
+                  <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                  </svg>
+                </div>
+              ) : (
+                <img
+                  src={item.url}
+                  alt={`Thumbnail ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
+              )}
             </button>
           ))}
         </div>
@@ -169,6 +224,7 @@ const Checkout = () => {
   const dir = getDirection(language);
 
   const [product, setProduct] = useState(null);
+  const [productVideo, setProductVideo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -184,10 +240,14 @@ const Checkout = () => {
     city: "",
     phone: "",
     address: "",
-    location_points: "",
     delivery_price: 5000, // Default delivery price
     commission_price: 0,
   });
+
+  // Map state
+  const [location, setLocation] = useState({ lat: null, lng: null });
+  const [locationError, setLocationError] = useState(null);
+  const [gettingLocation, setGettingLocation] = useState(false);
 
   // Save language preference
   useEffect(() => {
@@ -195,6 +255,51 @@ const Checkout = () => {
     document.documentElement.dir = dir;
     document.documentElement.lang = language;
   }, [language, dir]);
+
+  // Get current location
+  const getCurrentLocation = () => {
+    setGettingLocation(true);
+    setLocationError(null);
+
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser");
+      setGettingLocation(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setGettingLocation(false);
+        toast.success("Location detected successfully!");
+      },
+      (error) => {
+        let errorMessage = "Unable to get location";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location permission denied. Please enable location access.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information unavailable.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out.";
+            break;
+        }
+        setLocationError(errorMessage);
+        setGettingLocation(false);
+        toast.error(errorMessage);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  };
 
   const changeLanguage = (lang) => {
     setLanguage(lang);
@@ -241,7 +346,17 @@ const Checkout = () => {
       setLoading(true);
       const data = await productService.getProduct(id);
       console.log("Product data received:", data);
+      console.log("Product video data:", data.video);
       setProduct(data);
+
+      // Set video from product data if available
+      if (data.video && data.video.video_url) {
+        console.log("Setting product video URL:", data.video.video_url);
+        setProductVideo(data.video.video_url);
+      } else {
+        console.log("No video found for product");
+        setProductVideo(null);
+      }
 
       // Don't automatically add to cart when viewing different products
       // User can manually add if they want
@@ -274,7 +389,17 @@ const Checkout = () => {
       setLoading(true);
       const data = await productService.getProduct(productId);
       console.log("Product data received:", data);
+      console.log("Product video data:", data.video);
       setProduct(data);
+
+      // Set video from product data if available
+      if (data.video && data.video.video_url) {
+        console.log("Setting product video URL:", data.video.video_url);
+        setProductVideo(data.video.video_url);
+      } else {
+        console.log("No video found for product");
+        setProductVideo(null);
+      }
 
       // Add product to cart by default
       setCart([
@@ -301,12 +426,19 @@ const Checkout = () => {
   const fetchRelatedProducts = async (brandId, categoryId, excludeId) => {
     try {
       setLoadingRelated(true);
-      const related = await productService.getRelatedProducts(
-        brandId,
-        categoryId,
-        excludeId,
-      );
-      setRelatedProducts(related);
+      // If product has store_id, fetch products from same store
+      const storeId = product?.store_id;
+      if (storeId) {
+        const related = await productService.getProductsByStore(storeId, excludeId);
+        setRelatedProducts(related);
+      } else {
+        const related = await productService.getRelatedProducts(
+          brandId,
+          categoryId,
+          excludeId,
+        );
+        setRelatedProducts(related);
+      }
     } catch (err) {
       console.error("Failed to fetch related products:", err);
     } finally {
@@ -315,6 +447,16 @@ const Checkout = () => {
   };
 
   const addToCart = (product) => {
+    // Check if cart has items from a different store
+    if (cart.length > 0) {
+      const firstStoreId = cart[0].store_id;
+      if (firstStoreId && product.store_id && firstStoreId !== product.store_id) {
+        setCartError("You can only order products from one store at a time. Please clear your cart first.");
+        setTimeout(() => setCartError(null), 3000);
+        return;
+      }
+    }
+
     const existingItem = cart.find((item) => item.id === product.id);
     const stock = product.stock || product.quantity_in_stock || 999;
 
@@ -430,7 +572,7 @@ const Checkout = () => {
         city: formData.city,
         address: formData.address,
         phone: formData.phone,
-        location_points: formData.location_points || null,
+        location_points: location.lat && location.lng ? `${location.lat},${location.lng}` : null,
       };
 
       // Create single order with all items
@@ -679,7 +821,7 @@ const Checkout = () => {
               {/* Image Slider */}
               {(product.image || product.images) && (
                 <div className="mb-8">
-                  <ImageSlider images={product.images || product.image} />
+                  <ImageSlider images={product.images || product.image} video={productVideo} />
                 </div>
               )}
 
@@ -716,26 +858,6 @@ const Checkout = () => {
                       </svg>
                       {t.inStock}
                     </div>
-                    {/* Add to Cart Button */}
-                    <button
-                      onClick={() => addToCart(product)}
-                      className="w-full sm:flex-1 bg-blue-600 hover:from-primary-700 hover:to-blue-700 text-white font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 text-sm sm:text-base"
-                    >
-                      <svg
-                        className="w-5 h-5 sm:w-6 sm:h-6"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                        />
-                      </svg>
-                      <span>{t.addToCart}</span>
-                    </button>
                   </div>
                 </div>
 
@@ -843,42 +965,7 @@ const Checkout = () => {
               onSubmit={handleCheckout}
               className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6"
             >
-              {/* Quantity */}
-              <div className="transform transition-all hover:scale-[1.01]">
-                <label
-                  htmlFor="quantity"
-                  className="text-sm font-bold text-gray-800 mb-2 flex items-center flex-wrap"
-                >
-                  <svg
-                    className="w-5 h-5 mr-2 text-primary-600 shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"
-                    />
-                  </svg>
-                  <span>
-                    {t.quantity}{" "}
-                    <span className="text-red-500 ml-1">{t.required}</span>
-                  </span>
-                </label>
-                <input
-                  type="number"
-                  id="quantity"
-                  name="quantity"
-                  min="1"
-                  value={formData.quantity}
-                  onChange={handleInputChange}
-                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition-all outline-none text-lg font-semibold bg-gray-50 hover:bg-white"
-                  required
-                />
-              </div>
-
+ 
               {/* City */}
               <div className="transform transition-all hover:scale-[1.01]">
                 <label
@@ -991,12 +1078,9 @@ const Checkout = () => {
                 />
               </div>
 
-              {/* Location Points */}
+              {/* Map Location */}
               <div className="transform transition-all hover:scale-[1.01]">
-                <label
-                  htmlFor="location_points"
-                  className="text-sm font-bold text-gray-800 mb-2 flex items-center"
-                >
+                <label className="text-sm font-bold text-gray-800 mb-2 flex items-center">
                   <svg
                     className="w-5 h-5 mr-2 text-primary-600"
                     fill="none"
@@ -1016,17 +1100,152 @@ const Checkout = () => {
                       d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                     />
                   </svg>
-                  {t.locationPoints}
+                  {t.yourLocation || "Your Location"}
                 </label>
-                <input
-                  type="text"
-                  id="location_points"
-                  name="location_points"
-                  value={formData.location_points}
-                  onChange={handleInputChange}
-                  placeholder={t.enterLocationPoints}
-                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition-all outline-none hover:border-primary-200 bg-gray-50 hover:bg-white"
-                />
+
+                <div className="bg-gray-50 rounded-xl border-2 border-gray-200 overflow-hidden">
+                  {/* Location Status */}
+                  <div className="p-4 bg-white border-b border-gray-200">
+                    {location.lat && location.lng ? (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center text-green-600">
+                          <svg
+                            className="w-5 h-5 mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          <span className="text-sm font-semibold">
+                            Location Detected
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center text-gray-600">
+                        <svg
+                          className="w-5 h-5 mr-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <span className="text-sm">
+                          {t.locationNotDetected || "Location not detected yet"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Map Container */}
+                  <div className="relative bg-gray-100 h-64">
+                    {location.lat && location.lng ? (
+                      <iframe
+                        title="Location Map"
+                        width="100%"
+                        height="100%"
+                        frameBorder="0"
+                        style={{ border: 0 }}
+                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${location.lng - 0.01},${location.lat - 0.01},${location.lng + 0.01},${location.lat + 0.01}&layer=mapnik&marker=${location.lat},${location.lng}`}
+                        allowFullScreen
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                        <svg
+                          className="w-16 h-16 mb-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+                          />
+                        </svg>
+                        <p className="text-sm font-medium">
+                          {t.clickToDetectLocation || "Click below to detect your location"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Get Location Button */}
+                  <div className="p-4 bg-white">
+                    <button
+                      type="button"
+                      onClick={getCurrentLocation}
+                      disabled={gettingLocation}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {gettingLocation ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                          <span>{t.detecting || "Detecting..."}</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                          </svg>
+                          <span>
+                            {location.lat && location.lng
+                              ? t.updateLocation || "Update Location"
+                              : t.getMyLocation || "Get My Location"}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                    {locationError && (
+                      <p className="text-red-600 text-sm mt-2 flex items-center">
+                        <svg
+                          className="w-4 h-4 mr-1"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        {locationError}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Order Summary - Cart Items */}

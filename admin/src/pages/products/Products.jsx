@@ -436,9 +436,13 @@ const Products = () => {
     if (product.videos && product.videos.length > 0) {
       setVideoPreviews(
         product.videos.map(
-          (vid) => vid.url || `${API_BASE}/videos/products/${vid.video_url}`,
+          (vid) => vid.video_url || vid.url || `${API_BASE}/videos/products/${vid.filename || vid.video_url}`,
         ),
       );
+    } else if (product.video) {
+      // Handle single video object
+      const videoUrl = product.video.video_url || product.video.url || `${API_BASE}/videos/products/${product.video.filename || product.video.video_url}`;
+      setVideoPreviews([videoUrl]);
     }
     setShowModal(true);
   }, []);
@@ -1131,7 +1135,12 @@ const Products = () => {
                       <video
                         src={videoPreviews[activeVideoIndex]}
                         controls
+                        playsInline
+                        preload="metadata"
                         className="w-full h-full object-contain"
+                        onError={(e) => {
+                          console.error('Video preview load error:', e.target.error);
+                        }}
                       />
                       {videoPreviews.length > 1 && (
                         <>
@@ -1615,24 +1624,30 @@ const Products = () => {
               )}
 
               {/* Videos Gallery */}
-              {viewProduct.videos && viewProduct.videos.length > 0 && (
+              {((viewProduct.videos && viewProduct.videos.length > 0) || viewProduct.video) && (
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 mb-3">
                     Videos
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {viewProduct.videos.map((vid, idx) => (
+                    {(viewProduct.videos || (viewProduct.video ? [viewProduct.video] : [])).map((vid, idx) => (
                       <div
                         key={idx}
                         className="aspect-video bg-gray-100 rounded-lg overflow-hidden"
                       >
                         <video
                           src={
+                            vid.video_url ||
                             vid.url ||
-                            `${API_BASE}/videos/products/${vid.video_url}`
+                            `${API_BASE}/videos/products/${vid.filename || vid.video_url}`
                           }
                           controls
+                          playsInline
+                          preload="metadata"
                           className="w-full h-full object-contain"
+                          onError={(e) => {
+                            console.error('Video load error:', e.target.error);
+                          }}
                         />
                       </div>
                     ))}

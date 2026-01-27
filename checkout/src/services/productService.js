@@ -41,5 +41,23 @@ export const productService = {
       console.error('Error fetching related products:', error);
       return [];
     }
+  },
+
+  // Get products by store ID
+  getProductsByStore: async (storeId, excludeProductId) => {
+    try {
+      const response = await api.get('/products', {
+        params: {
+          store_id: storeId,
+          limit: 20
+        }
+      });
+      const products = response.data.data || response.data;
+      // Filter out the current product
+      return products.filter(p => p.id !== excludeProductId);
+    } catch (error) {
+      console.error('Error fetching store products:', error);
+      return [];
+    }
   }
 };

@@ -15,7 +15,10 @@ import { useTheme } from "../../utils/ThemeContext";
 import { useLanguage } from "../../utils/LanguageContext";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchOrderById, clearCurrentOrder } from "../../store/slices/ordersSlice";
+import {
+  fetchOrderById,
+  clearCurrentOrder,
+} from "../../store/slices/ordersSlice";
 
 export default function OrderDetails() {
   const router = useRouter();
@@ -23,8 +26,12 @@ export default function OrderDetails() {
   const { t } = useLanguage();
   const { id } = useLocalSearchParams();
   const dispatch = useDispatch();
-  
-  const { currentOrder: order, loading, error } = useSelector((state) => state.orders);
+
+  const {
+    currentOrder: order,
+    loading,
+    error,
+  } = useSelector((state) => state.orders);
 
   useEffect(() => {
     if (id) {
@@ -64,9 +71,18 @@ export default function OrderDetails() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.canGoBack?.() ? router.back() : router.replace('/(tabs)/home')} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() =>
+              router.canGoBack?.()
+                ? router.back()
+                : router.replace("/(tabs)/home")
+            }
+            style={styles.backButton}
+          >
             <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
@@ -83,9 +99,18 @@ export default function OrderDetails() {
 
   if (!order) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.canGoBack?.() ? router.back() : router.replace('/(tabs)/home')} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() =>
+              router.canGoBack?.()
+                ? router.back()
+                : router.replace("/(tabs)/home")
+            }
+            style={styles.backButton}
+          >
             <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
@@ -103,9 +128,18 @@ export default function OrderDetails() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.canGoBack?.() ? router.back() : router.replace('/(tabs)/home')} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() =>
+            router.canGoBack?.()
+              ? router.back()
+              : router.replace("/(tabs)/home")
+          }
+          style={styles.backButton}
+        >
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
@@ -123,7 +157,12 @@ export default function OrderDetails() {
               { backgroundColor: getStatusColor(order.status) + "20" },
             ]}
           >
-            <Text style={[styles.statusLabel, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[
+                styles.statusLabel,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
               {t("orderStatus")}
             </Text>
             <Text
@@ -135,7 +174,9 @@ export default function OrderDetails() {
               {t(order.status)}
             </Text>
           </View>
-          <Text style={[styles.orderDate, { color: theme.colors.textSecondary }]}>
+          <Text
+            style={[styles.orderDate, { color: theme.colors.textSecondary }]}
+          >
             {t("placedOn")} {formatDate(order.created_at)}
           </Text>
         </View>
@@ -146,20 +187,32 @@ export default function OrderDetails() {
             {t("customerInformation")}
           </Text>
           <View style={styles.infoRow}>
-            <Ionicons name="person" size={20} color={theme.colors.textSecondary} />
+            <Ionicons
+              name="person"
+              size={20}
+              color={theme.colors.textSecondary}
+            />
             <Text style={[styles.infoText, { color: theme.colors.text }]}>
               {order.user_first_name} {order.user_last_name}
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <Ionicons name="call" size={20} color={theme.colors.textSecondary} />
+            <Ionicons
+              name="call"
+              size={20}
+              color={theme.colors.textSecondary}
+            />
             <Text style={[styles.infoText, { color: theme.colors.text }]}>
               {order.user_phone}
             </Text>
           </View>
           {order.user_email && (
             <View style={styles.infoRow}>
-              <Ionicons name="mail" size={20} color={theme.colors.textSecondary} />
+              <Ionicons
+                name="mail"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
               <Text style={[styles.infoText, { color: theme.colors.text }]}>
                 {order.user_email}
               </Text>
@@ -169,15 +222,21 @@ export default function OrderDetails() {
 
         {/* Shipping Address */}
         {order.shipping_address && (
-          <View style={[styles.section, { backgroundColor: theme.colors.card }]}>
+          <View
+            style={[styles.section, { backgroundColor: theme.colors.card }]}
+          >
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
               {t("shippingAddress")}
             </Text>
             <View style={styles.infoRow}>
-              <Ionicons name="location" size={20} color={theme.colors.textSecondary} />
+              <Ionicons
+                name="location"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
               <Text style={[styles.infoText, { color: theme.colors.text }]}>
-                {typeof order.shipping_address === 'string' 
-                  ? order.shipping_address 
+                {typeof order.shipping_address === "string"
+                  ? order.shipping_address
                   : JSON.stringify(order.shipping_address)}
               </Text>
             </View>
@@ -203,17 +262,26 @@ export default function OrderDetails() {
                   <Text style={[styles.itemName, { color: theme.colors.text }]}>
                     {item.product_name || t("products")}
                   </Text>
-                  <Text style={[styles.itemQuantity, { color: theme.colors.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.itemQuantity,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
                     {t("quantity")}: {item.quantity}
                   </Text>
                 </View>
-                <Text style={[styles.itemPrice, { color: theme.colors.primary }]}>
+                <Text
+                  style={[styles.itemPrice, { color: theme.colors.primary }]}
+                >
                   {formatCurrency(item.price * item.quantity)}
                 </Text>
               </View>
             ))
           ) : (
-            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[styles.emptyText, { color: theme.colors.textSecondary }]}
+            >
               {t("noItemsInOrder")}
             </Text>
           )}
@@ -226,11 +294,17 @@ export default function OrderDetails() {
           </Text>
           {order.payment_method && (
             <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.summaryLabel,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
                 {t("paymentMethod")}
               </Text>
               <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
-                {order.payment_method.charAt(0).toUpperCase() + order.payment_method.slice(1)}
+                {order.payment_method.charAt(0).toUpperCase() +
+                  order.payment_method.slice(1)}
               </Text>
             </View>
           )}
@@ -246,7 +320,9 @@ export default function OrderDetails() {
 
         {/* Notes */}
         {order.notes && (
-          <View style={[styles.section, { backgroundColor: theme.colors.card }]}>
+          <View
+            style={[styles.section, { backgroundColor: theme.colors.card }]}
+          >
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
               {t("orderNotes")}
             </Text>
@@ -276,7 +352,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: "bold",
   },
   placeholder: {
     width: 40,
@@ -306,7 +381,6 @@ const styles = StyleSheet.create({
   },
   statusValue: {
     fontSize: 18,
-    fontWeight: "bold",
   },
   orderDate: {
     fontSize: 14,
@@ -314,7 +388,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "bold",
     marginBottom: 12,
   },
   infoRow: {
@@ -339,7 +412,7 @@ const styles = StyleSheet.create({
   },
   itemName: {
     fontSize: 14,
-    fontWeight: "500",
+
     marginBottom: 4,
   },
   itemQuantity: {
@@ -347,7 +420,6 @@ const styles = StyleSheet.create({
   },
   itemPrice: {
     fontSize: 16,
-    fontWeight: "bold",
   },
   summaryRow: {
     flexDirection: "row",
@@ -359,7 +431,6 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: 14,
-    fontWeight: "500",
   },
   totalRow: {
     marginTop: 8,
@@ -369,11 +440,9 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 16,
-    fontWeight: "bold",
   },
   totalValue: {
     fontSize: 18,
-    fontWeight: "bold",
   },
   notesText: {
     fontSize: 14,

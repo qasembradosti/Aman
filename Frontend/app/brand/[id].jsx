@@ -148,7 +148,6 @@ const styles = StyleSheet.create({
   },
   brandName: {
     fontSize: 24,
-    fontWeight: 'bold',
     color: '#333',
     marginBottom: 8,
   },
@@ -170,7 +169,6 @@ const styles = StyleSheet.create({
   websiteText: {
     fontSize: 14,
     color: '#007AFF',
-    fontWeight: '500',
   },
   listContainer: {
     padding: 12,
@@ -201,13 +199,11 @@ const styles = StyleSheet.create({
   },
   productName: {
     fontSize: 14,
-    fontWeight: '600',
     color: '#333',
     marginBottom: 6,
   },
   productPrice: {
     fontSize: 16,
-    fontWeight: 'bold',
     color: '#007AFF',
   },
   outOfStock: {

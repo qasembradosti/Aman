@@ -1,7 +1,13 @@
-import React from 'react';
-import { View, StyleSheet, Dimensions, Text, ActivityIndicator } from 'react-native';
+import React from "react";
+import {
+  View,
+  StyleSheet,
+  Dimensions,
+  Text,
+  ActivityIndicator,
+} from "react-native";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 export default function AppLoader() {
   return (
@@ -42,9 +48,9 @@ const styles = StyleSheet.create({
   },
   gradient: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#3b5998',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#3b5998",
   },
   logoContainer: {
     marginBottom: 40,
@@ -53,30 +59,30 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   innerCircle: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderColor: "rgba(255, 255, 255, 0.4)",
   },
   logoIcon: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -84,27 +90,26 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontSize: 48,
-    fontWeight: 'bold',
-    color: '#3b5998',
+
+    color: "#3b5998",
   },
   textContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 20,
   },
   appName: {
     fontSize: 42,
-    fontWeight: 'bold',
-    color: '#ffffff',
+
+    color: "#ffffff",
     marginBottom: 8,
     letterSpacing: 2,
   },
   tagline: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontWeight: '300',
+    color: "rgba(255, 255, 255, 0.8)",
   },
   loaderContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 80,
   },
 });

@@ -46,8 +46,22 @@ app.use(cors());
 // Serve static files for uploads - BEFORE body parsers
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Serve static files with proper headers for video streaming
+const staticOptions = {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.mp4') || filePath.endsWith('.webm') || filePath.endsWith('.mov')) {
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Range');
+    }
+  }
+};
+
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
-app.use('/videos', express.static(path.join(__dirname, 'public', 'videos')));
+app.use('/videos', express.static(path.join(__dirname, 'public', 'videos'), staticOptions));
 app.use('/documents', express.static(path.join(__dirname, 'public', 'documents')));
 app.use('/avatars', express.static(path.join(__dirname, 'public', 'avatars')));
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));

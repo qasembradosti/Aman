@@ -152,7 +152,7 @@ const Withdrawals = () => {
   };
 
   const formatCurrency = (amount) => {
-    return `${Number(amount)} IQD`;
+    return `${Number(amount || 0).toLocaleString()} IQD`;
   };
 
   return (

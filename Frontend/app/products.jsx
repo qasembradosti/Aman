@@ -1107,7 +1107,6 @@ const styles = StyleSheet.create({
   },
   paginationButtonText: {
     fontSize: 14,
-    fontWeight: "600",
     color: "#fff",
   },
   pageIndicator: {
@@ -1153,7 +1152,6 @@ const styles = StyleSheet.create({
   },
   brandName: {
     fontSize: 12,
-    fontWeight: "600",
     textAlign: "center",
   },
   searchWrapper: {
@@ -1195,8 +1193,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   filterText: {
-    fontSize: 13,
-    fontWeight: "500",
+    fontSize: 13
   },
   modalOverlay: {
     flex: 1,
@@ -1231,7 +1228,6 @@ const styles = StyleSheet.create({
   },
   filterSectionTitle: {
     fontSize: 16,
-    fontWeight: "600",
     marginBottom: 12,
   },
   filterOptionsContainer: {
@@ -1247,8 +1243,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   filterOptionText: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 14
   },
   filterOptionContent: {
     flexDirection: "row",
@@ -1271,6 +1266,5 @@ const styles = StyleSheet.create({
   },
   modalButtonText: {
     fontSize: 16,
-    fontWeight: "600",
   },
 });

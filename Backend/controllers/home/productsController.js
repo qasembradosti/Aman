@@ -26,33 +26,54 @@ const toVideoUrl = (baseUrl, videoPath) => {
 };
 
 const listProductImages = async (req, productId) => {
-  const baseUrl = getBaseUrl(req);
-  const images = await ProductImage.listByProduct(productId);
-  return images.map(img => {
-    const imageUrl = toImageUrl(baseUrl, img.image_url);
-    return {
-      id: img.id,
-      filename: img.image_url,
-      url: imageUrl,
-      image_url: imageUrl,
-      is_main: !!img.is_main
-    };
-  });
+  try {
+    const baseUrl = getBaseUrl(req);
+    const images = await ProductImage.listByProduct(productId);
+    return images.map(img => {
+      const imageUrl = toImageUrl(baseUrl, img.image_url);
+      return {
+        id: img.id,
+        filename: img.image_url,
+        url: imageUrl,
+        image_url: imageUrl,
+        is_main: !!img.is_main
+      };
+    });
+  } catch (err) {
+    console.error('Error fetching product images:', err.message);
+    return []; // Return empty array on error
+  }
 };
 
 const listProductVideos = async (req, productId) => {
-  const baseUrl = getBaseUrl(req);
-  const videos = await ProductVideo.listByProduct(productId);
-  return videos.map(vid => {
+  try {
+    const baseUrl = getBaseUrl(req);
+    const videos = await ProductVideo.listByProduct(productId);
+    
+    console.log(`[listProductVideos] Product ${productId}: Found ${videos.length} videos`);
+    
+    // Return single video object or null (only one video per product)
+    if (videos.length === 0) {
+      return null;
+    }
+    
+    const vid = videos[0];
+    console.log(`[listProductVideos] Raw video_url from DB: ${vid.video_url}`);
+    
     const videoUrl = toVideoUrl(baseUrl, vid.video_url);
+    console.log(`[listProductVideos] Constructed videoUrl: ${videoUrl}`);
+    
     return {
       id: vid.id,
       filename: vid.video_url,
       url: videoUrl,
       video_url: videoUrl,
-      is_main: !!vid.is_main
+      is_main: true // Always true since only one video
     };
-  });
+  } catch (err) {
+    console.error('Error fetching product videos:', err.message);
+    return null; // Return null on error
+  }
 };
 
 export const listProducts = async (req, res) => {
@@ -60,15 +81,15 @@ export const listProducts = async (req, res) => {
     const result = await Product.findAll(req.query);
     const products = result.data || result;
     
-    // Fetch images and videos for each product
+    // Fetch images and video for each product
     const productsWithMedia = await Promise.all(
       products.map(async (product) => {
         const images = await listProductImages(req, product.id);
-        const videos = await listProductVideos(req, product.id);
+        const video = await listProductVideos(req, product.id);
         return {
           ...product,
           images,
-          videos
+          video // Single video object or null
         };
       })
     );
@@ -148,6 +169,61 @@ export const updateProduct = async (req, res) => {
     
     const updateData = { ...req.body };
     console.log('Update Product - ID:', id, 'Update Data:', updateData); // Added log
+    
+    // Handle uploaded files if present (images and videos)
+    if (req.files && req.files.length > 0) {
+      console.log(`📁 Uploading ${req.files.length} new files for product ${id}`);
+      
+      // Separate images and videos
+      const imageFiles = req.files.filter(f => f.mimetype.startsWith('image/'));
+      const videoFiles = req.files.filter(f => f.mimetype.startsWith('video/'));
+      
+      // Handle images
+      if (imageFiles.length > 0) {
+        console.log(`📸 Processing ${imageFiles.length} images`);
+        const { ProductImage } = await import('../models/productImage.js');
+        
+        for (const file of imageFiles) {
+          const imageUrl = `/images/products/${file.filename}`;
+          await ProductImage.create({
+            product_id: id,
+            image_url: imageUrl,
+            is_main: false
+          });
+        }
+      }
+      
+      // Handle videos
+      if (videoFiles.length > 0) {
+        console.log(`🎬 Processing ${videoFiles.length} videos`);
+        const { ProductVideo } = await import('../models/productVideo.js');
+        
+        // Check if product already has a video
+        const existingVideo = await ProductVideo.findByProductId(id);
+        
+        // Use the first video file
+        const videoFile = videoFiles[0];
+        const videoUrl = `/videos/products/${videoFile.filename}`;
+        
+        if (existingVideo) {
+          // Update existing video
+          await ProductVideo.update(existingVideo.id, {
+            video_url: videoUrl,
+            is_main: true
+          });
+          console.log(`✅ Updated existing video for product ${id}`);
+        } else {
+          // Create new video record
+          await ProductVideo.create({
+            product_id: id,
+            video_url: videoUrl,
+            is_main: true
+          });
+          console.log(`✅ Created new video for product ${id}`);
+        }
+      }
+    }
+    
     const newDiscount = parseFloat(updateData.discount) || 0;
     const oldDiscount = parseFloat(currentProduct.discount) || 0;
     
@@ -164,7 +240,7 @@ export const updateProduct = async (req, res) => {
           : `${newDiscount}% off`;
         
         const title = '🎉 New Discount Available!';
-        const message = `${product.name} now has ${discountText}! Don't miss out on this deal.`;
+        const message = `${product.name_en} now has ${discountText}! Don't miss out on this deal.`;
         
         // Create notifications for all users (marked as global so users can't delete them)
         for (const user of users) {
@@ -196,8 +272,8 @@ export const updateProduct = async (req, res) => {
     }
     
     const images = await listProductImages(req, product.id);
-    const videos = await listProductVideos(req, product.id);
-    res.json({ ...product, images, videos });
+    const video = await listProductVideos(req, product.id);
+    res.json({ ...product, images, video });
   } catch (err) {
     res.status(500).json({ message: 'Failed to update product', error: err.message });
   }
@@ -225,8 +301,8 @@ export const getProduct = async (req, res) => {
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
     const images = await listProductImages(req, product.id);
-    const videos = await listProductVideos(req, product.id);
-    res.json({ ...product, images, videos });
+    const video = await listProductVideos(req, product.id);
+    res.json({ ...product, images, video });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch product', error: err.message });
   }

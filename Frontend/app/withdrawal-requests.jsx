@@ -213,7 +213,6 @@ export default function WithdrawalRequestsScreen() {
                           {
                             color: status.text,
                             fontSize: layout.typography.xs,
-                            fontWeight: "600",
                           },
                         ]}
                       >
@@ -242,7 +241,6 @@ export default function WithdrawalRequestsScreen() {
                         {
                           color: theme.colors.primary,
                           fontSize: layout.typography["2xl"],
-                          fontWeight: "700",
                         },
                       ]}
                     >
@@ -329,7 +327,6 @@ export default function WithdrawalRequestsScreen() {
                           {
                             color: "#DC2626",
                             fontSize: layout.typography.xs,
-                            fontWeight: "600",
                             marginBottom: 4,
                           },
                         ]}
@@ -377,7 +374,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: "600",
   },
   scrollView: {
     flex: 1,
