@@ -1,11 +1,16 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+} from "react";
 import {
   View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   Pressable,
-  Image,
   Dimensions,
   Text as RNText,
   Share,
@@ -14,6 +19,7 @@ import {
   TextInput,
   Modal,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -25,6 +31,7 @@ import { fetchBrands } from "../store/slices/brandsSlice";
 import { fetchCategories } from "../store/slices/categoriesSlice";
 import InfoDialog from "../components/InfoDialog";
 import { getProductImageUrl } from "../utils/productImages";
+import { ListFilter } from "lucide-react-native";
 
 // Custom Text component with font
 const Text = ({ style, ...props }) => {
@@ -205,6 +212,10 @@ export default function Products() {
   };
 
   const computeBonus = (p) => {
+    // Use commission_price if available
+    if (typeof p?.commission_price === "number" && p.commission_price > 0) {
+      return p.commission_price;
+    }
     if (typeof p?.bonus === "number") return p.bonus;
     const priceNum = typeof p?.price === "number" ? p.price : Number(p?.price);
     if (!isNaN(priceNum)) return Math.round(priceNum * 0.1 * 100) / 100;
@@ -332,7 +343,11 @@ export default function Products() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
         <TouchableOpacity
-          onPress={() => router.canGoBack?.() ? router.back() : router.replace('/(tabs)/home')}
+          onPress={() =>
+            router.canGoBack?.()
+              ? router.back()
+              : router.replace("/(tabs)/home")
+          }
           style={styles.backButton}
         >
           <Ionicons
@@ -348,7 +363,7 @@ export default function Products() {
           onPress={() => setFilterModalVisible(true)}
           style={styles.filterIconButton}
         >
-          <Ionicons name="funnel" size={24} color={theme.colors.text} />
+          <ListFilter size={24} color={theme.colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -453,7 +468,9 @@ export default function Products() {
                   if (!navigationInProgress.current) {
                     navigationInProgress.current = true;
                     router.push(`/product/${product.id}`);
-                    setTimeout(() => { navigationInProgress.current = false; }, 500);
+                    setTimeout(() => {
+                      navigationInProgress.current = false;
+                    }, 500);
                   }
                 }}
               >
@@ -477,7 +494,9 @@ export default function Products() {
                       ),
                     }}
                     style={styles.productImageImg}
-                    resizeMode="cover"
+                    contentFit="cover"
+                    transition={200}
+                    cachePolicy="memory-disk"
                   />
                   {(() => {
                     const bonus = computeBonus(product);
@@ -485,11 +504,11 @@ export default function Products() {
                       <View
                         style={[
                           styles.bonusTag,
-                          { backgroundColor: theme.colors.primary },
+                          { backgroundColor: theme.colors.success || "#34C759" },
                         ]}
                       >
                         <Text style={styles.bonusTagText}>
-                          {t("sellerBonus")}: ${bonus}
+                          +{bonus} {isRTL ? "دینار" : "IQD"}
                         </Text>
                       </View>
                     ) : null;
@@ -656,9 +675,32 @@ export default function Products() {
                 { borderBottomColor: theme.colors.border },
               ]}
             >
-              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
-                {t("filters") || "Filters"}
-              </Text>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              >
+                <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                  {t("filters") || "Filters"}
+                </Text>
+                {(() => {
+                  const activeFilters =
+                    (selectedBrand !== "all" ? 1 : 0) +
+                    (selectedCategory !== "all" ? 1 : 0) +
+                    (sortBy !== "latest" ? 1 : 0) +
+                    (searchQuery.trim() !== "" ? 1 : 0);
+                  return activeFilters > 0 ? (
+                    <View
+                      style={[
+                        styles.filterBadge,
+                        { backgroundColor: theme.colors.primary },
+                      ]}
+                    >
+                      <Text style={styles.filterBadgeText}>
+                        {activeFilters}
+                      </Text>
+                    </View>
+                  ) : null;
+                })()}
+              </View>
               <TouchableOpacity
                 onPress={() => setFilterModalVisible(false)}
                 style={styles.modalCloseButton}
@@ -688,24 +730,37 @@ export default function Products() {
                           selectedBrand === "all"
                             ? theme.colors.primary
                             : theme.colors.card,
-                        borderColor: theme.colors.border,
+                        borderColor:
+                          selectedBrand === "all"
+                            ? theme.colors.primary
+                            : theme.colors.border,
                       },
                     ]}
                     onPress={() => setSelectedBrand("all")}
                   >
-                    <Text
-                      style={[
-                        styles.filterOptionText,
-                        {
-                          color:
-                            selectedBrand === "all"
-                              ? "#fff"
-                              : theme.colors.text,
-                        },
-                      ]}
-                    >
-                      {t("all") || "All"}
-                    </Text>
+                    <View style={styles.filterOptionContent}>
+                      {selectedBrand === "all" && (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={16}
+                          color="#fff"
+                          style={{ marginRight: 6 }}
+                        />
+                      )}
+                      <Text
+                        style={[
+                          styles.filterOptionText,
+                          {
+                            color:
+                              selectedBrand === "all"
+                                ? "#fff"
+                                : theme.colors.text,
+                          },
+                        ]}
+                      >
+                        {t("all") || "All"}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
 
                   {/* Brand Options */}
@@ -719,24 +774,37 @@ export default function Products() {
                             selectedBrand === String(brand.id)
                               ? theme.colors.primary
                               : theme.colors.card,
-                          borderColor: theme.colors.border,
+                          borderColor:
+                            selectedBrand === String(brand.id)
+                              ? theme.colors.primary
+                              : theme.colors.border,
                         },
                       ]}
                       onPress={() => setSelectedBrand(String(brand.id))}
                     >
-                      <Text
-                        style={[
-                          styles.filterOptionText,
-                          {
-                            color:
-                              selectedBrand === String(brand.id)
-                                ? "#fff"
-                                : theme.colors.text,
-                          },
-                        ]}
-                      >
-                        {brand.name}
-                      </Text>
+                      <View style={styles.filterOptionContent}>
+                        {selectedBrand === String(brand.id) && (
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={16}
+                            color="#fff"
+                            style={{ marginRight: 6 }}
+                          />
+                        )}
+                        <Text
+                          style={[
+                            styles.filterOptionText,
+                            {
+                              color:
+                                selectedBrand === String(brand.id)
+                                  ? "#fff"
+                                  : theme.colors.text,
+                            },
+                          ]}
+                        >
+                          {brand.name}
+                        </Text>
+                      </View>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -1193,57 +1261,74 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   filterText: {
-    fontSize: 13
+    fontSize: 13,
   },
   modalOverlay: {
     flex: 1,
     justifyContent: "flex-end",
   },
   modalContent: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: "80%",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "85%",
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   modalCloseButton: {
-    padding: 4,
+    padding: 6,
+    borderRadius: 20,
   },
   modalBody: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
   },
   filterSection: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
   filterSectionTitle: {
-    fontSize: 16,
-    marginBottom: 12,
+    fontSize: 17,
+    fontWeight: "600",
+    marginBottom: 14,
+    letterSpacing: 0.2,
   },
   filterOptionsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 10,
   },
   filterOption: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginBottom: 0,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   filterOptionText: {
-    fontSize: 14
+    fontSize: 14,
+    fontWeight: "500",
   },
   filterOptionContent: {
     flexDirection: "row",
@@ -1252,19 +1337,31 @@ const styles = StyleSheet.create({
   },
   modalFooter: {
     flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    paddingBottom: 24,
     borderTopWidth: 1,
     gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 4,
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   modalButtonText: {
     fontSize: 16,
+    fontWeight: "600",
   },
 });

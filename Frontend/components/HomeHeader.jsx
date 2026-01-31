@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { View, StyleSheet, Pressable, Image } from "react-native";
+import { View, StyleSheet, Pressable } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useTheme } from "../utils/ThemeContext";
@@ -59,7 +60,7 @@ export default function HomeHeader({ onToggleTheme }) {
               <Text
                 style={[styles.subtitle, { color: theme.colors.textSecondary }]}
               >
-                {t("welcomeBack") || "Welcome Back!"}
+                {t("welcomeBack")}
               </Text>
             </View>
           </View>

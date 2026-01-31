@@ -6,11 +6,11 @@ import {
   RefreshControl,
   TouchableOpacity,
   Pressable,
-  Image,
   Dimensions,
   Text as RNText,
   Share,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -19,6 +19,7 @@ import { useLanguage } from "../../utils/LanguageContext";
 import { useTheme } from "../../utils/ThemeContext";
 import { fetchProducts } from "../../store/slices/productsSlice";
 import { fetchCategories } from "../../store/slices/categoriesSlice";
+import { fetchBrands } from "../../store/slices/brandsSlice";
 import { getApiBaseUrl } from "../../utils/apiConfig";
 import { getProductImageUrl } from "../../utils/productImages";
 // Colors are provided via ThemeContext; avoid importing Colors directly here
@@ -145,6 +146,9 @@ export default function Home() {
   const { items: categories, loading: categoriesLoading } = useSelector(
     (state) => state.categories,
   );
+  const { items: brands, loading: brandsLoading } = useSelector(
+    (state) => state.brands,
+  );
   const { isAuthenticated, user } = useSelector((state) => state.auth);
 
   // Get parent categories (categories with no parent_id)
@@ -161,6 +165,7 @@ export default function Home() {
   useEffect(() => {
     dispatch(fetchProducts({ limit: pageLimit, offset: 0 }));
     dispatch(fetchCategories({})); // Fetch all categories without limit
+    dispatch(fetchBrands({ is_active: 'true' })); // Fetch only active brands
   }, [dispatch]);
 
   const onRefresh = () => {
@@ -168,6 +173,7 @@ export default function Home() {
     Promise.all([
       dispatch(fetchProducts({ limit: pageLimit, offset: 0 })),
       dispatch(fetchCategories({})), // Fetch all categories
+      dispatch(fetchBrands({ is_active: 'true' })), // Fetch only active brands
     ])
       .catch(() => {})
       .finally(() => setRefreshing(false));
@@ -193,6 +199,17 @@ export default function Home() {
 
   const resolveCategoryImageUri = (category) => {
     const imageUrl = category?.image_url || category?.image;
+    if (imageUrl) {
+      return imageUrl.startsWith("http")
+        ? imageUrl
+        : `${API_BASE_URL}${imageUrl}`;
+    }
+
+    return "https://via.placeholder.com/400";
+  };
+
+  const resolveBrandImageUri = (brand) => {
+    const imageUrl = brand?.logo_url || brand?.logo || brand?.image;
     if (imageUrl) {
       return imageUrl.startsWith("http")
         ? imageUrl
@@ -403,7 +420,9 @@ export default function Home() {
                         <Image
                           source={{ uri: resolveCategoryImageUri(category) }}
                           style={styles.categoryImage}
-                          resizeMode="cover"
+                          contentFit="cover"
+                          transition={200}
+                          cachePolicy="memory-disk"
                         />
                         {/* Gradient overlay */}
                         <View
@@ -425,6 +444,137 @@ export default function Home() {
                         ]}
                       >
                         {category.name}
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
+              ))
+            ) : null}
+          </ScrollView>
+        </View>
+
+        {/* Brands */}
+        <View style={styles.section}>
+          <View
+            style={[
+              styles.sectionHeader,
+              { paddingHorizontal: layout.horizontalPadding },
+            ]}
+          >
+            <Text
+              style={[
+                styles.sectionTitle,
+                {
+                  color: theme.colors.text,
+                  fontSize: layout.sectionTitleSize,
+                },
+              ]}
+            >
+              {t("brands")}
+            </Text>
+            <TouchableOpacity onPress={() => router.push("/brands")}>
+              <Text
+                style={[
+                  styles.seeAll,
+                  {
+                    color: theme.colors.primary,
+                    fontSize: layout.isSmallPhone ? 13 : 14,
+                  },
+                ]}
+              >
+                {t("seeAll")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={[
+              styles.categoriesScroll,
+              { paddingLeft: layout.horizontalPadding },
+            ]}
+          >
+            {brandsLoading ? (
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <View key={i} style={styles.categoryCard}>
+                    <View
+                      style={[
+                        styles.categoryImageContainer,
+                        {
+                          backgroundColor: theme.colors.border,
+                        },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.categoryText,
+                        {
+                          width: 60,
+                          height: 10,
+                          backgroundColor: theme.colors.border,
+                          borderRadius: 4,
+                          marginTop: 6,
+                        },
+                      ]}
+                    />
+                  </View>
+                ))}
+              </View>
+            ) : brands.length > 0 ? (
+              brands.map((brand) => (
+                <Pressable
+                  key={brand.id}
+                  style={({ pressed }) => [
+                    styles.categoryCard,
+                    pressed && {
+                      transform: [{ scale: 0.95 }],
+                    },
+                  ]}
+                  onPress={() => {
+                    router.push(`/products?brand=${brand.id}`);
+                  }}
+                >
+                  {({ pressed }) => (
+                    <View>
+                      <View
+                        style={[
+                          styles.categoryImageContainer,
+                          {
+                            borderColor: theme.colors.border,
+                            borderWidth: 1,
+                            elevation: pressed ? 0 : 3,
+                            shadowOpacity: pressed ? 0 : 0.1,
+                          },
+                        ]}
+                      >
+                        <Image
+                          source={{ uri: resolveBrandImageUri(brand) }}
+                          style={styles.categoryImage}
+                          contentFit="cover"
+                          transition={200}
+                          cachePolicy="memory-disk"
+                        />
+                        {/* Gradient overlay */}
+                        <View
+                          style={[
+                            styles.categoryOverlay,
+                            {
+                              backgroundColor: `${theme.colors.primary}66`,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.categoryText,
+                          {
+                            color: theme.colors.text,
+                            fontSize: 11,
+                          },
+                        ]}
+                      >
+                        {brand.name}
                       </Text>
                     </View>
                   )}
@@ -505,7 +655,9 @@ export default function Home() {
                           ),
                         }}
                         style={{ width: "100%", height: "100%" }}
-                        resizeMode="cover"
+                        contentFit="cover"
+                        transition={200}
+                        cachePolicy="memory-disk"
                       />
                     </View>
                     <View style={styles.recentInfo}>
@@ -687,7 +839,9 @@ export default function Home() {
                         ),
                       }}
                       style={styles.productImageImg}
-                      resizeMode="cover"
+                      contentFit="cover"
+                      transition={200}
+                      cachePolicy="memory-disk"
                     />
                     {product.commission_price && (
                       <View

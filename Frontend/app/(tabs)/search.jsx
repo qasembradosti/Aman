@@ -5,10 +5,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Text as RNText,
-  Image,
   Pressable,
   ActivityIndicator,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -116,11 +116,11 @@ export default function Search() {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {
       setSearchResults([]);
+      setIsSearching(false);
       return;
     }
 
     setIsSearching(true);
-    saveRecentSearch(trimmedQuery);
 
     // Filter products based on search query (schema-aligned: name/description/features)
     const q = trimmedQuery.toLowerCase();
@@ -140,8 +140,26 @@ export default function Search() {
   };
 
   const handleSearchSubmit = () => {
-    handleSearch(searchQuery);
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery) {
+      saveRecentSearch(trimmedQuery);
+      handleSearch(searchQuery);
+    }
   };
+
+  // Real-time search as user types
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const timeoutId = setTimeout(() => {
+        handleSearch(searchQuery);
+      }, 300); // Debounce search by 300ms
+
+      return () => clearTimeout(timeoutId);
+    } else {
+      setSearchResults([]);
+      setIsSearching(false);
+    }
+  }, [searchQuery, products]);
 
   const handleRecentSearchClick = (query) => {
     setSearchQuery(query);
@@ -274,8 +292,27 @@ export default function Search() {
                         ),
                       }}
                       style={styles.resultImage}
-                      resizeMode="cover"
+                      contentFit="cover"
+                      transition={200}
+                      cachePolicy="memory-disk"
                     />
+                    {product.commission_price && product.commission_price > 0 && (
+                      <View
+                        style={{
+                          position: 'absolute',
+                          top: 8,
+                          right: 8,
+                          backgroundColor: '#34C759',
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: 12,
+                        }}
+                      >
+                        <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>
+                          +{product.commission_price} {isRTL ? "دینار" : "IQD"}
+                        </Text>
+                      </View>
+                    )}
                     <Text
                       numberOfLines={2}
                       style={[styles.resultName, { color: theme.colors.text }]}

@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Dimensions,
   Share,
-  Image,
   FlatList,
   Animated,
   ActivityIndicator,
@@ -14,14 +13,18 @@ import {
   Pressable,
   Clipboard,
   Linking,
+  Alert,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../utils/ThemeContext";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchProducts } from "../../store/slices/productsSlice";
+import { fetchBrands } from "../../store/slices/brandsSlice";
 import api from "../../services/apiService";
+import * as favoriteService from "../../services/favoriteService";
 import InfoDialog from "../../components/InfoDialog";
 import { useResponsiveLayout } from "../../utils/useResponsiveLayout";
 import { useLanguage } from "../../utils/LanguageContext";
@@ -30,6 +33,7 @@ import {
   getProductImageUrls,
 } from "../../utils/productImages";
 import { Text } from "../../components/ui/Text";
+import VideoSlide from "../../components/VideoSlide";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -70,6 +74,9 @@ export default function ProductDetail() {
   const { items: products, loading: productsLoading } = useSelector(
     (state) => state.products,
   );
+  const { items: brands, loading: brandsLoading } = useSelector(
+    (state) => state.brands,
+  );
   const { user } = useSelector((state) => state.auth);
 
   useEffect(() => {
@@ -80,7 +87,13 @@ export default function ProductDetail() {
         // Silently fail - product might already be in cache
       });
     }
-  }, [dispatch, products.length]);
+    // Fetch brands
+    if (brands.length === 0) {
+      dispatch(fetchBrands({ limit: 10 })).catch((error) => {
+        console.log("Failed to fetch brands:", error);
+      });
+    }
+  }, [dispatch, products.length, brands.length]);
 
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
@@ -101,16 +114,36 @@ export default function ProductDetail() {
   const [newComment, setNewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [fetchedProduct, setFetchedProduct] = useState(null);
+  const [fetchingProduct, setFetchingProduct] = useState(false);
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
-  const [headerOpacity] = useState(new Animated.Value(0));
   const closeDialog = () =>
     setDialog({ visible: false, title: "", message: "" });
 
   // Get product from Redux store
   const dbProduct = useMemo(() => {
-    return products.find((p) => String(p.id) === String(id));
-  }, [products, id]);
+    return products.find((p) => String(p.id) === String(id)) || fetchedProduct;
+  }, [products, id, fetchedProduct]);
+
+  // Fetch product directly if not in Redux store
+  useEffect(() => {
+    const fetchProductById = async () => {
+      if (!dbProduct && id && !fetchingProduct) {
+        try {
+          setFetchingProduct(true);
+          const response = await api.get(`/api/products/${id}`);
+          setFetchedProduct(response.data);
+        } catch (error) {
+          console.error("Error fetching product:", error);
+        } finally {
+          setFetchingProduct(false);
+        }
+      }
+    };
+    fetchProductById();
+  }, [id, dbProduct, fetchingProduct]);
 
   const product = useMemo(() => {
     if (dbProduct) {
@@ -146,6 +179,7 @@ export default function ProductDetail() {
         name: getLocalizedText(dbProduct, "name"),
         price: dbProduct.sell_price,
         base_price: dbProduct.base_price,
+        commission_price: dbProduct.commission_price,
         originalPrice:
           dbProduct.original_price ||
           Math.round(dbProduct.price * 1.25 * 100) / 100,
@@ -171,8 +205,19 @@ export default function ProductDetail() {
         })(),
         media: (() => {
           const imageUrls = getProductImageUrls(dbProduct);
-          const mediaItems = imageUrls.map(url => ({ type: 'image', uri: url }));
-          return mediaItems.length > 0 ? mediaItems : [{ type: 'image', uri: null }];
+          const mediaItems = imageUrls.map((url) => ({
+            type: "image",
+            uri: url,
+          }));
+
+          // Add video if available
+          if (dbProduct.video && dbProduct.video.url) {
+            mediaItems.push({ type: "video", uri: dbProduct.video.url });
+          }
+
+          return mediaItems.length > 0
+            ? mediaItems
+            : [{ type: "image", uri: null }];
         })(),
         bonus: dbProduct.bonus,
         product_code: dbProduct.product_code,
@@ -202,9 +247,10 @@ export default function ProductDetail() {
       setReviewsLoading(true);
       setReviewsError(null);
       try {
-        const [summaryRes, reviewsRes] = await Promise.all([
+        const [summaryRes, reviewsRes, isFav] = await Promise.all([
           api.get(`/api/products/${product.id}/reviews/summary`),
           api.get(`/api/products/${product.id}/reviews?limit=10`),
+          favoriteService.checkFavorite(product.id).catch(() => false),
         ]);
         if (cancelled) return;
         setReviewSummary(
@@ -215,6 +261,7 @@ export default function ProductDetail() {
           },
         );
         setReviews((reviewsRes.data && reviewsRes.data.data) || []);
+        setIsFavorite(isFav);
       } catch (err) {
         if (cancelled) return;
         setReviewsError(
@@ -285,7 +332,7 @@ export default function ProductDetail() {
       setDialog({
         visible: true,
         title: t("error") || "Error",
-        message: t("copyFailed") || "Failed to copy"
+        message: t("copyFailed") || "Failed to copy",
       });
     }
   };
@@ -293,10 +340,10 @@ export default function ProductDetail() {
   // Open media URL in browser for viewing/downloading
   const downloadMedia = async (uri, type) => {
     if (downloading) return;
-    
+
     try {
       setDownloading(true);
-      
+
       const canOpen = await Linking.canOpenURL(uri);
       if (canOpen) {
         await Linking.openURL(uri);
@@ -304,15 +351,15 @@ export default function ProductDetail() {
         setDialog({
           visible: true,
           title: t("error") || "Error",
-          message: t("cannotOpen") || "Cannot open this URL"
+          message: t("cannotOpen") || "Cannot open this URL",
         });
       }
     } catch (err) {
-      console.error('Open URL error:', err);
+      console.error("Open URL error:", err);
       setDialog({
         visible: true,
         title: t("error") || "Error",
-        message: t("openFailed") || "Failed to open media"
+        message: t("openFailed") || "Failed to open media",
       });
     } finally {
       setDownloading(false);
@@ -332,11 +379,33 @@ export default function ProductDetail() {
       .map((p) => ({
         id: p.id,
         name: p.title || p.name,
-        price: p.price,
+        name_en: p.name_en,
+        name_ku: p.name_ku,
+        name_ar: p.name_ar,
+        sell_price: p.sell_price,
         rating: p.rating || 4.0,
         image: getProductImageUrl(p, "https://via.placeholder.com/400"),
       }));
   }, [products, dbProduct, id]);
+
+  const toggleFavorite = async () => {
+    if (!product?.id) return;
+
+    try {
+      const result = await favoriteService.toggleFavorite(product.id);
+      setIsFavorite(result.isFavorite);
+    } catch (error) {
+      console.error("Favorite error:", error);
+      setDialog({
+        visible: true,
+        title: t("error") || "Error",
+        message:
+          error?.response?.data?.message ||
+          t("favoriteError") ||
+          "Unable to update favorites",
+      });
+    }
+  };
 
   const handleShare = async () => {
     try {
@@ -375,7 +444,7 @@ export default function ProductDetail() {
     if (quantity > 1) setQuantity(quantity - 1);
   };
 
-  if (productsLoading && !product) {
+  if ((productsLoading && !product) || fetchingProduct) {
     return (
       <View
         style={[
@@ -446,65 +515,20 @@ export default function ProductDetail() {
     <View
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      {/* Floating Header with Blur Effect */}
-      <Animated.View
+      {/* Simple Header */}
+      <SafeAreaView
+        edges={["top"]}
         style={[
-          styles.floatingHeader,
+          styles.header,
           {
-            backgroundColor: theme.colors.card + "E6",
-            opacity: headerOpacity,
-            flexDirection: rowDirection,
+            backgroundColor: theme.colors.card,
+            borderBottomColor: theme.colors.border,
           },
         ]}
       >
-        <TouchableOpacity
-          style={[
-            styles.floatingHeaderButton,
-            {
-              backgroundColor: theme.colors.background + "DD",
-            },
-          ]}
-          onPress={() =>
-            router.canGoBack?.()
-              ? router.back()
-              : router.replace("/(tabs)/home")
-          }
-        >
-          <Ionicons
-            name={isRTL ? "arrow-forward" : "arrow-back"}
-            size={24}
-            color={theme.colors.text}
-          />
-        </TouchableOpacity>
-        <Text
-          style={[styles.floatingHeaderTitle, { color: theme.colors.text }]}
-          numberOfLines={1}
-        >
-          {getLocalizedText(product, "name")}
-        </Text>
-        <TouchableOpacity
-          style={[
-            styles.floatingHeaderButton,
-            {
-              backgroundColor: theme.colors.background + "DD",
-            },
-          ]}
-          onPress={handleShare}
-        >
-          <Ionicons name="share-outline" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-      </Animated.View>
-
-      {/* Transparent Header Buttons Over Image */}
-      <SafeAreaView style={styles.headerOverlay}>
-        <View
-          style={[styles.headerOverlayContent, { flexDirection: rowDirection }]}
-        >
+        <View style={[styles.headerContent, { flexDirection: rowDirection }]}>
           <TouchableOpacity
-            style={[
-              styles.overlayButton,
-              { backgroundColor: "rgba(0,0,0,0.5)" },
-            ]}
+            style={styles.headerButton}
             onPress={() =>
               router.canGoBack?.()
                 ? router.back()
@@ -514,42 +538,31 @@ export default function ProductDetail() {
             <Ionicons
               name={isRTL ? "arrow-forward" : "arrow-back"}
               size={24}
-              color="#fff"
+              color={theme.colors.text}
             />
           </TouchableOpacity>
-          <View
-            style={[
-              styles.overlayButtonsRight,
-              { flexDirection: rowDirection },
-            ]}
+          <Text
+            style={[styles.headerTitle, { color: theme.colors.text }]}
+            numberOfLines={1}
           >
-            <TouchableOpacity
-              style={[
-                styles.overlayButton,
-                { backgroundColor: "rgba(0,0,0,0.5)" },
-              ]}
-              onPress={handleShare}
-            >
-              <Ionicons name="share-outline" size={24} color="#fff" />
-            </TouchableOpacity>
-          </View>
+            {t("productDetails") || "Product Details"}
+          </Text>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={toggleFavorite}
+          >
+            <Ionicons
+              name={isFavorite ? "heart" : "heart-outline"}
+              size={24}
+              color={isFavorite ? "#ff4444" : theme.colors.text}
+            />
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
 
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: headerOpacity } } }],
-          {
-            useNativeDriver: false,
-            listener: (event) => {
-              const offsetY = event.nativeEvent.contentOffset.y;
-              headerOpacity.setValue(offsetY > 250 ? 1 : offsetY / 250);
-            },
-          },
-        )}
-        scrollEventThrottle={16}
       >
         {/* 1. Image Slider - Full Width */}
         <View style={styles.imageSliderContainer}>
@@ -572,11 +585,19 @@ export default function ProductDetail() {
             keyExtractor={(_, index) => `media-${index}`}
             renderItem={({ item }) => (
               <View style={[styles.imageSlide, { width: SCREEN_WIDTH }]}>
-                {item.uri ? (
+                {item.type === "video" ? (
+                  <VideoSlide
+                    uri={item.uri}
+                    width={SCREEN_WIDTH}
+                    height={400}
+                  />
+                ) : item.uri ? (
                   <Image
                     source={{ uri: item.uri }}
                     style={styles.slideImage}
-                    resizeMode="cover"
+                    contentFit="cover"
+                    transition={200}
+                    cachePolicy="memory-disk"
                   />
                 ) : (
                   <View
@@ -592,13 +613,13 @@ export default function ProductDetail() {
                     />
                   </View>
                 )}
-                
+
                 {/* Download Button */}
                 {item.uri && (
                   <TouchableOpacity
                     style={[
                       styles.downloadButton,
-                      { backgroundColor: "rgba(0,0,0,0.6)" }
+                      { backgroundColor: "rgba(0,0,0,0.6)" },
                     ]}
                     onPress={() => downloadMedia(item.uri, item.type)}
                     disabled={downloading}
@@ -606,7 +627,11 @@ export default function ProductDetail() {
                     {downloading ? (
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                      <Ionicons name="download-outline" size={24} color="#fff" />
+                      <Ionicons
+                        name="download-outline"
+                        size={24}
+                        color="#fff"
+                      />
                     )}
                   </TouchableOpacity>
                 )}
@@ -653,7 +678,12 @@ export default function ProductDetail() {
             ]}
           >
             {/* Product Name */}
-            <View style={[styles.nameWithCopy, { flexDirection: rowDirection, alignItems: 'center', gap: 8 }]}>
+            <View
+              style={[
+                styles.nameWithCopy,
+                { flexDirection: rowDirection, alignItems: "center", gap: 8 },
+              ]}
+            >
               <Text
                 style={[
                   styles.productName,
@@ -668,10 +698,22 @@ export default function ProductDetail() {
                 {getLocalizedText(product, "name")}
               </Text>
               <TouchableOpacity
-                onPress={() => copyToClipboard(getLocalizedText(product, "name"), t("productName") || "Product name")}
-                style={[styles.copyButton, { backgroundColor: theme.colors.primary + "20" }]}
+                onPress={() =>
+                  copyToClipboard(
+                    getLocalizedText(product, "name"),
+                    t("productName") || "Product name",
+                  )
+                }
+                style={[
+                  styles.copyButton,
+                  { backgroundColor: theme.colors.primary + "20" },
+                ]}
               >
-                <Ionicons name="copy-outline" size={20} color={theme.colors.primary} />
+                <Ionicons
+                  name="copy-outline"
+                  size={20}
+                  color={theme.colors.primary}
+                />
               </TouchableOpacity>
             </View>
             {/* Rating & Reviews */}
@@ -682,80 +724,257 @@ export default function ProductDetail() {
                   marginBottom: layout.spacing.md,
                   flexDirection: "row",
                   direction: isRTL ? "rtl" : "ltr",
+                  gap: 12,
+                  flexWrap: "wrap",
                 },
               ]}
             >
+              {/* Rating Badge */}
               <View
                 style={[
                   styles.ratingBadge,
                   {
-                    backgroundColor: theme.colors.warning + "20" || "#FFB80020",
+                    backgroundColor: "#FFB800",
                     flexDirection: rowDirection,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 20,
+                    elevation: 3,
+                    shadowColor: "#FFB800",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 4,
                   },
                 ]}
               >
-                <Ionicons name="star" size={16} color="#FFB800" />
+                <Ionicons name="star" size={16} color="#fff" />
                 <Text
                   style={[
                     styles.ratingValue,
-                    { color: "#FFB800", fontSize: layout.typography.md },
+                    {
+                      color: "#fff",
+                      fontSize: layout.typography.md,
+                      marginLeft: 4,
+                    },
                   ]}
                 >
                   {displayedRating}
                 </Text>
               </View>
-              <Text
-                style={[
-                  styles.reviewsText,
-                  {
-                    color: theme.colors.textSecondary,
-                    fontSize: layout.typography.sm,
-                    marginLeft: isRTL ? 0 : layout.spacing.sm,
-                    marginRight: isRTL ? layout.spacing.sm : 0,
-                  },
-                ]}
-              >
-                ({displayedReviewCount} {t("reviews") || "reviews"})
-              </Text>
+
               {/* Stock Badge */}
               <View
                 style={[
                   styles.stockBadge,
                   {
-                    backgroundColor: product.inStock
-                      ? theme.colors.success + "20" || "#34C75920"
-                      : theme.colors.danger + "20" || "#ff444420",
-                    marginLeft: isRTL ? 0 : layout.spacing.sm,
-                    marginRight: isRTL ? layout.spacing.sm : 0,
+                    backgroundColor: product.inStock ? "#34C759" : "#ff4444",
                     flexDirection: rowDirection,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 20,
+                    elevation: 3,
+                    shadowColor: product.inStock ? "#34C759" : "#ff4444",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 4,
                   },
                 ]}
               >
                 <Ionicons
                   name={product.inStock ? "checkmark-circle" : "close-circle"}
                   size={16}
-                  color={
-                    product.inStock
-                      ? theme.colors.success || "#34C759"
-                      : theme.colors.danger || "#ff4444"
-                  }
+                  color="#fff"
                 />
                 <Text
                   style={[
                     styles.stockBadgeText,
                     {
-                      color: product.inStock
-                        ? theme.colors.success || "#34C759"
-                        : theme.colors.danger || "#ff4444",
-                      fontSize: layout.typography.xs,
+                      color: "#fff",
+                      fontSize: layout.typography.sm,
+
+                      marginLeft: 4,
                     },
                   ]}
                 >
                   {product.inStock
                     ? t("inStock") || "In Stock"
-                    : t("outOfStock") || "Out of Stock"}
+                    : t("outOfStock")}
                 </Text>
               </View>
+
+              {/* Brand Badge (if available) */}
+              {product.brand_name && (
+                <View
+                  style={[
+                    styles.brandBadge,
+                    {
+                      backgroundColor: theme.colors.primary + "15",
+                      borderWidth: 1,
+                      borderColor: theme.colors.primary + "40",
+                      flexDirection: rowDirection,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 20,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="pricetag"
+                    size={14}
+                    color={theme.colors.primary}
+                  />
+                  <Text
+                    style={{
+                      color: theme.colors.primary,
+                      fontSize: layout.typography.sm,
+
+                      marginLeft: 4,
+                    }}
+                  >
+                    {product.brand_name}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Price Section - Redesigned */}
+            <View style={[styles.priceContainer]}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <View>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: theme.colors.textSecondary,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {t("price")}
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "baseline",
+                      gap: 8,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 32,
+
+                        color: theme.colors.primary,
+                        letterSpacing: -0.5,
+                      }}
+                    >
+                      {product.price}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 18,
+
+                        color: theme.colors.primary,
+                      }}
+                    >
+                      {isRTL ? "دینار" : "IQD"}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Commission Price Badge */}
+              {typeof product.commission_price === "number" &&
+                product.commission_price > 0 && (
+                  <View
+                    style={{
+                      marginTop: 16,
+                      paddingTop: 16,
+                      borderTopWidth: 1,
+                      borderTopColor: theme.colors.border + "60",
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        backgroundColor: "rgba(52, 199, 89, 0.1)",
+                        borderWidth: 1,
+                        borderColor: "rgba(52, 199, 89, 0.3)",
+                        borderRadius: 16,
+                        padding: 16,
+                        gap: 12,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: 24,
+                          backgroundColor: "#34C759",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          elevation: 4,
+                          shadowColor: "#34C759",
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 4,
+                        }}
+                      >
+                        <Ionicons name="cash-outline" size={24} color="#fff" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            color: theme.colors.textSecondary,
+                            marginBottom: 4,
+                          }}
+                        >
+                          {t("commissionPrice") || "Commission Price"}
+                        </Text>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "baseline",
+                            gap: 6,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: "#34C759",
+                              fontSize: 24,
+
+                              letterSpacing: -0.5,
+                            }}
+                          >
+                            {product.commission_price}
+                          </Text>
+                          <Text
+                            style={{
+                              color: "#34C759",
+                              fontSize: 16,
+                            }}
+                          >
+                            {isRTL ? "دینار" : "IQD"}
+                          </Text>
+                        </View>
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            color: "#34C759",
+                            marginTop: 2,
+                          }}
+                        >
+                          {t("yourEarningsPerSale") || "Your earnings per sale"}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
             </View>
 
             {/* Colors Section (if available) */}
@@ -774,7 +993,7 @@ export default function ProductDetail() {
                     },
                   ]}
                 >
-                  {t("availableColors") || "Available Colors"}:
+                  {t("availableColors")}:
                 </Text>
                 <View
                   style={[
@@ -814,68 +1033,6 @@ export default function ProductDetail() {
                 </View>
               </View>
             )}
-
-            {/* Price Section */}
-            <View style={styles.priceSection}>
-              <View style={[styles.priceRow]}>
-                <View
-                  style={[
-                    styles.priceDetails,
-                    {
-                      marginLeft: isRTL ? 0 : layout.spacing.md,
-                      marginRight: isRTL ? layout.spacing.md : 0,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.originalPrice,
-                      {
-                        color: "black",
-                        fontSize: layout.typography.md,
-                      },
-                    ]}
-                  >
-                    {isRTL
-                      ? `${product.base_price} دینار`
-                      : `${product.base_price} IQD`}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Seller Bonus */}
-              {typeof product.bonus === "number" && (
-                <View
-                  style={[
-                    styles.bonusBadge,
-                    {
-                      backgroundColor:
-                        theme.colors.success + "20" || "#34C75920",
-                      borderRadius: layout.borderRadius.md,
-                      marginTop: layout.spacing.sm,
-                      flexDirection: rowDirection,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name="gift"
-                    size={20}
-                    color={theme.colors.success || "#34C759"}
-                  />
-                  <Text
-                    style={[
-                      styles.bonusText,
-                      {
-                        color: theme.colors.success || "#34C759",
-                        fontSize: layout.typography.md,
-                      },
-                    ]}
-                  >
-                    {t("sellerBonus")}: ${product.bonus}
-                  </Text>
-                </View>
-              )}
-            </View>
           </View>
 
           {/* 3. About Product (Description) */}
@@ -890,8 +1047,24 @@ export default function ProductDetail() {
               },
             ]}
           >
-            <View style={[styles.sectionHeader, { gap: layout.spacing.sm, flexDirection: rowDirection, justifyContent: 'space-between', alignItems: 'center' }]}>
-              <View style={{ flexDirection: rowDirection, alignItems: 'center', gap: layout.spacing.sm }}>
+            <View
+              style={[
+                styles.sectionHeader,
+                {
+                  gap: layout.spacing.sm,
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                },
+              ]}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: layout.spacing.sm,
+                }}
+              >
                 <Ionicons
                   name="information-circle"
                   size={24}
@@ -910,10 +1083,22 @@ export default function ProductDetail() {
                 </Text>
               </View>
               <TouchableOpacity
-                onPress={() => copyToClipboard(product.description, t("description") || "Description")}
-                style={[styles.copyButton, { backgroundColor: theme.colors.primary + "20" }]}
+                onPress={() =>
+                  copyToClipboard(
+                    product.description,
+                    t("description") || "Description",
+                  )
+                }
+                style={[
+                  styles.copyButton,
+                  { backgroundColor: theme.colors.primary + "20" },
+                ]}
               >
-                <Ionicons name="copy-outline" size={20} color={theme.colors.primary} />
+                <Ionicons
+                  name="copy-outline"
+                  size={20}
+                  color={theme.colors.primary}
+                />
               </TouchableOpacity>
             </View>
             <Text
@@ -932,7 +1117,7 @@ export default function ProductDetail() {
             </Text>
           </View>
 
-          {/* 4. More Info (Features & Specifications) */}
+          {/* 4. Key Features & Specifications */}
           <View
             style={[
               styles.section,
@@ -944,31 +1129,8 @@ export default function ProductDetail() {
               },
             ]}
           >
-            <View
-              style={[styles.sectionHeader, { flexDirection: rowDirection }]}
-            >
-              <Ionicons
-                name="list-circle"
-                size={24}
-                color={theme.colors.primary}
-              />
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  {
-                    color: theme.colors.text,
-                    fontSize: layout.typography.xl,
-                    marginLeft: isRTL ? 0 : layout.spacing.sm,
-                    marginRight: isRTL ? layout.spacing.sm : 0,
-                  },
-                ]}
-              >
-                {t("moreInfo") || "More Information"}
-              </Text>
-            </View>
-
             {/* Key Features */}
-            <View style={[styles.subsection, { marginTop: layout.spacing.md }]}>
+            <View style={[styles.subsection, { marginTop: 0 }]}>
               <Text
                 style={[
                   styles.subsectionTitle,
@@ -1097,119 +1259,131 @@ export default function ProductDetail() {
             ]}
           >
             <View
-              style={[styles.sectionHeader, { flexDirection: rowDirection }]}
+              style={[
+                styles.sectionHeader,
+                { flexDirection: rowDirection, alignItems: "center" },
+              ]}
             >
-              <Ionicons
-                name="chatbubble-ellipses"
-                size={24}
-                color={theme.colors.primary}
-              />
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  {
-                    color: theme.colors.text,
-                    fontSize: layout.typography.xl,
-                    marginLeft: isRTL ? 0 : layout.spacing.sm,
-                    marginRight: isRTL ? layout.spacing.sm : 0,
-                  },
-                ]}
-              >
-                {t("reviews") || "Reviews"}
-              </Text>
-            </View>
-
-            {/* Summary */}
-            <View
-              style={{
-                flexDirection: isRTL ? "row-reverse" : "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginTop: layout.spacing.md,
-              }}
-            >
-              <View
-                style={{
-                  flexDirection: isRTL ? "row-reverse" : "row",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <Ionicons name="star" size={18} color="#FFB800" />
-                <Text
-                  style={{
-                    color: theme.colors.text,
-                    fontSize: layout.typography.lg,
-                  }}
-                >
-                  {Number(reviewSummary.average || 0).toFixed(1)}
-                </Text>
-                <Text
-                  style={{
-                    color: theme.colors.textSecondary,
-                    fontSize: layout.typography.sm,
-                    textAlign,
-                  }}
-                >
-                  ({reviewSummary.count} {t("reviews") || "reviews"})
-                </Text>
-              </View>
               <View
                 style={{
                   flexDirection: rowDirection,
                   alignItems: "center",
-                  gap: 6,
+                  gap: layout.spacing.sm,
+                  flex: 1,
                 }}
               >
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <View
-                    key={s}
+                <Ionicons name="star" size={28} color="#FFB800" />
+                <View>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      {
+                        color: theme.colors.text,
+                        fontSize: layout.typography.xl,
+                      },
+                    ]}
+                  >
+                    {t("reviews") || "Reviews"}
+                  </Text>
+                  <Text
                     style={{
-                      flexDirection: rowDirection,
-                      alignItems: "center",
-                      gap: 4,
+                      color: theme.colors.textSecondary,
+                      fontSize: layout.typography.sm,
                     }}
                   >
-                    <Text
-                      style={{
-                        color: theme.colors.textSecondary,
-                        fontSize: layout.typography.xs,
-                        textAlign,
-                      }}
-                    >
-                      {s}
-                    </Text>
-                    <View
-                      style={{
-                        width: 90,
-                        height: 6,
-                        borderRadius: 3,
-                        backgroundColor: theme.colors.border,
-                      }}
-                    >
-                      <View
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            Math.round(
-                              ((reviewSummary.breakdown?.[s] || 0) /
-                                Math.max(1, reviewSummary.count)) *
-                                100,
-                            ),
-                          )}%`,
-                          height: 6,
-                          borderRadius: 3,
-                          backgroundColor: "#FFB800",
-                        }}
-                      />
-                    </View>
-                  </View>
-                ))}
+                    {reviewSummary.count} {t("reviews") || "reviews"}
+                  </Text>
+                </View>
+              </View>
+              <View style={{ alignItems: "center" }}>
+                <Text
+                  style={{
+                    fontSize: 32,
+
+                    color: theme.colors.text,
+                  }}
+                >
+                  {Number(reviewSummary.average || 0).toFixed(1)}
+                </Text>
+                <View style={{ flexDirection: "row", gap: 2 }}>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Ionicons
+                      key={s}
+                      name={
+                        s <= Math.floor(reviewSummary.average || 0)
+                          ? "star"
+                          : "star-outline"
+                      }
+                      size={12}
+                      color="#FFB800"
+                    />
+                  ))}
+                </View>
               </View>
             </View>
 
+            {/* Rating Breakdown */}
+            <View style={{ marginTop: layout.spacing.md, gap: 6 }}>
+              {[5, 4, 3, 2, 1].map((s) => (
+                <View
+                  key={s}
+                  style={{
+                    flexDirection: rowDirection,
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: theme.colors.text,
+                      fontSize: layout.typography.sm,
+                      width: 12,
+                      textAlign,
+                    }}
+                  >
+                    {s}
+                  </Text>
+                  <Ionicons name="star" size={14} color="#FFB800" />
+                  <View
+                    style={{
+                      flex: 1,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: theme.colors.border,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Math.round(
+                            ((reviewSummary.breakdown?.[s] || 0) /
+                              Math.max(1, reviewSummary.count)) *
+                              100,
+                          ),
+                        )}%`,
+                        height: "100%",
+                        backgroundColor: "#FFB800",
+                      }}
+                    />
+                  </View>
+                  <Text
+                    style={{
+                      color: theme.colors.textSecondary,
+                      fontSize: layout.typography.xs,
+                      width: 30,
+                      textAlign: "right",
+                    }}
+                  >
+                    {reviewSummary.breakdown?.[s] || 0}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
             {/* Reviews list */}
-            <View style={{ marginTop: layout.spacing.md }}>
+            <View style={{ marginTop: layout.spacing.lg }}>
               {reviewsLoading ? (
                 <View style={{ paddingVertical: 16, alignItems: "center" }}>
                   <ActivityIndicator
@@ -1224,81 +1398,138 @@ export default function ProductDetail() {
                   {reviewsError}
                 </Text>
               ) : reviews.length === 0 ? (
-                <Text style={{ color: theme.colors.textSecondary, textAlign }}>
-                  {t("noReviewsYet") || "No reviews yet"}
-                </Text>
+                <View style={{ paddingVertical: 32, alignItems: "center" }}>
+                  <Ionicons
+                    name="chatbubble-outline"
+                    size={48}
+                    color={theme.colors.border}
+                  />
+                  <Text
+                    style={{
+                      color: theme.colors.textSecondary,
+                      textAlign,
+                      marginTop: 12,
+                    }}
+                  >
+                    {t("noReviewsYet") || "No reviews yet"}
+                  </Text>
+                  <Text
+                    style={{
+                      color: theme.colors.textSecondary,
+                      fontSize: layout.typography.xs,
+                      marginTop: 4,
+                    }}
+                  >
+                    Be the first to review this product
+                  </Text>
+                </View>
               ) : (
-                reviews.map((r) => (
+                reviews.map((r, index) => (
                   <View
                     key={r.id}
                     style={{
-                      borderTopWidth: StyleSheet.hairlineWidth,
-                      borderTopColor: theme.colors.border,
-                      paddingVertical: 12,
+                      backgroundColor: theme.colors.background,
+                      borderRadius: 12,
+                      padding: 16,
+                      marginBottom: 12,
+                      borderWidth: 1,
+                      borderColor: theme.colors.border,
                     }}
                   >
                     <View
                       style={{
                         flexDirection: isRTL ? "row-reverse" : "row",
-                        alignItems: "center",
-                        gap: 6,
+                        alignItems: "flex-start",
+                        gap: 12,
                       }}
                     >
-                      {(() => {
-                        const full = Math.floor(r.rating || 0);
-                        const hasHalf = (r.rating || 0) - full >= 0.5;
-                        const stars = [];
-                        for (let i = 0; i < full; i++)
-                          stars.push(
-                            <Ionicons
-                              key={`f-${i}`}
-                              name="star"
-                              size={14}
-                              color="#FFB800"
-                            />,
-                          );
-                        if (hasHalf)
-                          stars.push(
-                            <Ionicons
-                              key="h"
-                              name="star-half"
-                              size={14}
-                              color="#FFB800"
-                            />,
-                          );
-                        const remaining = 5 - stars.length;
-                        for (let i = 0; i < remaining; i++)
-                          stars.push(
-                            <Ionicons
-                              key={`e-${i}`}
-                              name="star-outline"
-                              size={14}
-                              color="#FFB800"
-                            />,
-                          );
-                        return stars;
-                      })()}
-                      <Text
+                      {/* Avatar */}
+                      <View
                         style={{
-                          color: theme.colors.textSecondary,
-                          fontSize: layout.typography.xs,
+                          width: 40,
+                          height: 40,
+                          borderRadius: 20,
+                          backgroundColor: theme.colors.primary + "20",
+                          alignItems: "center",
+                          justifyContent: "center",
                         }}
                       >
-                        {new Date(r.created_at).toLocaleDateString()}
-                      </Text>
+                        <Ionicons
+                          name="person"
+                          size={20}
+                          color={theme.colors.primary}
+                        />
+                      </View>
+
+                      {/* Review Content */}
+                      <View style={{ flex: 1 }}>
+                        <View
+                          style={{
+                            flexDirection: isRTL ? "row-reverse" : "row",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginBottom: 8,
+                          }}
+                        >
+                          <View style={{ flexDirection: "row", gap: 3 }}>
+                            {(() => {
+                              const full = Math.floor(r.rating || 0);
+                              const hasHalf = (r.rating || 0) - full >= 0.5;
+                              const stars = [];
+                              for (let i = 0; i < full; i++)
+                                stars.push(
+                                  <Ionicons
+                                    key={`f-${i}`}
+                                    name="star"
+                                    size={16}
+                                    color="#FFB800"
+                                  />,
+                                );
+                              if (hasHalf)
+                                stars.push(
+                                  <Ionicons
+                                    key="h"
+                                    name="star-half"
+                                    size={16}
+                                    color="#FFB800"
+                                  />,
+                                );
+                              const remaining = 5 - stars.length;
+                              for (let i = 0; i < remaining; i++)
+                                stars.push(
+                                  <Ionicons
+                                    key={`e-${i}`}
+                                    name="star-outline"
+                                    size={16}
+                                    color="#FFB800"
+                                  />,
+                                );
+                              return stars;
+                            })()}
+                          </View>
+                          <Text
+                            style={{
+                              color: theme.colors.textSecondary,
+                              fontSize: layout.typography.xs,
+                            }}
+                          >
+                            {new Date(r.created_at).toLocaleDateString()}
+                          </Text>
+                        </View>
+                        {r.comment ? (
+                          <Text
+                            style={{
+                              color: theme.colors.text,
+                              fontSize: layout.typography.md,
+                              lineHeight: layout.typography.md * 1.5,
+                              textAlign,
+                            }}
+                          >
+                            {r.comment}
+                          </Text>
+                        ) : null}
+                      </View>
                     </View>
-                    {r.comment ? (
-                      <Text
-                        style={{
-                          color: theme.colors.text,
-                          fontSize: layout.typography.md,
-                          marginTop: 6,
-                          textAlign,
-                        }}
-                      >
-                        {r.comment}
-                      </Text>
-                    ) : null}
                   </View>
                 ))
               )}
@@ -1378,7 +1609,7 @@ export default function ProductDetail() {
           </View>
 
           {/* 5. Related Products */}
-          {relatedProducts.length > 0 && (
+          {productsLoading && products.length === 0 ? (
             <View
               style={[
                 styles.section,
@@ -1391,7 +1622,14 @@ export default function ProductDetail() {
               ]}
             >
               <View
-                style={[styles.sectionHeader, { flexDirection: rowDirection }]}
+                style={[
+                  styles.sectionHeader,
+                  {
+                    flexDirection: rowDirection,
+                    alignItems: "center",
+                    gap: layout.spacing.sm,
+                  },
+                ]}
               >
                 <Ionicons name="apps" size={24} color={theme.colors.primary} />
                 <Text
@@ -1400,8 +1638,105 @@ export default function ProductDetail() {
                     {
                       color: theme.colors.text,
                       fontSize: layout.typography.xl,
-                      marginLeft: isRTL ? 0 : layout.spacing.sm,
-                      marginRight: isRTL ? layout.spacing.sm : 0,
+                    },
+                  ]}
+                >
+                  {t("relatedProducts") || "Related Products"}
+                </Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ marginTop: layout.spacing.md }}
+                contentContainerStyle={{ paddingRight: layout.spacing.md }}
+              >
+                {[1, 2, 3].map((i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.relatedProductCard,
+                      {
+                        backgroundColor: theme.colors.card,
+                        borderRadius: 12,
+                        marginRight: 12,
+                        borderWidth: StyleSheet.hairlineWidth,
+                        borderColor: theme.colors.border,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.relatedProductImage,
+                        {
+                          backgroundColor: theme.colors.border + "40",
+                        },
+                      ]}
+                    >
+                      <ActivityIndicator
+                        size="small"
+                        color={theme.colors.primary}
+                      />
+                    </View>
+                    <View style={styles.relatedProductInfo}>
+                      <View
+                        style={{
+                          height: 32,
+                          backgroundColor: theme.colors.border + "40",
+                          borderRadius: 4,
+                          marginBottom: 8,
+                        }}
+                      />
+                      <View
+                        style={{
+                          height: 14,
+                          width: 80,
+                          backgroundColor: theme.colors.border + "40",
+                          borderRadius: 4,
+                          marginBottom: 8,
+                        }}
+                      />
+                      <View
+                        style={{
+                          height: 18,
+                          width: 60,
+                          backgroundColor: theme.colors.border + "40",
+                          borderRadius: 4,
+                        }}
+                      />
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          ) : relatedProducts.length > 0 ? (
+            <View
+              style={[
+                styles.section,
+                {
+                  backgroundColor: theme.colors.card,
+                  borderRadius: layout.borderRadius.lg,
+                  padding: layout.containerPadding,
+                  marginBottom: layout.spacing.xl,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.sectionHeader,
+                  {
+                    flexDirection: rowDirection,
+                    alignItems: "center",
+                    gap: layout.spacing.sm,
+                  },
+                ]}
+              >
+                <Ionicons name="apps" size={24} color={theme.colors.primary} />
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    {
+                      color: theme.colors.text,
+                      fontSize: layout.typography.xl,
                     },
                   ]}
                 >
@@ -1446,7 +1781,9 @@ export default function ProductDetail() {
                           uri: item.image || "https://via.placeholder.com/400",
                         }}
                         style={styles.relatedImage}
-                        resizeMode="cover"
+                        contentFit="cover"
+                        transition={200}
+                        cachePolicy="memory-disk"
                       />
                     </View>
                     <View style={styles.relatedProductInfo}>
@@ -1461,7 +1798,7 @@ export default function ProductDetail() {
                         ]}
                         numberOfLines={2}
                       >
-                        {getLocalizedText(item, "name")}
+                        {getLocalizedText(item, "name") || item.name}
                       </Text>
                       <View
                         style={[
@@ -1508,7 +1845,7 @@ export default function ProductDetail() {
                             },
                           ]}
                         >
-                          {item.price} IQD
+                          {item.sell_price} {isRTL ? "دینار" : "IQD"}
                         </Text>
                       </View>
                     </View>
@@ -1516,7 +1853,189 @@ export default function ProductDetail() {
                 ))}
               </ScrollView>
             </View>
-          )}
+          ) : null}
+
+          {/* 6. Brands Section */}
+          {brandsLoading && brands.length === 0 ? (
+            <View
+              style={[
+                styles.section,
+                {
+                  backgroundColor: theme.colors.card,
+                  borderRadius: layout.borderRadius.lg,
+                  padding: layout.containerPadding,
+                  marginBottom: layout.spacing.xl,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.sectionHeader,
+                  {
+                    flexDirection: rowDirection,
+                    alignItems: "center",
+                    gap: layout.spacing.sm,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="pricetag"
+                  size={24}
+                  color={theme.colors.primary}
+                />
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    {
+                      color: theme.colors.text,
+                      fontSize: layout.typography.xl,
+                    },
+                  ]}
+                >
+                  {t("brands") || "Brands"}
+                </Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ marginTop: layout.spacing.md }}
+                contentContainerStyle={{ gap: 12 }}
+              >
+                {[1, 2, 3, 4].map((i) => (
+                  <View
+                    key={i}
+                    style={{
+                      width: 100,
+                      height: 100,
+                      borderRadius: 12,
+                      backgroundColor: theme.colors.border + "40",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderWidth: StyleSheet.hairlineWidth,
+                      borderColor: theme.colors.border,
+                    }}
+                  >
+                    <ActivityIndicator
+                      size="small"
+                      color={theme.colors.primary}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          ) : brands.length > 0 ? (
+            <View
+              style={[
+                styles.section,
+                {
+                  backgroundColor: theme.colors.card,
+                  borderRadius: layout.borderRadius.lg,
+                  padding: layout.containerPadding,
+                  marginBottom: layout.spacing.xl,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.sectionHeader,
+                  {
+                    flexDirection: rowDirection,
+                    alignItems: "center",
+                    gap: layout.spacing.sm,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="pricetag"
+                  size={24}
+                  color={theme.colors.primary}
+                />
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    {
+                      color: theme.colors.text,
+                      fontSize: layout.typography.xl,
+                    },
+                  ]}
+                >
+                  {t("brands") || "Brands"}
+                </Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ marginTop: layout.spacing.md }}
+                contentContainerStyle={{ gap: 12 }}
+              >
+                {brands.map((brand) => (
+                  <Pressable
+                    key={brand.id}
+                    style={({ pressed }) => [
+                      {
+                        width: 100,
+                        height: 100,
+                        borderRadius: 12,
+                        backgroundColor: theme.colors.background,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderWidth: StyleSheet.hairlineWidth,
+                        borderColor: theme.colors.border,
+                        padding: 8,
+                      },
+                      pressed && {
+                        transform: [{ scale: 0.95 }],
+                        borderColor: theme.colors.primary,
+                      },
+                    ]}
+                    onPress={() => {
+                      if (!navigationInProgress.current) {
+                        navigationInProgress.current = true;
+                        router.push(`/brand/${brand.id}`);
+                        setTimeout(() => {
+                          navigationInProgress.current = false;
+                        }, 500);
+                      }
+                    }}
+                  >
+                    {brand.logo_url ? (
+                      <Image
+                        source={{ uri: brand.logo_url }}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          borderRadius: 8,
+                        }}
+                        contentFit="contain"
+                        transition={200}
+                      />
+                    ) : (
+                      <View
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: theme.colors.text,
+                            fontSize: 12,
+
+                            textAlign: "center",
+                          }}
+                          numberOfLines={2}
+                        >
+                          {brand.name}
+                        </Text>
+                      </View>
+                    )}
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -1572,61 +2091,35 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // Floating header that appears on scroll
-  floatingHeader: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 90,
+  // Simple Header
+  header: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 40,
-    zIndex: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#e0e0e0",
+    paddingVertical: 12,
+    height: 56,
   },
-  floatingHeaderButton: {
+  headerButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
   },
-  floatingHeaderTitle: {
+  headerTitle: {
     flex: 1,
     fontSize: 18,
-    direction: "rtl",
     textAlign: "center",
-    marginHorizontal: 8,
-  },
-  // Transparent header overlay on image
-  headerOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 5,
-  },
-  headerOverlayContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  overlayButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  overlayButtonsRight: {
-    flexDirection: "row",
-    gap: 8,
+    marginHorizontal: 12,
   },
   scrollView: {
     flex: 1,
@@ -1830,46 +2323,55 @@ const styles = StyleSheet.create({
   // Bottom Actions
   bottomActions: {
     borderTopWidth: StyleSheet.hairlineWidth,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 8,
   },
   shareButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
   },
   shareButtonText: {
-    color: "#fff",
+    color: "#fff"
   },
   // Download Button
   downloadButton: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 20,
     right: 20,
     width: 48,
     height: 48,
     borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   // Copy Button
   copyButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   nameWithCopy: {
     marginBottom: 8,
   },
   // Video Placeholder
   videoPlaceholderText: {
-    textAlign: 'center',
-    fontWeight: '600',
+    textAlign: "center"
   },
   playButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,

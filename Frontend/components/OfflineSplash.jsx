@@ -1,12 +1,89 @@
-import React from "react";
-import { View, StyleSheet, ActivityIndicator, Pressable } from "react-native";
+import React, { useEffect, useRef } from "react";
+import {
+  View,
+  StyleSheet,
+  ActivityIndicator,
+  Pressable,
+  Animated,
+} from "react-native";
 import { WifiOff, RefreshCcw } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../utils/ThemeContext";
 import { Text } from "./ui/Text";
 
 export default function OfflineSplash({ checking = false, onRetry }) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const spinAnim = useRef(new Animated.Value(0)).current;
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+
+    // Spinning animation for loading circle
+    Animated.loop(
+      Animated.timing(spinAnim, {
+        toValue: 1,
+        duration: 1200,
+        useNativeDriver: true,
+      })
+    ).start();
+
+    // Bouncing dots animation
+    const animateDot = (dot, delay) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dot, {
+            toValue: 0,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
+
+    animateDot(dot1, 0);
+    animateDot(dot2, 150);
+    animateDot(dot3, 300);
+  }, [fadeAnim, scaleAnim, pulseAnim, spinAnim, dot1, dot2, dot3]);
 
   const handleRetry = async () => {
     try {
@@ -41,13 +118,6 @@ export default function OfflineSplash({ checking = false, onRetry }) {
       <View
         style={[
           styles.card,
-          {
-            backgroundColor: theme.isDark
-              ? "rgba(20,20,24,0.7)"
-              : "rgba(255,255,255,0.9)",
-            alignSelf: "center",
-            maxWidth: 360,
-          },
         ]}
       >
         <View
@@ -103,10 +173,96 @@ export default function OfflineSplash({ checking = false, onRetry }) {
 
         <View style={styles.actions}>
           {checking ? (
-            <ActivityIndicator
-              color={theme.colors.primary}
-              style={{ alignSelf: "center" }}
-            />
+            <View style={styles.customLoader}>
+              <Animated.View
+                style={[
+                  styles.spinnerCircle,
+                  {
+                    borderColor: theme.colors.primary,
+                    borderTopColor: 'transparent',
+                    transform: [
+                      {
+                        rotate: spinAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0deg', '360deg'],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
+              <View style={styles.dotsContainer}>
+                <Animated.View
+                  style={[
+                    styles.dot,
+                    {
+                      backgroundColor: theme.colors.primary,
+                      transform: [
+                        {
+                          translateY: dot1.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, -10],
+                          }),
+                        },
+                        {
+                          scale: dot1.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [1, 1.3],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+                <Animated.View
+                  style={[
+                    styles.dot,
+                    {
+                      backgroundColor: theme.colors.primary,
+                      transform: [
+                        {
+                          translateY: dot2.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, -10],
+                          }),
+                        },
+                        {
+                          scale: dot2.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [1, 1.3],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+                <Animated.View
+                  style={[
+                    styles.dot,
+                    {
+                      backgroundColor: theme.colors.primary,
+                      transform: [
+                        {
+                          translateY: dot3.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, -10],
+                          }),
+                        },
+                        {
+                          scale: dot3.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [1, 1.3],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={[styles.checkingText, { color: theme.colors.textSecondary }]}>
+                Checking connection...
+              </Text>
+            </View>
           ) : (
             <Pressable
               onPress={handleRetry}
@@ -119,7 +275,7 @@ export default function OfflineSplash({ checking = false, onRetry }) {
               style={({ pressed }) => [
                 styles.primaryButton,
                 { backgroundColor: theme.colors.primary },
-                pressed && { transform: [{ scale: 0.98 }], opacity: 0.95 },
+                pressed,
               ]}
             >
               <RefreshCcw size={20} color="#fff" />
@@ -143,75 +299,123 @@ const styles = StyleSheet.create({
   },
   blob: {
     position: "absolute",
-    width: 240,
-    height: 240,
-    borderRadius: 200,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
     zIndex: 0,
   },
   blobTopRight: {
-    top: -60,
-    right: -60,
+    top: -80,
+    right: -80,
   },
   blobBottomLeft: {
-    bottom: -80,
-    left: -80,
+    bottom: -100,
+    left: -100,
   },
   card: {
     width: "100%",
-    borderRadius: 16,
-    paddingVertical: 28,
-    paddingHorizontal: 20,
+    maxWidth: 400,
+    borderRadius: 25,
+    paddingVertical: 48,
+    paddingHorizontal: 32,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(0,0,0,0.06)",
   },
-  iconWrap: {
-    padding: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    marginBottom: 12,
+  iconContainer: {
+    position: "relative",
+    marginBottom: 32,
+  },
+  iconGlow: {
+    position: "absolute",
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    top: -20,
+    left: -20,
+    zIndex: -1,
   },
   iconBadge: {
-    width: 88,
-    height: 88,
-    borderRadius: 64,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     alignItems: "center",
     justifyContent: "center",
   },
   title: {
-    fontSize: 20,
-    
-    marginBottom: 8,
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 12,
     textAlign: "center",
+    letterSpacing: 0.5,
   },
   message: {
-    fontSize: 14,
-    opacity: 0.8,
+    fontSize: 15,
     textAlign: "center",
+    lineHeight: 22,
+    opacity: 0.85,
+    paddingHorizontal: 16,
   },
   actions: {
-    marginTop: 20,
+    marginTop: 32,
+    width: "100%",
+  },
+  customLoader: {
+    alignItems: "center",
+    gap: 16,
+  },
+  spinnerCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 4,
+    borderColor: "#4a90e2",
+    borderTopColor: "transparent",
+  },
+  dotsContainer: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  checkingText: {
+    fontSize: 14,
+    fontWeight: "500",
+    marginTop: 8,
+  },
+  loadingContainer: {
+    alignItems: "center",
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: "500",
   },
   primaryButton: {
+    width: "100%",
+    borderRadius: 16,
+    overflow: "hidden",
     flexDirection: "row",
-    height: "auto",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 14,
+  },
+  buttonGradient: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 12,
-    minWidth: 160,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    gap: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
   },
   primaryButtonText: {
-    fontSize: 15,
-    letterSpacing: 0.3,
-    marginLeft: 8,
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#ffffff",
+    letterSpacing: 0.5,
   },
 });

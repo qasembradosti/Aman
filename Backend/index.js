@@ -23,6 +23,7 @@ import brandRoutes from './routes/brandRoutes.js';
 import adminBrandRoutes from './routes/adminBrandRoutes.js';
 import storeRoutes from './routes/storeRoutes.js';
 import withdrawalRoutes from './routes/withdrawalRoutes.js';
+import favoriteRoutes from './routes/favoriteRoutes.js';
 import db from './config/knex.js';
 import { runStartupSchemaSetup } from './services/schemaSetup.js';
 import setupSocketIO from './utils/socketIO.js';
@@ -90,7 +91,8 @@ const routes = [
     reviewRoutes,
     dashboardRoutes,
     storeRoutes,
-    withdrawalRoutes
+    withdrawalRoutes,
+    favoriteRoutes
 ];
 
 routes.forEach((route) => {

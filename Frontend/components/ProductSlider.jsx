@@ -2,12 +2,12 @@ import React, { useState } from "react";
 import {
   View,
   StyleSheet,
-  Image,
   ScrollView,
   Pressable,
   Dimensions,
   Text as RNText,
 } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useTheme } from "../utils/ThemeContext";
 import { useLanguage } from "../utils/LanguageContext";
@@ -69,6 +69,7 @@ export default function ProductSlider({ products, title }) {
 
 function ProductCard({ product, onPress, theme, isDark }) {
   const [isFavorite, setIsFavorite] = useState(false);
+  const { isRTL } = useLanguage();
 
   // Get first image or fallback
   const imageUrl = getProductImageUrl(
@@ -76,9 +77,8 @@ function ProductCard({ product, onPress, theme, isDark }) {
     "https://via.placeholder.com/300"
   );
 
-  // Calculate commission (example: 10% of price)
-  const commissionRate = product.commission_rate || 0.1;
-  const commission = (product.price * commissionRate).toFixed(2);
+  // Use commission_price from product
+  const commission = product.commission_price || 0;
 
   return (
     <Pressable
@@ -96,10 +96,12 @@ function ProductCard({ product, onPress, theme, isDark }) {
         <View
           style={[
             styles.commissionBadge,
-            { backgroundColor: theme.colors.primary },
+            { backgroundColor: "#34C759" },
           ]}
         >
-          <Text style={styles.commissionText}>+${commission}</Text>
+          <Text style={styles.commissionText}>
+            +{commission} {isRTL ? "دینار" : "IQD"}
+          </Text>
         </View>
       )}
 
@@ -130,7 +132,9 @@ function ProductCard({ product, onPress, theme, isDark }) {
       <Image
         source={{ uri: imageUrl }}
         style={styles.image}
-        resizeMode="cover"
+        contentFit="cover"
+        transition={200}
+        cachePolicy="memory-disk"
       />
 
       {/* Product Info */}
@@ -157,16 +161,16 @@ function ProductCard({ product, onPress, theme, isDark }) {
         {/* Price */}
         <View style={styles.priceRow}>
           <Text style={[styles.price, { color: theme.colors.primary }]}>
-            ${product.price}
+            {product.sell_price || product.price} {isRTL ? "دینار" : "IQD"}
           </Text>
-          {product.original_price && product.original_price > product.price && (
+          {product.base_price && product.base_price > (product.sell_price || product.price) && (
             <Text
               style={[
                 styles.originalPrice,
                 { color: theme.colors.textSecondary },
               ]}
             >
-              ${product.original_price}
+              {product.base_price} {isRTL ? "دینار" : "IQD"}
             </Text>
           )}
         </View>

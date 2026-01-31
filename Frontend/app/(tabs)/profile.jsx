@@ -77,6 +77,12 @@ export default function Profile() {
       onPress: () => router.push("/edit-profile"),
     },
     {
+      icon: "heart-outline",
+      title: t("favorites"),
+      subtitle: t("yourFavoriteProducts") || "Your favorite products",
+      onPress: () => router.push("/favorites"),
+    },
+    {
       icon: "language-outline",
       title: locale === "en" ? "Language" : locale === "ar" ? "اللغة" : "زمان",
       subtitle:

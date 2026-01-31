@@ -109,7 +109,13 @@ const Brands = () => {
       website: brand.website || "",
       is_active: brand.is_active !== undefined ? brand.is_active : true,
     });
-    setImagePreview(brand.logo_url || null);
+    // Set the full URL for preview if logo_url exists
+    const logoPreview = brand.logo_url 
+      ? brand.logo_url.startsWith('http') 
+        ? brand.logo_url 
+        : `http://backend.aman-store.com${brand.logo_url}`
+      : null;
+    setImagePreview(logoPreview);
     setShowModal(true);
   };
 

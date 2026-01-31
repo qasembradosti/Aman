@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { View, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Text as RNText, Image } from "react-native";
+import { View, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Text as RNText } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
@@ -57,7 +58,7 @@ export default function ForgotPassword() {
         <View style={[styles.mainInner, { paddingHorizontal: layout.containerPadding, paddingTop: layout.spacing.xl, paddingBottom: layout.spacing.lg }]}>
           <View style={[styles.formCard, { backgroundColor: isDark ? "rgba(30,30,30,0.85)" : "transparent", maxWidth: 440, alignSelf: "center", width: "100%", padding: layout.spacing.lg }]}> 
             <View style={{ alignItems: "center", marginBottom: layout.spacing.lg }}>
-              <Image source={require("../../assets/images/aman-app.png")} style={{ width: 96, height: 96, borderRadius: 20, opacity: 0.95 }} resizeMode="contain" accessible accessibilityLabel="App logo" />
+              <Image source={require("../../assets/images/aman-app.png")} style={{ width: 96, height: 96, borderRadius: 20, opacity: 0.95 }} contentFit="contain" accessible accessibilityLabel="App logo" />
             </View>
 
             <Text style={{ fontSize: layout.typography["2xl"], color: theme.colors.text, marginBottom: layout.spacing.sm, textAlign: "center" }}>

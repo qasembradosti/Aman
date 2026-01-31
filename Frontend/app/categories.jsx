@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
-  Image,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useDispatch, useSelector } from "react-redux";
@@ -181,7 +181,9 @@ export default function CategoriesScreen() {
                 : `${API_BASE_URL}${category.image_url}` 
             }}
             style={styles.categoryImage}
-            resizeMode="cover"
+            contentFit="cover"
+            transition={200}
+            cachePolicy="memory-disk"
           />
         ) : (
           <View

@@ -24,6 +24,7 @@ const db = knex({
     createRetryIntervalMillis: 200,
   },
   debug: false,
+  asyncStackTraces: true,
 });
 
 // Test connection on module load

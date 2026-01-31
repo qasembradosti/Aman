@@ -2,13 +2,13 @@ import React from "react";
 import {
   View,
   StyleSheet,
-  Image,
   ScrollView,
   Pressable,
   Dimensions,
   Text as RNText,
   ActivityIndicator,
 } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
 import { useTheme } from "../utils/ThemeContext";
@@ -103,7 +103,7 @@ export default function DiscountProductSlider() {
 }
 
 function DiscountProductCard({ product, onPress, theme, isDark }) {
-  const { isRTL } = useLanguage();
+  const { isRTL, t } = useLanguage();
   
   // Image selection consistent with Home
   const imageUrl = getProductImageUrl(
@@ -144,12 +144,28 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
         <Text style={styles.discountText}>-{discountPercent}%</Text>
       </View>
 
+      {/* Commission Badge */}
+      {product.commission_price && product.commission_price > 0 && (
+        <View
+          style={[
+            styles.commissionBadge,
+            { backgroundColor: "#34C759" },
+          ]}
+        >
+          <Text style={styles.commissionText}>
+            +{product.commission_price} {isRTL ? "دینار" : "IQD"}
+          </Text>
+        </View>
+      )}
+
       {/* Product Image with Gradient */}
       <View style={styles.imageContainer}>
         <Image
           source={{ uri: imageUrl }}
           style={styles.image}
-          resizeMode="cover"
+          contentFit="cover"
+          transition={200}
+          cachePolicy="memory-disk"
         />
         <LinearGradient
           colors={["transparent", "rgba(0,0,0,0.3)"]}
@@ -265,6 +281,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
 
     letterSpacing: 0.5,
+  },
+  commissionBadge: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    zIndex: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  commissionText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "bold",
+    letterSpacing: 0.3,
   },
   imageContainer: {
     width: "100%",

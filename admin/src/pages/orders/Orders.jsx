@@ -419,7 +419,7 @@ const Orders = () => {
                                           height="100%"
                                           frameBorder="0"
                                           className="select-none"
-                                          style={{ border: 0,pointerEvents: 'none' }}
+                                          style={{ border: 0, }}
                                           src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}&layer=mapnik&marker=${lat},${lng}`}
                                           allowFullScreen
                                         />

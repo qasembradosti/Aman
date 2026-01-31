@@ -1,25 +1,37 @@
 import db from '../config/knex.js';
 
+export async function ensureFavoritesTable() {
+  const exists = await db.schema.hasTable('favorites');
+  if (exists) return; // Table already exists
 
-export async function ensureProductVideosTable() {
-  const exists = await db.schema.hasTable('product_videos');
-  if (exists) return;
-
-  await db.schema.createTable('product_videos', (table) => {
-    table.increments('id').primary();
-    table.integer('product_id').unsigned().notNullable().index();
-    table.string('video_url', 500).notNullable();
-    table.boolean('is_main').defaultTo(false);
-    table.timestamp('created_at').defaultTo(db.fn.now());
-    
-    table.index(['product_id', 'is_main']);
-  });
-  console.log('✅ product_videos table created');
+  try {
+    await db.schema.createTable('favorites', (table) => {
+      table.increments('id').primary();
+      table.integer('user_id').notNullable().unsigned();
+      table.integer('product_id').notNullable().unsigned();
+      table.timestamp('created_at').defaultTo(db.fn.now());
+      
+      // Foreign keys
+      table.foreign('user_id').references('id').inTable('users').onDelete('CASCADE');
+      table.foreign('product_id').references('id').inTable('products').onDelete('CASCADE');
+      
+      // Unique constraint to prevent duplicate favorites
+      table.unique(['user_id', 'product_id']);
+      
+      // Indexes for better performance
+      table.index('user_id');
+      table.index('product_id');
+    });
+    console.log('✅ Favorites table created');
+  } catch (error) {
+    console.error('Error creating favorites table:', error);
+  }
 }
+
 
 export async function runStartupSchemaSetup() {
   try {
-    await ensureProductVideosTable();
+    await ensureFavoritesTable();
   } catch (e) {
     console.warn('Schema setup skipped/failed:', e.message);
   }

@@ -2,12 +2,12 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   StyleSheet,
-  Image,
   Dimensions,
   ScrollView,
   Pressable,
   ActivityIndicator,
 } from "react-native";
+import { Image } from "expo-image";
 import { Text } from "./ui/Text";
 import { useTheme } from "../utils/ThemeContext";
 import { LinearGradient } from "expo-linear-gradient";
@@ -93,10 +93,9 @@ export default function BannerSlider() {
             <Image
               source={{ uri: banner.image_url || banner.imageUrl || "" }}
               style={styles.bannerImage}
-              resizeMode="cover"
-              onError={(error) =>
-                console.log("Banner image load error:", error.nativeEvent.error)
-              }
+              contentFit="cover"
+              transition={200}
+              cachePolicy="memory-disk"
             />
             <LinearGradient
               colors={["transparent", "rgba(0,0,0,0.7)"]}

@@ -21,7 +21,7 @@ import { useTheme } from "../../utils/ThemeContext";
 import { useResponsiveLayout } from "../../utils/useResponsiveLayout";
 import { fetchOrders as fetchOrdersThunk, fetchOrderById } from "../../store/slices/ordersSlice";
 import { getApiBaseUrl } from "../../utils/apiConfig";
-import { Image } from "react-native";
+import { Image } from "expo-image";
 
 // Use theme.colors.primary instead of direct constant
 
@@ -1585,8 +1585,9 @@ export default function Orders() {
                           <Image
                             source={{ uri: `${getApiBaseUrl()}${item.image}` }}
                             style={{ width: '100%', height: '100%' }}
-                            resizeMode="cover"
-                            onError={(e) => console.log('❌ Image load error:', e.nativeEvent.error)}
+                            contentFit="cover"
+                            transition={200}
+                            cachePolicy="memory-disk"
                           />
                         ) : (
                           <Text

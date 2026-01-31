@@ -5,11 +5,11 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Image,
   Alert,
   Share,
   ActivityIndicator,
 } from "react-native";
+import { Image } from "expo-image";
 import {
   Pressable,
 } from "react-native";
@@ -128,7 +128,10 @@ export default function CategoryScreen() {
       <View style={styles.imageWrap}>
         <Image 
           source={{ uri: getProductImageUrl(item, API_BASE_URL) }} 
-          style={styles.image} 
+          style={styles.image}
+          contentFit="cover"
+          transition={200}
+          cachePolicy="memory-disk"
         />
       </View>
 

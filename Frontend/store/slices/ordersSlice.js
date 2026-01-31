@@ -8,7 +8,6 @@ export const fetchOrders = createAsyncThunk(
     try {
       console.log('📦 Fetching orders with params:', params);
       const response = await apiService.get('/api/orders', { params });
-      console.log('✅ Orders fetched successfully:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching orders:', {
