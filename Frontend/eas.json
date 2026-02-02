@@ -24,6 +24,9 @@
       "android": {
         "gradleCommand": ":app:bundleRelease",
         "buildType": "app-bundle"
+      },
+      "ios": {
+        "buildType": "release"
       }
     }
   },

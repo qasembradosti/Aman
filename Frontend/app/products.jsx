@@ -94,7 +94,7 @@ const useResponsiveLayout = () => {
 
 export default function Products() {
   const router = useRouter();
-  const { category: routeCategory } = useLocalSearchParams();
+  const { category: routeCategory, brand: routeBrand } = useLocalSearchParams();
   const dispatch = useDispatch();
   const { t, isRTL, language } = useLanguage();
   const { theme } = useTheme();
@@ -114,7 +114,7 @@ export default function Products() {
   const [hasMore, setHasMore] = useState(true);
   const pageSize = 20;
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBrand, setSelectedBrand] = useState("all");
+  const [selectedBrand, setSelectedBrand] = useState(routeBrand || "all");
   const [selectedCategory, setSelectedCategory] = useState(
     routeCategory || "all",
   );
@@ -136,50 +136,89 @@ export default function Products() {
     const fetchParams = { limit: pageSize, offset: 0 };
 
     // Include category filter in API request if category is selected
-    if (routeCategory && routeCategory !== "all") {
-      fetchParams.category_id = routeCategory;
+    if (selectedCategory && selectedCategory !== "all") {
+      fetchParams.category_id = selectedCategory;
     }
 
-    dispatch(fetchProducts(fetchParams));
-    dispatch(fetchBrands({ limit: 10 }));
+    // Include brand filter in API request if brand is selected
+    if (selectedBrand && selectedBrand !== "all") {
+      fetchParams.brand_id = selectedBrand;
+    }
+    
+    dispatch(fetchProducts(fetchParams)).unwrap()
+      .then((response) => {
+        const dataLength = response?.data?.length || response?.length || 0;
+        setOffset(pageSize);
+        setHasMore(dataLength >= pageSize);
+      })
+      .catch((error) => {
+        console.error('Error fetching products:', error);
+        setOffset(pageSize);
+        setHasMore(false);
+      });
+    
+    dispatch(fetchBrands({ limit: 100 }));
     dispatch(fetchCategories({ limit: 100 }));
-    setOffset(pageSize);
-    setHasMore(true);
-  }, [dispatch, routeCategory]);
+  }, [dispatch, selectedCategory, selectedBrand]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     const fetchParams = { limit: pageSize, offset: 0 };
-    if (routeCategory && routeCategory !== "all") {
-      fetchParams.category_id = routeCategory;
+    
+    if (selectedCategory && selectedCategory !== "all") {
+      fetchParams.category_id = selectedCategory;
     }
-    dispatch(fetchProducts(fetchParams))
-      .then((result) => {
+    
+    if (selectedBrand && selectedBrand !== "all") {
+      fetchParams.brand_id = selectedBrand;
+    }
+    
+    dispatch(fetchProducts(fetchParams)).unwrap()
+      .then((response) => {
+        const dataLength = response?.data?.length || response?.length || 0;
         setOffset(pageSize);
-        setHasMore(result.payload?.items?.length >= pageSize);
-        setRefreshing(false);
+        setHasMore(dataLength >= pageSize);
       })
-      .catch(() => setRefreshing(false));
-  }, [dispatch, routeCategory]);
+      .catch((error) => {
+        console.error('Error refreshing products:', error);
+      })
+      .finally(() => {
+        setRefreshing(false);
+      });
+  }, [dispatch, selectedCategory, selectedBrand]);
 
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore || productsLoading) return;
 
     setLoadingMore(true);
     const fetchParams = { limit: pageSize, offset, append: true };
-    if (routeCategory && routeCategory !== "all") {
-      fetchParams.category_id = routeCategory;
+    
+    if (selectedCategory && selectedCategory !== "all") {
+      fetchParams.category_id = selectedCategory;
+    }
+    
+    if (selectedBrand && selectedBrand !== "all") {
+      fetchParams.brand_id = selectedBrand;
     }
 
-    dispatch(fetchProducts(fetchParams))
-      .then((result) => {
-        const newItems = result.payload?.items || [];
+    console.log('Loading more products with params:', fetchParams);
+
+    dispatch(fetchProducts(fetchParams)).unwrap()
+      .then((response) => {
+        const newItems = response?.data || response || [];
+        const dataLength = newItems.length;
+        console.log(`Loaded ${dataLength} more products`);
         setOffset((prev) => prev + pageSize);
-        setHasMore(newItems.length >= pageSize);
-        setLoadingMore(false);
+        setHasMore(dataLength >= pageSize);
       })
-      .catch(() => setLoadingMore(false));
-  }, [dispatch, loadingMore, hasMore, offset, routeCategory, productsLoading]);
+      .catch((error) => {
+        console.error('Error loading more products:', error);
+        setHasMore(false);
+      })
+      .finally(() => {
+        setLoadingMore(false);
+      });
+  }, [dispatch, loadingMore, hasMore, offset, selectedCategory, selectedBrand, productsLoading]);
 
   const handleScroll = (event) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
@@ -257,7 +296,7 @@ export default function Products() {
 
     let filtered = [...products];
 
-    // Filter by search query
+    // Filter by search query (client-side only)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((product) => {
@@ -267,21 +306,10 @@ export default function Products() {
       });
     }
 
-    // Filter by selected brand
-    if (selectedBrand !== "all") {
-      filtered = filtered.filter(
-        (product) => String(product.brand_id) === String(selectedBrand),
-      );
-    }
+    // Note: Brand and category filtering are now handled by the backend API
+    // Only search and sorting are done client-side
 
-    // Filter by selected category
-    if (selectedCategory !== "all") {
-      filtered = filtered.filter(
-        (product) => String(product.category_id) === String(selectedCategory),
-      );
-    }
-
-    // Sort products
+    // Sort products (client-side)
     if (sortBy === "price-low") {
       filtered.sort((a, b) => (a.sell_price || 0) - (b.sell_price || 0));
     } else if (sortBy === "price-high") {
@@ -296,8 +324,6 @@ export default function Products() {
   }, [
     products,
     searchQuery,
-    selectedBrand,
-    selectedCategory,
     sortBy,
     language,
   ]);

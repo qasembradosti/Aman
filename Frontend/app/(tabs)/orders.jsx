@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,7 +20,10 @@ import { useDispatch, useSelector } from "react-redux";
 import { useLanguage } from "../../utils/LanguageContext";
 import { useTheme } from "../../utils/ThemeContext";
 import { useResponsiveLayout } from "../../utils/useResponsiveLayout";
-import { fetchOrders as fetchOrdersThunk, fetchOrderById } from "../../store/slices/ordersSlice";
+import {
+  fetchOrders as fetchOrdersThunk,
+  fetchOrderById,
+} from "../../store/slices/ordersSlice";
 import { getApiBaseUrl } from "../../utils/apiConfig";
 import { Image } from "expo-image";
 
@@ -153,7 +157,7 @@ export default function Orders() {
             order.user_last_name.toLowerCase().includes(query)) ||
           (order.user_phone &&
             order.user_phone.toLowerCase().includes(query)) ||
-          order.status.toLowerCase().includes(query)
+          order.status.toLowerCase().includes(query),
       );
     }
 
@@ -164,7 +168,7 @@ export default function Orders() {
 
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter((order) =>
-        selectedStatuses.includes(order.status)
+        selectedStatuses.includes(order.status),
       );
     }
 
@@ -305,7 +309,7 @@ export default function Orders() {
     try {
       const num = typeof value === "number" ? value : parseFloat(value || 0);
       // Format for Iraqi Dinar
-      return `${num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} IQD`;
+      return `${num.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} IQD`;
     } catch {
       // Fallback if Intl is not available
       const num = typeof value === "number" ? value : parseFloat(value || 0);
@@ -318,13 +322,68 @@ export default function Orders() {
     setSelectedOrder(order);
     setLoadingDetails(true);
     try {
-      console.log('📦 Fetching details for order:', order.id);
+      console.log("📦 Fetching details for order:", order.id);
       await dispatch(fetchOrderById(order.id)).unwrap();
     } catch (error) {
-      console.error('❌ Error fetching order details:', error);
-      Alert.alert(t('error') || 'Error', t('failedToLoadOrderDetails') || 'Failed to load order details');
+      console.error("❌ Error fetching order details:", error);
+      Alert.alert(
+        t("error") || "Error",
+        t("failedToLoadOrderDetails") || "Failed to load order details",
+      );
     } finally {
       setLoadingDetails(false);
+    }
+  };
+
+  // Share order details
+  const handleShareOrder = async (order) => {
+    try {
+      const subtotal =
+        Array.isArray(order.items) && order.items.length > 0
+          ? order.items.reduce(
+              (sum, item) => sum + (item.price || 0) * (item.quantity || 1),
+              0,
+            )
+          : order.total || 0;
+      const shipping = order.shipping_cost || order.delivery_cost || 5000;
+      const total = subtotal + shipping;
+
+      const itemsList =
+        Array.isArray(order.items) && order.items.length > 0
+          ? order.items
+              .map(
+                (item, index) =>
+                  `${index + 1}. ${item.product_name || item.name || "Product"} - ${formatCurrency(item.price || 0)} x ${item.quantity || 1}`,
+              )
+              .join("\n")
+          : "No items";
+
+      const message = `
+${t("orderDetails") || "Order Details"}
+━━━━━━━━━━━━━━━━━━━━━
+${t("orderNumber") || "Order"} #${order.id}
+${t("status") || "Status"}: ${order.status || "N/A"}
+${t("date") || "Date"}: ${order.created_at ? new Date(order.created_at).toLocaleDateString(locale || "en-US") : "N/A"}
+
+${t("items") || "Items"}:
+${itemsList}
+
+━━━━━━━━━━━━━━━━━━━━━
+${t("subtotal") || "Subtotal"}: ${formatCurrency(subtotal)}
+${t("delivery") || "Delivery"}: ${formatCurrency(shipping)}
+${t("total") || "Total"}: ${formatCurrency(total)}
+      `.trim();
+
+      await Share.share({
+        message: message,
+        title: `${t("orderDetails") || "Order Details"} #${order.id}`,
+      });
+    } catch (error) {
+      console.error("Error sharing order:", error);
+      Alert.alert(
+        t("error") || "Error",
+        t("unableToShareOrder") || "Unable to share order",
+      );
     }
   };
 
@@ -359,7 +418,7 @@ export default function Orders() {
     setSelectedStatuses((prev) =>
       prev.includes(status)
         ? prev.filter((s) => s !== status)
-        : [...prev, status]
+        : [...prev, status],
     );
   };
 
@@ -883,251 +942,323 @@ export default function Orders() {
                   styles.orderCard,
                   {
                     backgroundColor: theme.colors.card,
-                    borderRadius: layout.borderRadius.xl,
-                    padding: layout.spacing.lg,
+                    borderRadius: 20,
                     marginBottom: layout.spacing.md,
-                    borderWidth: 1,
                     borderColor: theme.colors.border,
-                    flexDirection: "column",
+                    shadowColor: theme.colors.shadow || "#000",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                    elevation: 2,
+                    overflow: "hidden",
                   },
                 ]}
                 onPress={() => handleOrderClick(order)}
               >
-                <View
-                  style={[
-                    styles.orderHeader,
-                    {
-                      flexDirection: "row",
-                      marginBottom: layout.spacing.sm,
-                    },
-                  ]}
-                >
+
+                {/* Card Content */}
+                <View style={{ padding: layout.spacing.lg }}>
+                  {/* Header Section */}
                   <View
                     style={{
-                      flex: 1,
-                      paddingRight: isRTL ? 0 : layout.spacing.sm,
-                      paddingLeft: isRTL ? layout.spacing.sm : 0,
+                      flexDirection: isRTL ? "row-reverse" : "row",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      marginBottom: layout.spacing.md,
+                    }}
+                  >
+                    {/* Order Info */}
+                    <View style={{ flex: 1 }}>
+                      <View
+                        style={{
+                          flexDirection: isRTL ? "row-reverse" : "row",
+                          alignItems: "center",
+                          marginBottom: layout.spacing.xs,
+                          gap: layout.spacing.xs,
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: layout.borderRadius.lg,
+                            backgroundColor: theme.colors.primary + "15",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Ionicons
+                            name="receipt-outline"
+                            size={20}
+                            color={theme.colors.primary}
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={{
+                              fontSize: layout.typography.lg,
+                              fontWeight: "600",
+                              color: theme.colors.text,
+                            }}
+                          >
+                            {t("order")} #{order.id}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: layout.typography.xs,
+                              color: theme.colors.textSecondary,
+                              marginTop: 2,
+                            }}
+                          >
+                            {formatDate(order.date)}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Status Badge */}
+                    <View
+                      style={{
+                        backgroundColor: getStatusColor(order.status) + "15",
+                        paddingVertical: layout.spacing.xs,
+                        paddingHorizontal: layout.spacing.sm,
+                        borderRadius: layout.borderRadius.md,
+                        borderWidth: 1.5,
+                        borderColor: getStatusColor(order.status) + "40",
+                        flexDirection: isRTL ? "row-reverse" : "row",
+                        alignItems: "center",
+                        gap: layout.spacing.xs / 2,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: 3,
+                          backgroundColor: getStatusColor(order.status),
+                        }}
+                      />
+                      <Text
+                        style={{
+                          color: getStatusColor(order.status),
+                          fontSize: layout.typography.xs,
+                          fontWeight: "600",
+                        }}
+                      >
+                        {getStatusText(order.status)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Divider */}
+                  <View
+                    style={{
+                      height: 1,
+                      backgroundColor: theme.colors.border,
+                      marginVertical: layout.spacing.sm,
+                    }}
+                  />
+                  {/* Divider */}
+                  <View
+                    style={{
+                      height: 1,
+                      backgroundColor: theme.colors.border,
+                      marginVertical: layout.spacing.sm,
+                    }}
+                  />
+
+                  {/* Order Details Section */}
+                  <View style={{ gap: layout.spacing.sm }}>
+                    {/* Product Preview */}
+                    {order.products && order.products.length > 0 && (
+                      <View
+                        style={{
+                          backgroundColor: theme.colors.background,
+                          padding: layout.spacing.sm,
+                          borderRadius: layout.borderRadius.lg,
+                          borderWidth: 1,
+                          borderColor: theme.colors.border,
+                        }}
+                      >
+                        <View
+                          style={{
+                            flexDirection: isRTL ? "row-reverse" : "row",
+                            alignItems: "center",
+                            gap: layout.spacing.xs,
+                            marginBottom: layout.spacing.xs / 2,
+                          }}
+                        >
+                          <Ionicons
+                            name="cube-outline"
+                            size={14}
+                            color={theme.colors.textSecondary}
+                          />
+                          <Text
+                            style={{
+                              fontSize: layout.typography.xs,
+                              color: theme.colors.textSecondary,
+                              fontWeight: "500",
+                            }}
+                          >
+                            {t("products")}
+                          </Text>
+                        </View>
+                        <Text
+                          style={{
+                            fontSize: layout.typography.sm,
+                            color: theme.colors.text,
+                            lineHeight: layout.typography.sm * 1.4,
+                          }}
+                        >
+                          {order.products.length > 2
+                            ? `${order.products.slice(0, 2).join(", ")} +${
+                                order.products.length - 2
+                              } ${t("more")}`
+                            : order.products.join(", ")}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Items and Total Row */}
+                    <View
+                      style={{
+                        flexDirection: isRTL ? "row-reverse" : "row",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: layout.spacing.md,
+                      }}
+                    >
+                      {/* Items Count */}
+                      <View
+                        style={{
+                          flex: 1,
+                          backgroundColor: theme.colors.background,
+                          padding: layout.spacing.sm,
+                          borderRadius: layout.borderRadius.lg,
+                          borderWidth: 1,
+                          borderColor: theme.colors.border,
+                          flexDirection: isRTL ? "row-reverse" : "row",
+                          alignItems: "center",
+                          gap: layout.spacing.xs,
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: layout.borderRadius.md,
+                            backgroundColor: theme.colors.primary + "10",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Ionicons
+                            name="cart-outline"
+                            size={16}
+                            color={theme.colors.primary}
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={{
+                              fontSize: layout.typography.xs,
+                              color: theme.colors.textSecondary,
+                            }}
+                          >
+                            {t("items")}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: layout.typography.md,
+                              color: theme.colors.text,
+                              fontWeight: "600",
+                            }}
+                          >
+                            {order.items || 0}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Total Price */}
+                      <View
+                        style={{
+                          flex: 1,
+                          backgroundColor: theme.colors.primary + "08",
+                          padding: layout.spacing.sm,
+                          borderRadius: layout.borderRadius.lg,
+                          borderWidth: 1.5,
+                          borderColor: theme.colors.primary + "20",
+                          flexDirection: isRTL ? "row-reverse" : "row",
+                          alignItems: "center",
+                          gap: layout.spacing.xs,
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: layout.borderRadius.md,
+                            backgroundColor: theme.colors.primary + "15",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Ionicons
+                            name="cash-outline"
+                            size={16}
+                            color={theme.colors.primary}
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={{
+                              fontSize: layout.typography.xs,
+                              color: theme.colors.textSecondary,
+                            }}
+                          >
+                            {t("total")}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: layout.typography.md,
+                              color: theme.colors.primary,
+                              fontWeight: "700",
+                              writingDirection: "ltr",
+                            }}
+                          >
+                            {formatCurrency(order.total || 0)}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* View Details Footer */}
+                  <View
+                    style={{
+                      marginTop: layout.spacing.md,
+                      paddingTop: layout.spacing.sm,
+                      flexDirection: isRTL ? "row-reverse" : "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: layout.spacing.xs,
                     }}
                   >
                     <Text
-                      style={[
-                        styles.orderId,
-                        {
-                          fontSize: layout.typography.lg,
-                          color: theme.colors.text,
-                          marginBottom: layout.spacing.xs / 2,
-                        },
-                      ]}
-                    >
-                      {order.id}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.orderDate,
-                        {
-                          fontSize: layout.typography.sm,
-                          color: theme.colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {formatDate(order.date)}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      {
-                        backgroundColor: getStatusColor(order.status) + "20",
-                        flexDirection: "row",
-                        alignItems: "center",
-                        paddingVertical: layout.spacing.xs / 2,
-                        paddingHorizontal: layout.spacing.sm,
-                        borderRadius: layout.borderRadius.xl,
-                        gap: layout.spacing.xs / 2,
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={getStatusIcon(order.status)}
-                      size={layout.iconSizes.sm}
-                      color={getStatusColor(order.status)}
-                    />
-                    <Text
-                      style={[
-                        styles.statusText,
-                        {
-                          color: getStatusColor(order.status),
-                          fontSize: layout.typography.xs,
-                        },
-                      ]}
-                    >
-                      {getStatusText(order.status)}
-                    </Text>
-                  </View>
-                </View>
-
-                <View
-                  style={[
-                    styles.orderDivider,
-                    {
-                      height: StyleSheet.hairlineWidth,
-                      backgroundColor: theme.colors.border,
-                      marginVertical: layout.spacing.sm,
-                    },
-                  ]}
-                />
-
-                <View
-                  style={[
-                    styles.orderDetails,
-                    {
-                      marginBottom: layout.spacing.sm,
-                      width: "100%",
-                    },
-                  ]}
-                >
-                  {/* Product Preview */}
-                  {order.products && order.products.length > 0 && (
-                    <View
                       style={{
-                        marginBottom: layout.spacing.sm,
-                        width: "100%",
+                        color: theme.colors.primary,
+                        fontSize: layout.typography.sm,
+                        fontWeight: "600",
                       }}
                     >
-                      <Text
-                        style={[
-                          styles.orderLabel,
-                          {
-                            fontSize: layout.typography.sm,
-                            color: theme.colors.textSecondary,
-                            marginBottom: layout.spacing.xs / 2,
-                          },
-                        ]}
-                      >
-                        {t("products")}:
-                      </Text>
-                      <Text
-                        style={[
-                          styles.productPreview,
-                          {
-                            fontSize: layout.typography.sm,
-                            color: theme.colors.text,
-                            lineHeight: layout.typography.sm * 1.3,
-                          },
-                        ]}
-                      >
-                        {order.products.length > 2
-                          ? `${order.products.slice(0, 2).join(", ")} +${
-                              order.products.length - 2
-                            } ${t("more")}`
-                          : order.products.join(", ")}
-                      </Text>
-                    </View>
-                  )}
-
-                  <View
-                    style={[
-                      styles.orderRow,
-                      {
-                        flexDirection: "row",
-                        alignItems: "center",
-                        marginBottom: layout.spacing.xs,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.orderLabel,
-                        {
-                          fontSize: layout.typography.md,
-                          color: theme.colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {t("items")}:
+                      {t("viewDetails")}
                     </Text>
-                    <Text
-                      style={[
-                        styles.orderValue,
-                        {
-                          fontSize: layout.typography.md,
-                          color: theme.colors.text,
-                        },
-                      ]}
-                    >
-                      {order.items || 0} {(order.items || 0) === 1 ? t("item") : t("items")}
-                    </Text>
+                    <Ionicons
+                      name={isRTL ? "chevron-back" : "chevron-forward"}
+                      size={16}
+                      color={theme.colors.primary}
+                    />
                   </View>
-                  <View
-                    style={[
-                      styles.orderRow,
-                      {
-                        flexDirection: "row",
-                        alignItems: "center",
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.orderLabel,
-                        {
-                          fontSize: layout.typography.md,
-                          color: theme.colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {t("total")}:
-                    </Text>
-                    <Text
-                      style={[
-                        styles.orderTotal,
-                        {
-                          color: theme.colors.primary,
-                          fontSize: layout.typography.lg,
-                          writingDirection: "ltr",
-                        },
-                      ]}
-                    >
-                      {formatCurrency(order.total || 0)}
-                    </Text>
-                  </View>
-                </View>
-
-                <View
-                  style={[
-                    styles.viewDetailsButton,
-                    {
-                      flexDirection: isRTL ? "row-reverse" : "row",
-                      alignItems: "center",
-                      direction: isRTL ? "rtl" : "ltr",
-                      justifyContent: isRTL ? "flex-end" : "flex-start",
-                      paddingTop: layout.spacing.sm,
-                      borderTopWidth: StyleSheet.hairlineWidth,
-                      borderTopColor: theme.colors.border,
-                      minHeight: layout.touchTargets.md,
-                      width: "100%",
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.viewDetailsText,
-                      {
-                        color: theme.colors.primary,
-                        fontSize: layout.typography.md,
-                        marginRight: isRTL ? 0 : layout.spacing.xs / 2,
-                        marginLeft: isRTL ? layout.spacing.xs / 2 : 0,
-                        textAlign: isRTL ? "right" : "left",
-                      },
-                    ]}
-                  >
-                    {t("viewDetails")}
-                  </Text>
-                  <Ionicons
-                    name={isRTL ? "chevron-back" : "chevron-forward"}
-                    size={layout.iconSizes.md}
-                    color={theme.colors.primary}
-                  />
                 </View>
               </TouchableOpacity>
             ))
@@ -1196,7 +1327,7 @@ export default function Orders() {
                 <View
                   style={{
                     backgroundColor:
-                      getStatusColor(selectedOrder.status || "pending") + "15",
+                      getStatusColor(selectedOrder.status) + "15",
                     paddingHorizontal: layout.spacing.md,
                     paddingVertical: 6,
                     borderRadius: layout.borderRadius.xl,
@@ -1206,13 +1337,12 @@ export default function Orders() {
                   <Text
                     style={{
                       fontSize: layout.typography.xs,
-
                       color: getStatusColor(selectedOrder.status || "pending"),
                       textTransform: "uppercase",
                       letterSpacing: 0.5,
                     }}
                   >
-                    {selectedOrder.status || "pending"}
+                    {selectedOrder.status}
                   </Text>
                 </View>
                 <Text
@@ -1246,9 +1376,7 @@ export default function Orders() {
                   alignItems: "center",
                   justifyContent: "center",
                 }}
-                onPress={() => {
-                  // Share or export functionality
-                }}
+                onPress={() => handleShareOrder(selectedOrder)}
               >
                 <Ionicons
                   name="share-social"
@@ -1288,7 +1416,8 @@ export default function Orders() {
                       height: 56,
                       borderRadius: 28,
                       backgroundColor:
-                        getStatusColor(selectedOrder.status || "pending") + "15",
+                        getStatusColor(selectedOrder.status || "pending") +
+                        "15",
                       alignItems: "center",
                       justifyContent: "center",
                       marginRight: isRTL ? 0 : layout.spacing.md,
@@ -1323,7 +1452,8 @@ export default function Orders() {
                       <View
                         style={{
                           backgroundColor:
-                            getStatusColor(selectedOrder.status || "pending") + "20",
+                            getStatusColor(selectedOrder.status || "pending") +
+                            "20",
                           paddingVertical: 4,
                           paddingHorizontal: layout.spacing.sm,
                           borderRadius: layout.borderRadius.md,
@@ -1333,7 +1463,9 @@ export default function Orders() {
                           style={{
                             fontSize: 10,
 
-                            color: getStatusColor(selectedOrder.status || "pending"),
+                            color: getStatusColor(
+                              selectedOrder.status || "pending",
+                            ),
                           }}
                         >
                           {(selectedOrder.status || "pending").toUpperCase()}
@@ -1396,17 +1528,20 @@ export default function Orders() {
                     },
                   ].map((step, index) => {
                     const isActive =
-                      ["pending", "processing", "shipped", "delivered"].includes(
-                        selectedOrder.status
-                      ) &&
+                      [
+                        "pending",
+                        "processing",
+                        "shipped",
+                        "delivered",
+                      ].includes(selectedOrder.status) &&
                       (index === 0 ||
                         (index === 1 &&
                           ["processing", "shipped", "delivered"].includes(
-                            selectedOrder.status
+                            selectedOrder.status,
                           )) ||
                         (index === 2 &&
                           ["shipped", "delivered"].includes(
-                            selectedOrder.status
+                            selectedOrder.status,
                           )) ||
                         (index === 3 && selectedOrder.status === "delivered"));
 
@@ -1414,11 +1549,11 @@ export default function Orders() {
                       index === 0 ||
                       (index === 1 &&
                         ["processing", "shipped", "delivered"].includes(
-                          selectedOrder.status
+                          selectedOrder.status,
                         )) ||
                       (index === 2 &&
                         ["shipped", "delivered"].includes(
-                          selectedOrder.status
+                          selectedOrder.status,
                         )) ||
                       (index === 3 && selectedOrder.status === "delivered");
 
@@ -1538,20 +1673,41 @@ export default function Orders() {
                         color: theme.colors.primary,
                       }}
                     >
-                      {Array.isArray(selectedOrder.items) ? selectedOrder.items.length : (selectedOrder.items || 0)}{" "}
-                      {(Array.isArray(selectedOrder.items) ? selectedOrder.items.length : (selectedOrder.items || 0)) === 1 ? t("item") : t("items")}
+                      {Array.isArray(selectedOrder.items)
+                        ? selectedOrder.items.length
+                        : selectedOrder.items || 0}{" "}
+                      {(Array.isArray(selectedOrder.items)
+                        ? selectedOrder.items.length
+                        : selectedOrder.items || 0) === 1
+                        ? t("item")
+                        : t("items")}
                     </Text>
                   </View>
                 </View>
 
                 {loadingDetails ? (
-                  <View style={{ paddingVertical: layout.spacing.xl, alignItems: 'center' }}>
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                    <Text style={{ color: theme.colors.textSecondary, fontSize: layout.typography.sm, marginTop: layout.spacing.sm }}>
+                  <View
+                    style={{
+                      paddingVertical: layout.spacing.xl,
+                      alignItems: "center",
+                    }}
+                  >
+                    <ActivityIndicator
+                      size="large"
+                      color={theme.colors.primary}
+                    />
+                    <Text
+                      style={{
+                        color: theme.colors.textSecondary,
+                        fontSize: layout.typography.sm,
+                        marginTop: layout.spacing.sm,
+                      }}
+                    >
                       {t("loadingOrderDetails")}
                     </Text>
                   </View>
-                ) : Array.isArray(selectedOrder.items) && selectedOrder.items.length > 0 ? (
+                ) : Array.isArray(selectedOrder.items) &&
+                  selectedOrder.items.length > 0 ? (
                   selectedOrder.items.map((item, index) => (
                     <View
                       key={item.id || index}
@@ -1578,20 +1734,23 @@ export default function Orders() {
                           marginLeft: isRTL ? layout.spacing.md : 0,
                           borderWidth: 1,
                           borderColor: theme.colors.border,
-                          overflow: 'hidden',
+                          overflow: "hidden",
                         }}
                       >
                         {item.image ? (
                           <Image
                             source={{ uri: `${getApiBaseUrl()}${item.image}` }}
-                            style={{ width: '100%', height: '100%' }}
+                            style={{ width: "100%", height: "100%" }}
                             contentFit="cover"
                             transition={200}
                             cachePolicy="memory-disk"
                           />
                         ) : (
                           <Text
-                            style={{ fontSize: 28, color: theme.colors.primary }}
+                            style={{
+                              fontSize: 28,
+                              color: theme.colors.primary,
+                            }}
                           >
                             📦
                           </Text>
@@ -1688,13 +1847,25 @@ export default function Orders() {
                 </Text>
                 {(() => {
                   // Calculate subtotal from actual items if available
-                  const subtotal = Array.isArray(selectedOrder.items) && selectedOrder.items.length > 0
-                    ? selectedOrder.items.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0)
-                    : (selectedOrder.total || 0);
-                  
+                  const subtotal =
+                    Array.isArray(selectedOrder.items) &&
+                    selectedOrder.items.length > 0
+                      ? selectedOrder.items.reduce(
+                          (sum, item) =>
+                            sum + (item.price || 0) * (item.quantity || 1),
+                          0,
+                        )
+                      : selectedOrder.total || 0;
+
                   // Get shipping/delivery cost from order data if available
-                  const shipping = selectedOrder.shipping_cost || selectedOrder.delivery_cost || 5000; // Default 5000 IQD if not set
-    
+                  const shipping =
+                    selectedOrder.shipping_cost ||
+                    selectedOrder.delivery_cost ||
+                    5000; // Default 5000 IQD if not set
+
+                  // Calculate and store the order total
+                  window.orderTotal = subtotal + shipping;
+
                   return [
                     {
                       label: t("subtotal"),
@@ -1761,8 +1932,6 @@ export default function Orders() {
                   style={{
                     paddingTop: layout.spacing.md,
                     marginTop: layout.spacing.sm,
-                    borderTopWidth: 2,
-                    borderTopColor: theme.colors.border,
                     flexDirection: isRTL ? "row-reverse" : "row",
                     justifyContent: "space-between",
                     alignItems: "center",
@@ -1791,7 +1960,9 @@ export default function Orders() {
                       writingDirection: "ltr",
                     }}
                   >
-                    {formatCurrency(window.orderTotal || selectedOrder.total || 0)}
+                    {formatCurrency(
+                      window.orderTotal || selectedOrder.total || 0,
+                    )}
                   </Text>
                 </View>
               </View>
@@ -2326,7 +2497,7 @@ export default function Orders() {
                   <Ionicons
                     name="layers-outline"
                     size={18}
-                    color={theme.colors.success || "#34C759"}
+                    color={theme.colors.success}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -2431,7 +2602,7 @@ export default function Orders() {
                           paddingHorizontal: layout.spacing.md,
                           borderRadius: layout.borderRadius.lg,
                           backgroundColor: selectedStatuses.includes(
-                            option.value
+                            option.value,
                           )
                             ? getStatusColor(option.value)
                             : "transparent",
@@ -2601,58 +2772,13 @@ const styles = StyleSheet.create({
   tab: {
     // All properties handled inline for responsiveness
   },
-  activeTab: {
-    // backgroundColor applied inline via theme
-  },
   tabText: {
-    // All properties handled inline for responsiveness
-  },
-  activeTabText: {
     // All properties handled inline for responsiveness
   },
   scrollView: {
     // All properties handled inline for responsiveness
   },
   orderCard: {
-    // All properties handled inline for responsiveness
-  },
-  orderHeader: {
-    // All properties handled inline for responsiveness
-  },
-  orderId: {
-    // All properties handled inline for responsiveness
-  },
-  orderDate: {
-    // All properties handled inline for responsiveness
-  },
-  statusBadge: {
-    // All properties handled inline for responsiveness
-  },
-  statusText: {
-    // All properties handled inline for responsiveness
-  },
-  orderDivider: {
-    // All properties handled inline for responsiveness
-  },
-  orderDetails: {
-    // All properties handled inline for responsiveness
-  },
-  orderRow: {
-    // All properties handled inline for responsiveness
-  },
-  orderLabel: {
-    // All properties handled inline for responsiveness
-  },
-  orderValue: {
-    // All properties handled inline for responsiveness
-  },
-  orderTotal: {
-    // All properties handled inline for responsiveness
-  },
-  viewDetailsButton: {
-    // All properties handled inline for responsiveness
-  },
-  viewDetailsText: {
     // All properties handled inline for responsiveness
   },
   emptyState: {
@@ -2692,9 +2818,6 @@ const styles = StyleSheet.create({
   registerButtonText: {
     // All other properties handled inline for responsiveness
   },
-  productPreview: {
-    // All properties handled inline for responsiveness
-  },
   searchContainer: {
     // All properties handled inline for responsiveness
   },
@@ -2716,9 +2839,6 @@ const styles = StyleSheet.create({
   filterTitle: {
     // All properties handled inline for responsiveness
   },
-  sortOptions: {
-    // All properties handled inline for responsiveness
-  },
   sortOption: {
     // All properties handled inline for responsiveness
   },
@@ -2733,9 +2853,6 @@ const styles = StyleSheet.create({
     // All properties handled inline for responsiveness
   },
   priceInput: {
-    // All properties handled inline for responsiveness
-  },
-  statusOptions: {
     // All properties handled inline for responsiveness
   },
   statusOption: {

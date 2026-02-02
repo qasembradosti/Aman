@@ -28,6 +28,8 @@ import HomeHeader from "../../components/HomeHeader";
 import BannerSlider from "../../components/BannerSlider";
 import DiscountProductSlider from "../../components/DiscountProductSlider";
 import { useRef } from "react";
+import { Heart, Star } from "lucide-react-native";
+import { toggleFavorite } from "../../services/favoriteService";
 // Custom Text component with font
 const Text = ({ style, ...props }) => {
   const { fontFamily } = useLanguage();
@@ -137,6 +139,9 @@ export default function Home() {
   // Pull-to-refresh state
   const [refreshing, setRefreshing] = useState(false);
 
+  // Favorites state - track which products are favorited
+  const [favorites, setFavorites] = useState({});
+
   // Redux selectors
   const {
     items: products,
@@ -245,6 +250,41 @@ export default function Home() {
         message: "Unable to share product",
       });
       console.error("Share error:", error);
+    }
+  };
+
+  // Handle favorite toggle
+  const handleToggleFavorite = async (productId) => {
+    if (!isAuthenticated) {
+      setDialog({
+        visible: true,
+        title: t("loginRequired") || "Login Required",
+        message: t("loginToFavorite") || "Please login to add favorites",
+      });
+      return;
+    }
+
+    try {
+      // Optimistically update UI
+      setFavorites(prev => ({
+        ...prev,
+        [productId]: !prev[productId]
+      }));
+
+      await toggleFavorite(productId);
+    } catch (error) {
+      // Revert on error
+      setFavorites(prev => ({
+        ...prev,
+        [productId]: !prev[productId]
+      }));
+      
+      console.error("Favorite toggle error:", error);
+      setDialog({
+        visible: true,
+        title: t("error") || "Error",
+        message: t("favoriteError") || "Unable to update favorites",
+      });
     }
   };
 
@@ -412,8 +452,6 @@ export default function Home() {
                           {
                             borderColor: theme.colors.border,
                             borderWidth: 1,
-                            elevation: pressed ? 0 : 3,
-                            shadowOpacity: pressed ? 0 : 0.1,
                           },
                         ]}
                       >
@@ -423,15 +461,6 @@ export default function Home() {
                           contentFit="cover"
                           transition={200}
                           cachePolicy="memory-disk"
-                        />
-                        {/* Gradient overlay */}
-                        <View
-                          style={[
-                            styles.categoryOverlay,
-                            {
-                              backgroundColor: `${theme.colors.primary}66`,
-                            },
-                          ]}
                         />
                       </View>
                       <Text
@@ -543,8 +572,6 @@ export default function Home() {
                           {
                             borderColor: theme.colors.border,
                             borderWidth: 1,
-                            elevation: pressed ? 0 : 3,
-                            shadowOpacity: pressed ? 0 : 0.1,
                           },
                         ]}
                       >
@@ -554,15 +581,6 @@ export default function Home() {
                           contentFit="cover"
                           transition={200}
                           cachePolicy="memory-disk"
-                        />
-                        {/* Gradient overlay */}
-                        <View
-                          style={[
-                            styles.categoryOverlay,
-                            {
-                              backgroundColor: `${theme.colors.primary}66`,
-                            },
-                          ]}
                         />
                       </View>
                       <Text
@@ -843,6 +861,7 @@ export default function Home() {
                       transition={200}
                       cachePolicy="memory-disk"
                     />
+                    {/* Commission Badge */}
                     {product.commission_price && (
                       <View
                         style={[styles.bonusTag, { backgroundColor: "green" }]}
@@ -854,6 +873,26 @@ export default function Home() {
                         </Text>
                       </View>
                     )}
+                    {/* Favorite Button */}
+                    <TouchableOpacity
+                      style={[
+                        styles.favoriteButton,
+                        {
+                          backgroundColor: theme.colors.card,
+                        },
+                      ]}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleToggleFavorite(product.id);
+                      }}
+                    >
+                      <Heart
+                        size={16}
+                        color={favorites[product.id] ? "#EF4444" : theme.colors.text}
+                        fill={favorites[product.id] ? "#EF4444" : "none"}
+                        strokeWidth={2}
+                      />
+                    </TouchableOpacity>
                   </View>
 
                   {/* Product info section */}
@@ -872,6 +911,31 @@ export default function Home() {
                     >
                       {getLocalizedText(product, "name")}
                     </Text>
+
+                    {/* Rating */}
+                    {product.average_rating && product.average_rating > 0 && (
+                      <View style={styles.ratingRow}>
+                        <Star size={14} color="#FFA500" fill="#FFA500" />
+                        <Text
+                          style={[
+                            styles.rating,
+                            { color: theme.colors.textSecondary }
+                          ]}
+                        >
+                          {product.average_rating.toFixed(1)}
+                        </Text>
+                        {product.review_count > 0 && (
+                          <Text
+                            style={[
+                              styles.reviewCount,
+                              { color: theme.colors.textSecondary }
+                            ]}
+                          >
+                            ({product.review_count})
+                          </Text>
+                        )}
+                      </View>
+                    )}
 
                     {/* Price and Share at bottom */}
                     <View style={styles.bottomRow}>
@@ -1073,29 +1137,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
     marginBottom: 8,
     borderWidth: 0.4,
-    borderColor: "transparent",
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    borderColor: "transparent"
   },
   categoryImage: {
     width: "100%",
     height: "100%",
   },
-  categoryOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 16,
-  },
   categoryIcon: {
     // width and height handled inline with responsive layout
     borderRadius: 14,
-    backgroundColor: "#E8E9F8",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
@@ -1158,6 +1208,21 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 8,
   },
+  favoriteButton: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   productImageImg: {
     width: "100%",
     height: "100%",
@@ -1176,8 +1241,16 @@ const styles = StyleSheet.create({
   ratingRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 4,
     marginBottom: 6,
+  },
+  rating: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  reviewCount: {
+    fontSize: 11,
+    marginLeft: 2,
   },
   bottomRow: {
     flexDirection: "row",

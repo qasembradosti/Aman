@@ -1,5 +1,5 @@
 export const Colors = {
-  primary: "#ee7301ff",
+  primary: "#ff751f",
   // Secondary brand color (complementary to primary)
   secondary: "#2563EB", // Tailwind blue-600 as a sensible default
   accent: "#10B981", // emerald-500

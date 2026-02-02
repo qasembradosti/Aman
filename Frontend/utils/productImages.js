@@ -46,3 +46,45 @@ export const getProductImageUrls = (product, fallback) => {
 
   return fallback ? [fallback] : [];
 };
+
+// Extract video value from various formats
+const extractVideoValue = (value) => {
+  if (!value) return null;
+  if (typeof value === "string") return value;
+  return value.url || value.video_url || value.video || null;
+};
+
+// Resolve video URL (similar to image URL resolution)
+export const resolveVideoUrl = (value) => {
+  const videoValue = extractVideoValue(value);
+  if (!videoValue) return null;
+  const url = String(videoValue);
+  if (ABSOLUTE_URL.test(url)) return url;
+  return joinBaseUrl(getApiBaseUrl(), url);
+};
+
+// Get product video URL
+export const getProductVideoUrl = (product, fallback) => {
+  const videos = Array.isArray(product?.videos) ? product.videos : [];
+  const preferred = videos.find((vid) => vid?.is_main) || videos[0];
+  const candidate =
+    extractVideoValue(preferred) ||
+    product?.video ||
+    product?.video_url ||
+    product?.videoUrl;
+  const resolved = resolveVideoUrl(candidate);
+  return resolved || fallback || null;
+};
+
+// Get all product video URLs
+export const getProductVideoUrls = (product, fallback) => {
+  const videos = Array.isArray(product?.videos) ? product.videos : [];
+  const urls = videos.map((vid) => resolveVideoUrl(vid)).filter(Boolean);
+  if (urls.length > 0) return urls;
+
+  const direct =
+    resolveVideoUrl(product?.video || product?.video_url || product?.videoUrl);
+  if (direct) return [direct];
+
+  return fallback ? [fallback] : [];
+};
