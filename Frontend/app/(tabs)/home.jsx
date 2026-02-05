@@ -170,7 +170,7 @@ export default function Home() {
   useEffect(() => {
     dispatch(fetchProducts({ limit: pageLimit, offset: 0 }));
     dispatch(fetchCategories({})); // Fetch all categories without limit
-    dispatch(fetchBrands({ is_active: 'true' })); // Fetch only active brands
+    dispatch(fetchBrands({ is_active: "true" })); // Fetch only active brands
   }, [dispatch]);
 
   const onRefresh = () => {
@@ -178,7 +178,7 @@ export default function Home() {
     Promise.all([
       dispatch(fetchProducts({ limit: pageLimit, offset: 0 })),
       dispatch(fetchCategories({})), // Fetch all categories
-      dispatch(fetchBrands({ is_active: 'true' })), // Fetch only active brands
+      dispatch(fetchBrands({ is_active: "true" })), // Fetch only active brands
     ])
       .catch(() => {})
       .finally(() => setRefreshing(false));
@@ -266,19 +266,19 @@ export default function Home() {
 
     try {
       // Optimistically update UI
-      setFavorites(prev => ({
+      setFavorites((prev) => ({
         ...prev,
-        [productId]: !prev[productId]
+        [productId]: !prev[productId],
       }));
 
       await toggleFavorite(productId);
     } catch (error) {
       // Revert on error
-      setFavorites(prev => ({
+      setFavorites((prev) => ({
         ...prev,
-        [productId]: !prev[productId]
+        [productId]: !prev[productId],
       }));
-      
+
       console.error("Favorite toggle error:", error);
       setDialog({
         visible: true,
@@ -359,8 +359,8 @@ export default function Home() {
         {/* Banner Slider */}
         <BannerSlider />
 
-        {/* Discount Products Slider - Hidden */}
-        {/* <DiscountProductSlider /> */}
+        {/* Discount Products Slider */}
+        <DiscountProductSlider />
 
         {/* Categories */}
         <View style={styles.section}>
@@ -888,7 +888,9 @@ export default function Home() {
                     >
                       <Heart
                         size={16}
-                        color={favorites[product.id] ? "#EF4444" : theme.colors.text}
+                        color={
+                          favorites[product.id] ? "#EF4444" : theme.colors.text
+                        }
                         fill={favorites[product.id] ? "#EF4444" : "none"}
                         strokeWidth={2}
                       />
@@ -919,7 +921,7 @@ export default function Home() {
                         <Text
                           style={[
                             styles.rating,
-                            { color: theme.colors.textSecondary }
+                            { color: theme.colors.textSecondary },
                           ]}
                         >
                           {product.average_rating.toFixed(1)}
@@ -928,7 +930,7 @@ export default function Home() {
                           <Text
                             style={[
                               styles.reviewCount,
-                              { color: theme.colors.textSecondary }
+                              { color: theme.colors.textSecondary },
                             ]}
                           >
                             ({product.review_count})
@@ -1137,7 +1139,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
     marginBottom: 8,
     borderWidth: 0.4,
-    borderColor: "transparent"
+    borderColor: "transparent",
   },
   categoryImage: {
     width: "100%",
@@ -1170,8 +1172,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 8,
     position: "relative",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#e6e6e6",
+    borderColor: "transparent",
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -1294,10 +1295,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
     marginRight: 10,
-    // lighter shadow and border
-    elevation: 0,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#ddd",
   },
   recentImage: {
     width: "100%",

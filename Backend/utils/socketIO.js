@@ -1,6 +1,7 @@
 import { Server as SocketIOServer } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import Notification from '../models/notification.js';
+import Chat from '../models/chat.js';
 
 // Store active user connections
 const userConnections = new Map();
@@ -64,6 +65,56 @@ export function setupSocketIO(httpServer) {
       timestamp: new Date()
     });
 
+    // ============== CHAT SUPPORT HANDLERS ==============
+    
+    // Join conversation room
+    socket.on('join_conversation', async (conversationId, callback) => {
+      try {
+        // Verify user has access to this conversation
+        const conversation = await Chat.getConversationById(conversationId);
+        if (!conversation || conversation.user_id !== socket.userId) {
+          return callback({ success: false, error: 'Unauthorized' });
+        }
+
+        socket.join(`conversation_${conversationId}`);
+        console.log(`✅ User ${socket.userId} joined conversation ${conversationId}`);
+        
+        callback({ success: true });
+      } catch (error) {
+        console.error('Join conversation error:', error);
+        callback({ success: false, error: error.message });
+      }
+    });
+
+    // Leave conversation room
+    socket.on('leave_conversation', (conversationId) => {
+      socket.leave(`conversation_${conversationId}`);
+      console.log(`❌ User ${socket.userId} left conversation ${conversationId}`);
+    });
+
+    // Send typing indicator
+    socket.on('typing_start', (conversationId) => {
+      socket.to(`conversation_${conversationId}`).emit('user_typing', {
+        userId: socket.userId,
+        username: socket.username,
+      });
+    });
+
+    socket.on('typing_stop', (conversationId) => {
+      socket.to(`conversation_${conversationId}`).emit('user_stopped_typing', {
+        userId: socket.userId,
+      });
+    });
+
+    // Admin joins all active conversations
+    socket.on('join_admin_chat', (callback) => {
+      socket.join('admin_chat');
+      console.log(`✅ Admin ${socket.userId} joined admin chat room`);
+      callback({ success: true });
+    });
+
+    // ============== NOTIFICATION HANDLERS ==============
+    
     // Listen for getting notifications
     socket.on('get_notifications', async (data, callback) => {
       try {

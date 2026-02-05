@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -7,6 +7,7 @@ import {
   Text as RNText,
   Pressable,
   ActivityIndicator,
+  Share,
 } from "react-native";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -14,10 +15,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Star, Heart, Share2, Grid3x3, List } from "lucide-react-native";
+import { toggleFavorite } from "../../services/favoriteService";
 import { useLanguage } from "../../utils/LanguageContext";
 import { useTheme } from "../../utils/ThemeContext";
 import { fetchProducts } from "../../store/slices/productsSlice";
 import { fetchCategories } from "../../store/slices/categoriesSlice";
+import { fetchBrands } from "../../store/slices/brandsSlice";
 import Input from "../../components/ui/Input";
 import { getProductImageUrl } from "../../utils/productImages";
 
@@ -41,37 +45,108 @@ const Text = ({ style, ...props }) => {
 export default function Search() {
   const router = useRouter();
   const dispatch = useDispatch();
-  const { t, isRTL } = useLanguage();
+  const { t, isRTL, language } = useLanguage();
   const { theme } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [recentSearches, setRecentSearches] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [favorites, setFavorites] = useState({});
+  const [viewMode, setViewMode] = useState("grid"); // 'grid' or 'list'
   const navigationInProgress = useRef(false);
   
   // Redux state
   const { items: products, loading: productsLoading } = useSelector((state) => state.products);
   const { items: categories, loading: categoriesLoading } = useSelector((state) => state.categories);
+  const { items: brands, loading: brandsLoading } = useSelector((state) => state.brands);
+  const { user } = useSelector((state) => state.auth);
+
+  // Helper function to get localized product name
+  const getLocalizedProductName = (product) => {
+    if (!product) return "Product";
+    
+    const titleAr = product?.name_ar?.trim();
+    const titleEn = product?.name_en?.trim();
+    const titleKu = product?.name_ku?.trim();
+    
+    // Determine language and set name with fallbacks
+    if (language === "ar") {
+      return titleAr || titleEn || titleKu || "Product";
+    } else if (language === "en") {
+      return titleEn || titleAr || titleKu || "Product";
+    } else if (language === "ku") {
+      return titleKu || titleEn || titleAr || "Product";
+    } else {
+      return titleEn || titleAr || titleKu || "Product";
+    }
+  };
+
+  // Helper function to get localized category name
+  const getLocalizedCategoryName = (category) => {
+    if (!category) return "Category";
+    
+    const nameAr = category?.name_ar?.trim();
+    const nameEn = category?.name_en?.trim();
+    const nameKu = category?.name_ku?.trim();
+    const defaultName = category?.name?.trim();
+    
+    // Determine language and set name with fallbacks
+    if (language === "ar") {
+      return nameAr || defaultName || nameEn || nameKu || "Category";
+    } else if (language === "en") {
+      return nameEn || defaultName || nameAr || nameKu || "Category";
+    } else if (language === "ku") {
+      return nameKu || defaultName || nameEn || nameAr || "Category";
+    } else {
+      return nameEn || defaultName || nameAr || nameKu || "Category";
+    }
+  };
 
   // Popular searches from actual categories (filter parent categories only)
   const popularSearches = categories
     .filter((cat) => cat.parent_id === null) // Get only parent categories
     .slice(0, 6) // Limit to 6 categories
     .map((cat) => ({
-      name: cat.name,
+      name: getLocalizedCategoryName(cat),
       slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-'),
       id: cat.id,
     }));
+
+  const handleToggleFavorite = async (productId) => {
+    try {
+      const result = await toggleFavorite(productId);
+      setFavorites((prev) => ({
+        ...prev,
+        [productId]: result.isFavorite,
+      }));
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+    }
+  };
+
+  const handleShareProduct = async (id, name) => {
+    try {
+      const userId = user?.id || "unknown";
+      const checkoutUrl = `https://checkout.aman-store.com/checkout?userId=${userId}&productId=${id}`;
+      await Share.share({
+        title: name,
+        message: `${name}\n\n${checkoutUrl}`,
+      });
+    } catch (error) {
+      console.error("Error sharing product:", error);
+    }
+  };
 
   // Load recent searches from AsyncStorage
   useEffect(() => {
     loadRecentSearches();
   }, []);
 
-  // Fetch featured products and categories on mount
+  // Fetch featured products, categories and brands on mount
   useEffect(() => {
     dispatch(fetchProducts({ limit: 100 }));
     dispatch(fetchCategories({})); // Fetch all categories
+    dispatch(fetchBrands({ limit: 100 })); // Fetch all brands
   }, [dispatch]);
 
   const loadRecentSearches = async () => {
@@ -125,14 +200,25 @@ export default function Search() {
     // Filter products based on search query (schema-aligned: name/description/features)
     const q = trimmedQuery.toLowerCase();
     const filtered = products.filter((p) => {
-      const name = (p.name || p.title || '').toLowerCase();
-      const desc = (p.description || '').toLowerCase();
+      // Search across all localized name fields
+      const nameEn = (p.name_en || '').toLowerCase();
+      const nameAr = (p.name_ar || '').toLowerCase();
+      const nameKu = (p.name_ku || '').toLowerCase();
+      
+      // Search across all localized description fields
+      const descEn = (p.description_en || '').toLowerCase();
+      const descAr = (p.description_ar || '').toLowerCase();
+      const descKu = (p.description_ku || '').toLowerCase();
+      
       const features = Array.isArray(p.key_features)
         ? p.key_features.join(' ').toLowerCase()
         : typeof p.key_features === 'string'
           ? p.key_features.toLowerCase()
           : '';
-      return name.includes(q) || desc.includes(q) || features.includes(q);
+      
+      return nameEn.includes(q) || nameAr.includes(q) || nameKu.includes(q) ||
+             descEn.includes(q) || descAr.includes(q) || descKu.includes(q) ||
+             features.includes(q);
     });
 
     setSearchResults(filtered);
@@ -170,6 +256,18 @@ export default function Search() {
     // Navigate to category page to show products from that category
     router.push(`/category/${slug}`);
   };
+
+  const handleBrandClick = (brandId, brandName) => {
+    // Navigate to brand page to show products from that brand
+    router.push(`/brand/${brandId}`);
+  };
+
+  // Get random 20 products
+  const randomProducts = useMemo(() => {
+    if (!products || products.length === 0) return [];
+    const shuffled = [...products].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 20);
+  }, [products]);
 
   const featuredProducts = products.slice(0, 8);
 
@@ -261,20 +359,48 @@ export default function Search() {
           {/* Search Results */}
           {searchQuery.trim() && searchResults.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                {t("searchResults") || "Search Results"} ({searchResults.length})
-              </Text>
-              <View style={styles.resultsGrid}>
+              <View style={styles.resultsHeader}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text, marginBottom: 0 }]}>
+                  {t("searchResults") || "Search Results"} ({searchResults.length})
+                </Text>
+                <View style={styles.viewToggle}>
+                  <TouchableOpacity
+                    style={[
+                      styles.viewButton,
+                      viewMode === "grid" && { backgroundColor: theme.colors.primary },
+                    ]}
+                    onPress={() => setViewMode("grid")}
+                  >
+                    <Grid3x3
+                      size={18}
+                      color={viewMode === "grid" ? "#fff" : theme.colors.text}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.viewButton,
+                      viewMode === "list" && { backgroundColor: theme.colors.primary },
+                    ]}
+                    onPress={() => setViewMode("list")}
+                  >
+                    <List
+                      size={18}
+                      color={viewMode === "list" ? "#fff" : theme.colors.text}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={viewMode === "grid" ? styles.resultsGrid : styles.resultsList}>
                 {searchResults.map((product) => (
                   <Pressable
                     key={product.id}
                     style={({ pressed }) => [
-                      styles.resultCard,
+                      viewMode === "grid" ? styles.resultCard : styles.listCard,
                       {
                         backgroundColor: theme.colors.card,
                         borderColor: theme.colors.border,
                       },
-                      pressed && { borderColor: theme.colors.primary },
+                      pressed && styles.productCardPressed,
                     ]}
                     onPress={() => {
                       if (!navigationInProgress.current) {
@@ -284,50 +410,95 @@ export default function Search() {
                       }
                     }}
                   >
-                    <Image
-                      source={{
-                        uri: getProductImageUrl(
-                          product,
-                          "https://via.placeholder.com/400"
-                        ),
-                      }}
-                      style={styles.resultImage}
-                      contentFit="cover"
-                      transition={200}
-                      cachePolicy="memory-disk"
-                    />
-                    {product.commission_price && product.commission_price > 0 && (
-                      <View
-                        style={{
-                          position: 'absolute',
-                          top: 8,
-                          right: 8,
-                          backgroundColor: '#34C759',
-                          paddingHorizontal: 8,
-                          paddingVertical: 4,
-                          borderRadius: 12,
+                    {/* Image Container */}
+                    <View style={viewMode === "grid" ? styles.resultImageContainer : styles.listImageContainer}>
+                      <Image
+                        source={{
+                          uri: getProductImageUrl(
+                            product,
+                            "https://via.placeholder.com/400"
+                          ),
+                        }}
+                        style={styles.resultImage}
+                        contentFit="cover"
+                        transition={200}
+                        cachePolicy="memory-disk"
+                      />
+                      {/* Commission Badge */}
+                      {product.commission_price && product.commission_price > 0 && (
+                        <View style={styles.bonusTag}>
+                          <Text style={styles.bonusTagText}>
+                            {isRTL
+                              ? `${product.commission_price} دینار `
+                              : `${product.commission_price} IQD`}
+                          </Text>
+                        </View>
+                      )}
+                      {/* Favorite Button */}
+                      <TouchableOpacity
+                        style={[
+                          styles.favoriteButton,
+                          { backgroundColor: theme.colors.card },
+                        ]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleToggleFavorite(product.id);
                         }}
                       >
-                        <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>
-                          +{product.commission_price} {isRTL ? "دینار" : "IQD"}
-                        </Text>
-                      </View>
-                    )}
-                    <Text
-                      numberOfLines={2}
-                      style={[styles.resultName, { color: theme.colors.text }]}
-                    >
-                      {product.name || product.title}
-                    </Text>
-                    <View style={styles.resultRating}>
-                      {renderStars(product.rating || 4.0)}
-                      <Text style={[styles.ratingText, { color: theme.colors.textSecondary }]}>
-                        ({product.rating || 4.0})
-                      </Text>
+                        <Heart
+                          size={16}
+                          color={favorites[product.id] ? "#EF4444" : theme.colors.text}
+                          fill={favorites[product.id] ? "#EF4444" : "none"}
+                          strokeWidth={2}
+                        />
+                      </TouchableOpacity>
                     </View>
-                    <Text style={[styles.resultPrice, { color: theme.colors.primary }]}>
-                      {typeof product?.sell_price === 'number' ? product.sell_price : (typeof product?.price === 'number' ? product.price : product?.base_price)} IQD
-                    </Text>
+
+                    {/* Product Info */}
+                    <View style={styles.productInfo}>
+                      <Text
+                        numberOfLines={2}
+                        style={[styles.resultName, { color: theme.colors.text }]}
+                      >
+                        {getLocalizedProductName(product)}
+                      </Text>
+                      
+                      {/* Rating */}
+                      {product.average_rating && product.average_rating > 0 && (
+                        <View style={styles.resultRating}>
+                          <Star size={14} color="#FFA500" fill="#FFA500" />
+                          <Text style={[styles.ratingText, { color: theme.colors.textSecondary }]}>
+                            {product.average_rating.toFixed(1)}
+                          </Text>
+                          {product.review_count > 0 && (
+                            <Text style={[styles.reviewCount, { color: theme.colors.textSecondary }]}>
+                              ({product.review_count})
+                            </Text>
+                          )}
+                        </View>
+                      )}
+
+                      {/* Price and Share */}
+                      <View style={styles.bottomRow}>
+                        <Text style={[styles.resultPrice, { color: theme.colors.primary }]}>
+                          {isRTL
+                            ? `${product.sell_price || product.price} دینار `
+                            : `${product.sell_price || product.price} IQD`}
+                        </Text>
+                        <TouchableOpacity
+                          style={[
+                            styles.shareButton,
+                            { backgroundColor: theme.colors.primary },
+                          ]}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleShareProduct(product.id, getLocalizedProductName(product));
+                          }}
+                        >
+                          <Ionicons name="share-outline" size={16} color="#fff" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   </Pressable>
                 ))}
               </View>
@@ -414,6 +585,210 @@ export default function Search() {
                       {item.name}
                     </Text>
                   </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Popular Brands */}
+          {!searchQuery.trim() && brands && brands.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                {t("popularBrands") || "Popular Brands"}
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.brandsScroll}
+              >
+                {brands.slice(0, 10).map((brand) => (
+                  <Pressable
+                    key={brand.id}
+                    style={({ pressed }) => [
+                      styles.brandCard,
+                      pressed && { transform: [{ scale: 0.95 }] },
+                    ]}
+                    onPress={() => handleBrandClick(brand.id, brand.name)}
+                  >
+                    <View
+                      style={[
+                        styles.brandImageContainer,
+                        {
+                          borderColor: theme.colors.border,
+                          backgroundColor: theme.colors.background,
+                        },
+                      ]}
+                    >
+                      {brand.logo_url ? (
+                        <Image
+                          source={{ uri: brand.logo_url }}
+                          style={styles.brandImage}
+                          contentFit="cover"
+                          transition={200}
+                          cachePolicy="memory-disk"
+                        />
+                      ) : (
+                        <View style={styles.brandPlaceholder}>
+                          <Ionicons name="business-outline" size={32} color={theme.colors.textSecondary} />
+                        </View>
+                      )}
+                    </View>
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.brandText, { color: theme.colors.text }]}
+                    >
+                      {brand.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Random Products */}
+          {!searchQuery.trim() && randomProducts && randomProducts.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.resultsHeader}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text, marginBottom: 0 }]}>
+                  {t("exploreProducts") || "Explore Products"}
+                </Text>
+                <View style={styles.viewToggle}>
+                  <TouchableOpacity
+                    style={[
+                      styles.viewButton,
+                      viewMode === "grid" && { backgroundColor: theme.colors.primary },
+                    ]}
+                    onPress={() => setViewMode("grid")}
+                  >
+                    <Grid3x3
+                      size={18}
+                      color={viewMode === "grid" ? "#fff" : theme.colors.text}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.viewButton,
+                      viewMode === "list" && { backgroundColor: theme.colors.primary },
+                    ]}
+                    onPress={() => setViewMode("list")}
+                  >
+                    <List
+                      size={18}
+                      color={viewMode === "list" ? "#fff" : theme.colors.text}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={viewMode === "grid" ? styles.resultsGrid : styles.resultsList}>
+                {randomProducts.map((product) => (
+                  <Pressable
+                    key={product.id}
+                    style={({ pressed }) => [
+                      viewMode === "grid" ? styles.resultCard : styles.listCard,
+                      {
+                        backgroundColor: theme.colors.card,
+                        borderColor: theme.colors.border,
+                      },
+                      pressed && styles.productCardPressed,
+                    ]}
+                    onPress={() => {
+                      if (!navigationInProgress.current) {
+                        navigationInProgress.current = true;
+                        router.push(`/product/${product.id}`);
+                        setTimeout(() => { navigationInProgress.current = false; }, 500);
+                      }
+                    }}
+                  >
+                    {/* Image Container */}
+                    <View style={viewMode === "grid" ? styles.resultImageContainer : styles.listImageContainer}>
+                      <Image
+                        source={{
+                          uri: getProductImageUrl(
+                            product,
+                            "https://via.placeholder.com/400"
+                          ),
+                        }}
+                        style={styles.resultImage}
+                        contentFit="cover"
+                        transition={200}
+                        cachePolicy="memory-disk"
+                      />
+                      {/* Commission Badge */}
+                      {product.commission_price && product.commission_price > 0 && (
+                        <View style={styles.bonusTag}>
+                          <Text style={styles.bonusTagText}>
+                            {isRTL
+                              ? `${product.commission_price} \u062f\u06cc\u0646\u0627\u0631 `
+                              : `${product.commission_price} IQD`}
+                          </Text>
+                        </View>
+                      )}
+                      {/* Favorite Button */}
+                      <TouchableOpacity
+                        style={[
+                          styles.favoriteButton,
+                          { backgroundColor: theme.colors.card },
+                        ]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleToggleFavorite(product.id);
+                        }}
+                      >
+                        <Heart
+                          size={16}
+                          color={favorites[product.id] ? "#EF4444" : theme.colors.text}
+                          fill={favorites[product.id] ? "#EF4444" : "none"}
+                          strokeWidth={2}
+                        />
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Product Info */}
+                    <View style={styles.productInfo}>
+                      <Text
+                        numberOfLines={2}
+                        style={[styles.resultName, { color: theme.colors.text }]}
+                      >
+                        {getLocalizedProductName(product)}
+                      </Text>
+                      
+                      {/* Rating */}
+                      {product.average_rating && product.average_rating > 0 && (
+                        <View style={styles.resultRating}>
+                          <Star size={14} color="#FFA500" fill="#FFA500" />
+                          <Text style={[styles.ratingText, { color: theme.colors.textSecondary }]}>
+                            {product.average_rating.toFixed(1)}
+                          </Text>
+                          {product.review_count > 0 && (
+                            <Text style={[styles.reviewCount, { color: theme.colors.textSecondary }]}>
+                              ({product.review_count})
+                            </Text>
+                          )}
+                        </View>
+                      )}
+
+                      {/* Price and Share */}
+                      <View style={styles.bottomRow}>
+                        <Text style={[styles.resultPrice, { color: theme.colors.primary }]}>
+                          {isRTL
+                            ? `${product.sell_price || product.price} \u062f\u06cc\u0646\u0627\u0631 `
+                            : `${product.sell_price || product.price} IQD`}
+                        </Text>
+                        <TouchableOpacity
+                          style={[
+                            styles.shareButton,
+                            { backgroundColor: theme.colors.primary },
+                          ]}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleShareProduct(product.id, getLocalizedProductName(product));
+                          }}
+                        >
+                          <Ionicons name="share-outline" size={16} color="#fff" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </Pressable>
                 ))}
               </View>
             </View>
@@ -542,41 +917,160 @@ const styles = StyleSheet.create({
     fontSize: 16,
     
   },
+  resultsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  viewToggle: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  viewButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f0f0f0",
+  },
   resultsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 12,
     justifyContent: "space-between",
   },
+  resultsList: {
+    flexDirection: "column",
+    gap: 12,
+  },
   resultCard: {
     width: "48%",
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#e6e6e6",
     overflow: "hidden",
-    padding: 10,
+    backgroundColor: "#fff",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    marginBottom: 8,
+  },
+  listCard: {
+    width: "100%",
+    flexDirection: "row",
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#e6e6e6",
+    overflow: "hidden",
+    backgroundColor: "#fff",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    marginBottom: 8,
+  },
+  productCardPressed: {
+    transform: [{ scale: 0.97 }],
+    elevation: 1,
+    shadowOpacity: 0.02,
+  },
+  resultImageContainer: {
+    width: "100%",
+    height: 120,
+    backgroundColor: "#f9f9f9",
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  listImageContainer: {
+    width: 120,
+    height: 120,
+    backgroundColor: "#f9f9f9",
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
   },
   resultImage: {
     width: "100%",
-    height: 120,
-    borderRadius: 8,
-    backgroundColor: "#f5f5f5",
-    marginBottom: 8,
+    height: "100%",
+  },
+  bonusTag: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: "green",
+    elevation: 4,
+  },
+  bonusTagText: {
+    color: "#fff",
+    fontSize: 8,
+  },
+  favoriteButton: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  productInfo: {
+    padding: 10,
+    flex: 1,
+    justifyContent: "space-between",
   },
   resultName: {
     fontSize: 13,
-    
-    marginBottom: 4,
+    color: "#1a1a1a",
+    marginBottom: 8,
+    lineHeight: 16,
     minHeight: 32,
   },
   resultRating: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginBottom: 4,
+    marginBottom: 6,
+  },
+  reviewCount: {
+    fontSize: 11,
+    marginLeft: 2,
+  },
+  bottomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: "auto",
   },
   resultPrice: {
-    fontSize: 15,
-    
+    fontSize: 16,
+    color: "#1a1a1a",
+  },
+  shareButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 2,
   },
   noResults: {
     alignItems: "center",
@@ -591,5 +1085,40 @@ const styles = StyleSheet.create({
   },
   noResultsSubtext: {
     fontSize: 14,
+  },
+  brandsScroll: {
+    paddingLeft: 0,
+  },
+  brandCard: {
+    alignItems: "center",
+    marginRight: 14,
+    width: 75,
+  },
+  brandImageContainer: {
+    width: 75,
+    height: 75,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#f5f5f5",
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  brandImage: {
+    width: "100%",
+    height: "100%",
+  },
+  brandPlaceholder: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  brandText: {
+    fontSize: 11,
+    color: "#1a1a1a",
+    textAlign: "center",
   },
 });

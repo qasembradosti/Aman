@@ -6,7 +6,6 @@ export const translations = {
     orders: "Orders",
     profile: "Profile",
     rankings: "Ranking",
-    cart: "Cart",
     selectLanguage: "Select Language",
     sellerBonus: "Bonus",
     more: "more",
@@ -45,7 +44,7 @@ export const translations = {
 
     // Home Screen
     hello: "Hello,",
-    welcomeBack: "Welcome Back!",
+    welcomeBack: "Welcome Back !",
     switchToLightMode: "Switch to light mode",
     switchToDarkMode: "Switch to dark mode",
     guestUser: "Guest User",
@@ -62,6 +61,7 @@ export const translations = {
     recentlyAdded: "Recently Added",
     loadingMore: "Loading more",
     noMoreItems: "No more items",
+
 
     // Withdrawal
     availableBalance: "Available Balance",
@@ -151,7 +151,6 @@ export const translations = {
     commissionPrice: "Commission Price",
     yourEarningsPerSale: "Your earnings per sale",
     availableColors: "Available Colors",
-    addToCart: "Add to Cart",
     buyNow: "Buy Now",
     description: "Description",
     keyFeatures: "Key Features",
@@ -191,22 +190,6 @@ export const translations = {
     retry: "Retry",
     reset: "Reset",
 
-    // Cart
-    shoppingCart: "Shopping Cart",
-    yourCartIsEmpty: "Your cart is empty",
-    addProductsToStart: "Add some products to get started",
-    startShopping: "Start Shopping",
-    orderSummary: "Order Summary",
-    subtotal: "Subtotal",
-    shipping: "Shipping",
-    tax: "Tax",
-    total: "Total",
-    proceedToCheckout: "Proceed to Checkout",
-    removeItem: "Remove Item",
-    areYouSure: "Are you sure you want to remove this item?",
-    cancel: "Cancel",
-    remove: "Remove",
-
     // Orders
     allOrders: "All Orders",
     order: "Order",
@@ -242,6 +225,8 @@ export const translations = {
     orderSummary: "Order Summary",
     reorder: "Reorder",
     contactSupport: "Contact Support",
+    conversationClosed: "This conversation has been closed",
+    startNewChat: "Start New Chat",
     customerInformation: "Customer Information",
     shippingAddress: "Shipping Address",
     paymentSummary: "Payment Summary",
@@ -278,8 +263,12 @@ export const translations = {
     recentSearches: "Recent Searches",
     clearAll: "Clear All",
     popularSearches: "Popular Searches",
+    popularBrands: "Popular Brands",
+    exploreProducts: "Explore Products",
+    discoverProducts: "Discover Products",
     trendingProducts: "Trending Products",
     searchResults: "Search Results",
+    noProductsFound: "No products found",
 
     // Profile
     editProfile: "Edit Profile",
@@ -427,6 +416,13 @@ export const translations = {
 
     // Help & Support
     contactSupportDesc: "Get in touch with our support team",
+    liveSupport: "Live Support",
+    online: "Online",
+    offline: "Offline",
+    typeMessage: "Type a message...",
+    howCanWeHelp: "How can we help you today?",
+    supportWillRespond: "Thank you for your message. Our support team will respond shortly.",
+    chatWithSupport: "Chat with Support",
     frequentlyAskedQuestions: "Frequently Asked Questions",
     faqDesc: "Find answers to common questions",
     howToPlaceOrder: "How do I place an order?",
@@ -455,7 +451,6 @@ export const translations = {
     orders: "الطلبات",
     profile: "الملف الشخصي",
     rankings: "الترتيب",
-    cart: "السلة",
     selectLanguage: "اختر اللغة",
     sellerBonus: "مكافأة",
     more: "أكثر",
@@ -493,7 +488,7 @@ export const translations = {
 
     // Home Screen
     hello: "مرحباً،",
-    welcomeBack: "مرحباً بعودتك!",
+    welcomeBack: "مرحباً بعودتك !",
     switchToLightMode: "التبديل إلى الوضع الفاتح",
     switchToDarkMode: "التبديل إلى الوضع الداكن",
     guestUser: "مستخدم ضيف",
@@ -598,7 +593,6 @@ export const translations = {
     commissionPrice: "سعر العمولة",
     yourEarningsPerSale: "أرباحك لكل عملية بيع",
     availableColors: "الألوان المتاحة",
-    addToCart: "أضف إلى السلة",
     buyNow: "اشتر الآن",
     description: "الوصف",
     keyFeatures: "المميزات الرئيسية",
@@ -672,6 +666,8 @@ export const translations = {
     orderSummary: "ملخص الطلب",
     reorder: "إعادة الطلب",
     contactSupport: "اتصل بالدعم",
+    conversationClosed: "تم إغلاق هذه المحادثة",
+    startNewChat: "بدء محادثة جديدة",
     customerInformation: "معلومات العميل",
     shippingAddress: "عنوان الشحن",
     paymentSummary: "ملخص الدفع",
@@ -708,8 +704,12 @@ export const translations = {
     recentSearches: "عمليات البحث الأخيرة",
     clearAll: "مسح الكل",
     popularSearches: "عمليات البحث الشائعة",
+    popularBrands: "العلامات التجارية الشائعة",
+    exploreProducts: "استكشف المنتجات",
+    discoverProducts: "اكتشف المنتجات",
     trendingProducts: "المنتجات الرائجة",
     searchResults: "نتائج البحث",
+    noProductsFound: "لا توجد منتجات",
 
     // Profile
     editProfile: "تعديل الملف الشخصي",
@@ -857,6 +857,13 @@ export const translations = {
 
     // Help & Support
     contactSupportDesc: "تواصل مع فريق الدعم لدينا",
+    liveSupport: "الدعم المباشر",
+    online: "متصل",
+    offline: "غير متصل",
+    typeMessage: "اكتب رسالة...",
+    howCanWeHelp: "كيف يمكننا مساعدتك اليوم؟",
+    supportWillRespond: "شكراً لرسالتك. سيرد فريق الدعم قريباً.",
+    chatWithSupport: "الدردشة مع الدعم",
     frequentlyAskedQuestions: "الأسئلة الشائعة",
     faqDesc: "ابحث عن إجابات للأسئلة الشائعة",
     howToPlaceOrder: "كيف أقوم بتقديم طلب؟",
@@ -885,7 +892,6 @@ export const translations = {
     orders: "داواکاریەکان",
     profile: "پرۆفایل",
     rankings: "پلەبەندی",
-    cart: "سەبەتە",
     selectLanguage: "زمان هەڵبژێرە",
     sellerBonus: "پاداشت",
     more: "زیاتر",
@@ -923,7 +929,7 @@ export const translations = {
 
     // Home Screen
     hello: "سڵاو،",
-    welcomeBack: "بەخێربێیتەوە!",
+    welcomeBack: "بەخێربێیتەوە !",
     switchToLightMode: "گۆڕین بۆ دۆخی روناک",
     switchToDarkMode: "گۆڕین بۆ دۆخی تاریک",
     guestUser: "میوان",
@@ -1028,7 +1034,6 @@ export const translations = {
     commissionPrice: "بڕی پاداشت",
     yourEarningsPerSale: "پاداشت بۆ هەر فرۆشێک",
     availableColors: "ڕەنگە بەردەستەکان",
-    addToCart: "زیادکردن بۆ سەبەتە",
     buyNow: "ئێستا بیکڕە",
     description: "وەسف",
     keyFeatures: "تایبەتمەندییە سەرەکییەکان",
@@ -1100,6 +1105,8 @@ export const translations = {
     orderSummary: "پوختەی داواکاری",
     reorder: "دووبارە داواکردن",
     contactSupport: "پەیوەندی بە پشتگیری",
+    conversationClosed: "ئەم گفتوگۆیە داخرا",
+    startNewChat: "دەستپێکردنی گفتوگۆیەکی نوێ",
 
     // Filters
     filters: "پاڵاوتن",
@@ -1127,8 +1134,12 @@ export const translations = {
     recentSearches: "گەڕانە نوێیەکان",
     clearAll: "پاککردنەوە",
     popularSearches: "گەڕانی بەناوبانگ",
+    popularBrands: "براندە بەناوبانگەکان",
+    exploreProducts: "کاڵاکان بگەڕێ",
+    discoverProducts: "کاڵا بدۆزەرەوە",
     trendingProducts: "کاڵای بەناوبانگ",
     searchResults: "ئەنجامی گەڕان",
+    noProductsFound: "هیچ کاڵایەک نەدۆزرایەوە",
 
     // Profile
     editProfile: "دەستکاریکردنی پرۆفایل",
@@ -1276,6 +1287,13 @@ export const translations = {
 
     // Help & Support
     contactSupportDesc: "پەیوەندی بکە بە تیمی پشتگیریمانەوە",
+    liveSupport: "پشتگیری ڕاستەوخۆ",
+    online: "سەرهێڵ",
+    offline: "دەرهێڵ",
+    typeMessage: "نامەیەک بنووسە...",
+    howCanWeHelp: "چۆن یارمەتیت بدەین ئەمڕۆ؟",
+    supportWillRespond: "سوپاس بۆ نامەکەت. تیمی پشتگیری بە زووی وەڵام دەداتەوە.",
+    chatWithSupport: "گفتوگۆ لەگەڵ پشتگیری",
     frequentlyAskedQuestions: "پرسیارە باوەکان",
     faqDesc: "وەڵامی پرسیارە باوەکان بدۆزەرەوە",
     howToPlaceOrder: "چۆن داواکاری بکەم؟",

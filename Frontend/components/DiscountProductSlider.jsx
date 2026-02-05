@@ -1,4 +1,4 @@
-import React from "react";
+import React, { use, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -57,6 +57,14 @@ export default function DiscountProductSlider() {
   };
 
   const discountProducts = products.filter(isDiscounted);
+
+  useEffect(() => {
+    // If products not loaded yet, fetch them
+    if (products.length === 0 && !loading) {
+      dispatch(fetchProducts({ page: 1, limit: 20 }));
+    }
+    console.log("DiscountProductSlider - products loaded:", products.length);
+  }, [dispatch, products.length, loading]);
 
   if (loading) {
     return (

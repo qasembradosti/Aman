@@ -1,0 +1,29 @@
+import express from 'express';
+import {
+  createOrGetConversation,
+  getUserConversations,
+  getConversationMessages,
+  sendMessage,
+  getUnreadCount,
+  closeConversation,
+  getAdminConversations,
+  sendAdminMessage,
+} from '../controllers/chatController.js';
+import { authenticateToken } from '../middleware/authMiddleware.js';
+import { requireSuperAdmin } from '../middleware/superAdminMiddleware.js';
+
+const router = express.Router();
+
+// User routes (authenticated)
+router.post('/conversation', authenticateToken, createOrGetConversation);
+router.get('/conversations', authenticateToken, getUserConversations);
+router.get('/conversation/:conversationId/messages', authenticateToken, getConversationMessages);
+router.post('/message', authenticateToken, sendMessage);
+router.get('/unread-count', authenticateToken, getUnreadCount);
+router.patch('/conversation/:conversationId/close', authenticateToken, closeConversation);
+
+// Admin routes
+router.get('/admin/conversations', authenticateToken, requireSuperAdmin, getAdminConversations);
+router.post('/admin/message', authenticateToken, requireSuperAdmin, sendAdminMessage);
+
+export default router;

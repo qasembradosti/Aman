@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useLanguage } from "../utils/LanguageContext";
 import { useTheme } from "../utils/ThemeContext";
+import ChatSupport from "../components/ChatSupport";
 
 // Custom Text component with font
 const Text = ({ style, ...props }) => {
@@ -66,6 +67,7 @@ export default function HelpSupport() {
   const { theme } = useTheme();
   const layout = useResponsiveLayout();
   const [expandedIndex, setExpandedIndex] = useState(null);
+  const [showChat, setShowChat] = useState(false);
 
   // Contact information
   const contactInfo = {
@@ -422,6 +424,72 @@ export default function HelpSupport() {
                 color={theme.colors.textSecondary}
               />
             </TouchableOpacity>
+
+            {/* Live Chat */}
+            <TouchableOpacity
+              style={[
+                styles.contactCard,
+                {
+                  backgroundColor: theme.colors.primary,
+                },
+              ]}
+              onPress={() => setShowChat(true)}
+            >
+              <View
+                style={[
+                  styles.contactIcon,
+                  {
+                    backgroundColor: "rgba(255,255,255,0.2)",
+                    width: layout.isSmallPhone ? 50 : 56,
+                    height: layout.isSmallPhone ? 50 : 56,
+                    borderRadius: layout.isSmallPhone ? 25 : 28,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="chatbubble-ellipses"
+                  size={layout.isSmallPhone ? 24 : 28}
+                  color="#fff"
+                />
+              </View>
+              <View
+                style={[
+                  styles.contactInfo,
+                  {
+                    marginLeft: isRTL ? 0 : 12,
+                    marginRight: isRTL ? 12 : 0,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.contactTitle,
+                    {
+                      color: "#fff",
+                      fontSize: layout.isSmallPhone ? 15 : 16,
+                    },
+                  ]}
+                >
+                  {t("liveSupport") || "Live Support"}
+                </Text>
+                <Text
+                  style={[
+                    styles.contactDetail,
+                    {
+                      color: "rgba(255,255,255,0.9)",
+                      fontSize: layout.isSmallPhone ? 13 : 14,
+                    },
+                  ]}
+                >
+                  {t("chatWithSupport") || "Chat with Support"}
+                </Text>
+              </View>
+              <Ionicons
+                name={isRTL ? "chevron-back" : "chevron-forward"}
+                size={20}
+                color="#fff"
+              />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -575,6 +643,12 @@ export default function HelpSupport() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Chat Support */}
+      <ChatSupport
+        visible={showChat}
+        onClose={() => setShowChat(false)}
+      />
     </SafeAreaView>
   );
 }

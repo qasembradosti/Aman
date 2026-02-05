@@ -7,6 +7,7 @@ import notificationsReducer from './slices/notificationsSlice';
 import bannersReducer from './slices/bannersSlice';
 import ordersReducer from './slices/ordersSlice';
 import brandsReducer from './slices/brandsSlice';
+import chatReducer from './slices/chatSlice';
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
     banners: bannersReducer,
     orders: ordersReducer,
     brands: brandsReducer,
+    chat: chatReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

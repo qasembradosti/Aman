@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -9,7 +9,10 @@ import { useSelector, useDispatch } from "react-redux";
 import { Text } from "./ui/Text";
 import { Moon, Sun, Bell, Search, Sparkles, Shield } from "lucide-react-native";
 import { fetchUnreadCount } from "../store/slices/notificationsSlice";
+import ChatSupport from "./ChatSupport";
+import ChatHeaderButton from "./ChatHeaderButton";
 import AmanLogo from "../assets/images/aman-app.png";
+
 export default function HomeHeader({ onToggleTheme }) {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -17,6 +20,7 @@ export default function HomeHeader({ onToggleTheme }) {
   const { isRTL, t } = useLanguage();
   const { isAuthenticated } = useSelector((state) => state.auth);
   const { unreadCount } = useSelector((state) => state.notifications);
+  const [chatVisible, setChatVisible] = useState(false);
 
   // Fetch unread count on mount and when authenticated
   useEffect(() => {
@@ -45,7 +49,7 @@ export default function HomeHeader({ onToggleTheme }) {
             <Text
               style={[
                 styles.title,
-                { color: theme.colors.primary, fontFamily: "System" },
+                { color: theme.colors.primary },
               ]}
               numberOfLines={2}
             >
@@ -66,6 +70,7 @@ export default function HomeHeader({ onToggleTheme }) {
           </View>
         </View>
         <View style={[styles.actions]}>
+          <ChatHeaderButton onPress={() => setChatVisible(true)} />
           <Pressable
             onPress={() => router.push("/notifications")}
             style={({ pressed }) => [
@@ -134,6 +139,11 @@ export default function HomeHeader({ onToggleTheme }) {
           </Pressable>
         </View>
       </View>
+      
+      <ChatSupport
+        visible={chatVisible}
+        onClose={() => setChatVisible(false)}
+      />
     </View>
   );
 }
@@ -174,7 +184,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
+    fontWeight: "700",
 
     letterSpacing: -0.8,
     marginBottom: 2,

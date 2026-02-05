@@ -15,6 +15,7 @@ import Users from '../pages/users/Users';
 import Banners from '../pages/banners/Banners';
 import Withdrawals from '../pages/withdrawals/Withdrawals';
 import Wallets from '../pages/wallets/Wallets';
+import SupportChat from '../pages/support/SupportChat';
 import NotFound from '../pages/NotFound';
 
 const router = createBrowserRouter([
@@ -69,6 +70,10 @@ const router = createBrowserRouter([
       {
         path: 'wallets',
         element: <Wallets />,
+      },
+      {
+        path: 'support-chat',
+        element: <SupportChat />,
       },
     ],
   },

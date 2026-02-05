@@ -10,7 +10,6 @@ import {
   I18nManager,
   ActivityIndicator,
   RefreshControl,
-  Alert,
   Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -26,6 +25,9 @@ import {
 } from "../../store/slices/ordersSlice";
 import { getApiBaseUrl } from "../../utils/apiConfig";
 import { Image } from "expo-image";
+import InfoDialog from "../../components/InfoDialog";
+import ChatSupport from "../../components/ChatSupport";
+import ChatHeaderButton from "../../components/ChatHeaderButton";
 
 // Use theme.colors.primary instead of direct constant
 
@@ -59,6 +61,9 @@ export default function Orders() {
   const [sortBy, setSortBy] = useState("date-desc"); // date-desc, date-asc, price-desc, price-asc
   const [selectedStatuses, setSelectedStatuses] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [dialog, setDialog] = useState({ visible: false, title: "", message: "" });
+  const [showChat, setShowChat] = useState(false);
+  const [chatOrderId, setChatOrderId] = useState(null);
 
   const { isAuthenticated } = useSelector((state) => state.auth);
   const {
@@ -89,7 +94,7 @@ export default function Orders() {
   useEffect(() => {
     if (error) {
       console.error("❌ Orders error:", error);
-      Alert.alert(t("error") || "Error", error);
+      setDialog({ visible: true, title: t("error") || "Error", message: error });
     }
   }, [error, t]);
 
@@ -326,10 +331,11 @@ export default function Orders() {
       await dispatch(fetchOrderById(order.id)).unwrap();
     } catch (error) {
       console.error("❌ Error fetching order details:", error);
-      Alert.alert(
-        t("error") || "Error",
-        t("failedToLoadOrderDetails") || "Failed to load order details",
-      );
+      setDialog({
+        visible: true,
+        title: t("error") || "Error",
+        message: t("failedToLoadOrderDetails") || "Failed to load order details",
+      });
     } finally {
       setLoadingDetails(false);
     }
@@ -380,10 +386,11 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
       });
     } catch (error) {
       console.error("Error sharing order:", error);
-      Alert.alert(
-        t("error") || "Error",
-        t("unableToShareOrder") || "Unable to share order",
-      );
+      setDialog({
+        visible: true,
+        title: t("error") || "Error",
+        message: t("unableToShareOrder") || "Unable to share order",
+      });
     }
   };
 
@@ -625,7 +632,12 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
             </View>
           </View>
           {isAuthenticated && orders.length > 0 && (
-            <TouchableOpacity
+            <>
+              <ChatHeaderButton onPress={() => {
+                setShowChat(true);
+                setChatOrderId(null);
+              }} />
+              <TouchableOpacity
               style={{
                 padding: layout.spacing.sm,
                 borderRadius: layout.borderRadius.xl,
@@ -651,6 +663,7 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                 color={getActiveFilterCount() > 0 ? "#fff" : theme.colors.text}
               />
             </TouchableOpacity>
+            </>
           )}
         </View>
 
@@ -771,21 +784,20 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                 >
                   <View
                     style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 14,
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
                       backgroundColor:
                         activeTab === tab.id
-                          ? "#fff" + "20"
-                          : getStatusColor(tab.id) + "15",
+                          ? "rgba(255, 255, 255, 0.2)"
+                          : getStatusColor(tab.id) + "20",
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
                     <Ionicons
                       name={tab.icon}
-                      size={16}
-                      style={{ borderRadius: 2 }}
+                      size={18}
                       color={
                         activeTab === tab.id ? "#fff" : getStatusColor(tab.id)
                       }
@@ -955,7 +967,6 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                 ]}
                 onPress={() => handleOrderClick(order)}
               >
-
                 {/* Card Content */}
                 <View style={{ padding: layout.spacing.lg }}>
                   {/* Header Section */}
@@ -1050,14 +1061,6 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                     </View>
                   </View>
 
-                  {/* Divider */}
-                  <View
-                    style={{
-                      height: 1,
-                      backgroundColor: theme.colors.border,
-                      marginVertical: layout.spacing.sm,
-                    }}
-                  />
                   {/* Divider */}
                   <View
                     style={{
@@ -1264,6 +1267,35 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
             ))
           )}
         </ScrollView>
+
+        {/* Floating Chat Button */}
+        {isAuthenticated && (
+          <TouchableOpacity
+            style={{
+              position: "absolute",
+              bottom: layout.spacing.xl,
+              right: isRTL ? undefined : layout.spacing.lg,
+              left: isRTL ? layout.spacing.lg : undefined,
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: theme.colors.primary,
+              justifyContent: "center",
+              alignItems: "center",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 8,
+            }}
+            onPress={() => {
+              setChatOrderId(null);
+              setShowChat(true);
+            }}
+          >
+            <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Order Details Modal */}
@@ -1965,6 +1997,46 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                     )}
                   </Text>
                 </View>
+              </View>
+
+              {/* Contact Support Button */}
+              <View
+                style={{
+                  marginHorizontal: layout.containerPadding,
+                  marginVertical: layout.spacing.lg,
+                }}
+              >
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: theme.colors.primary,
+                    paddingVertical: layout.spacing.md,
+                    borderRadius: layout.borderRadius.lg,
+                    flexDirection: isRTL ? "row-reverse" : "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: layout.spacing.sm,
+                    shadowColor: theme.colors.primary,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.2,
+                    shadowRadius: 8,
+                    elevation: 4,
+                  }}
+                  onPress={() => {
+                    setChatOrderId(selectedOrder.id);
+                    setShowChat(true);
+                  }}
+                >
+                  <Ionicons name="chatbubble-ellipses" size={20} color="#fff" />
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontSize: layout.typography.md,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {t("contactSupport")}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </ScrollView>
           </SafeAreaView>
@@ -2748,6 +2820,24 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
           </View>
         </SafeAreaView>
       </Modal>
+
+      {/* Info Dialog */}
+      <InfoDialog
+        visible={dialog.visible}
+        title={dialog.title}
+        message={dialog.message}
+        onClose={() => setDialog({ visible: false, title: "", message: "" })}
+      />
+
+      {/* Chat Support */}
+      <ChatSupport
+        visible={showChat}
+        onClose={() => {
+          setShowChat(false);
+          setChatOrderId(null);
+        }}
+        orderId={chatOrderId}
+      />
     </SafeAreaView>
   );
 }

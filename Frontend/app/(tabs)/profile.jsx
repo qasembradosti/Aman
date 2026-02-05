@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   Image,
   Text as RNText,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Octicons } from "@expo/vector-icons";
@@ -19,6 +20,8 @@ import { useTheme } from "../../utils/ThemeContext";
 import { getApiBaseUrl } from "../../utils/apiConfig";
 import LanguageSelector from "../../components/LanguageSelector";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import ChatSupport from "../../components/ChatSupport";
+import ChatHeaderButton from "../../components/ChatHeaderButton";
 import { History } from "lucide-react-native";
 // Use theme.colors.primary instead of direct constant
 
@@ -44,6 +47,8 @@ export default function Profile() {
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const API_BASE_URL = getApiBaseUrl();
 
   // Get auth state from Redux
@@ -62,6 +67,22 @@ export default function Profile() {
   const totalOrders = orders?.length || 0;
   const pendingOrders = orders?.filter(order => order.status === 'pending')?.length || 0;
   const totalSales = orders?.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0) || 0;
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (isAuthenticated && user?.id) {
+        await Promise.all([
+          dispatch(fetchWallet({ user_id: user.id })),
+          dispatch(fetchOrders({}))
+        ]);
+      }
+    } catch (error) {
+      console.error("Refresh error:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleLogin = () => {
     router.push("/(auth)/login");
@@ -113,7 +134,25 @@ export default function Profile() {
         },
       ]}
     >
-      <ScrollView style={styles.scrollView}>
+      {/* Header with chat button */}
+      <View style={[styles.header, { backgroundColor: theme.colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
+          {t("profile")}
+        </Text>
+        <ChatHeaderButton onPress={() => setShowChat(true)} />
+      </View>
+      
+      <ScrollView 
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
+      >
         {/* Profile Header */}
         <View
           style={[styles.profileHeader, { backgroundColor: theme.colors.card }]}
@@ -328,6 +367,11 @@ export default function Profile() {
           }
         }}
       />
+      
+      <ChatSupport
+        visible={showChat}
+        onClose={() => setShowChat(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -337,16 +381,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(0,0,0,0.08)",
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+  },
   scrollView: {
     flex: 1,
   },
   walletContainer: {
-    marginTop: 12,
-    marginBottom: 12,
+    marginTop: 10,
+    marginBottom: 10,
     marginHorizontal: 16,
   },
   walletCard: {
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 0,
     overflow: "hidden",
     position: "relative",
@@ -354,24 +411,24 @@ const styles = StyleSheet.create({
   decorativeCircle1: {},
   decorativeCircle2: {},
   walletContent: {
-    padding: 16,
+    padding: 12,
     position: "relative",
     zIndex: 1,
   },
   walletTop: {
-    marginBottom: 16,
+    marginBottom: 12,
     alignItems: "center",
     justifyContent: "space-between",
   },
   walletLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: "rgba(255,255,255,0.9)",
-    marginBottom: 6,
+    marginBottom: 4,
     
     letterSpacing: 0.5,
   },
   walletBalance: {
-    fontSize: 28,
+    fontSize: 24,
     color: "#fff",
     
     letterSpacing: -0.5,
@@ -380,39 +437,39 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
   },
   walletActionButton: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
     backgroundColor: "rgba(255,255,255,0.25)",
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.3)",
   },
   actionIconContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
   },
   walletButtonText: {
-    fontSize: 11,
+    fontSize: 10,
     color: "#fff",
     
     textAlign: "center",
   },
   showButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: "rgba(255,255,255,0.25)",
     justifyContent: "center",
     alignItems: "center",
@@ -422,17 +479,17 @@ const styles = StyleSheet.create({
   profileHeader: {
     backgroundColor: "#fff",
     alignItems: "center",
-    paddingVertical: 32,
-    paddingHorizontal: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
   },
   avatarContainer: {
     position: "relative",
-    marginBottom: 16,
+    marginBottom: 12,
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: "#E8E9F8",
     justifyContent: "center",
     alignItems: "center",
@@ -448,30 +505,30 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 0,
     right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     // backgroundColor provided inline via theme
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: "#fff",
   },
   userName: {
-    fontSize: 24,
+    fontSize: 20,
     color: "#1a1a1a",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   userEmail: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#666",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   loginButtonSmall: {
     // backgroundColor provided inline via theme
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 18,
     marginTop: 4,
   },
   loginButtonSmallText: {
@@ -506,7 +563,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#e0e0e0",
   },
   menuContainer: {
-    marginTop: 16,
+    marginTop: 10,
     marginHorizontal: 16,
     backgroundColor: "#fff",
     borderRadius: 12,
@@ -515,30 +572,30 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
+    padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
   },
   menuIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "#E8E9F8",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    marginRight: 10,
   },
   menuTextContainer: {
     flex: 1,
   },
   menuTitle: {
-    fontSize: 16,
+    fontSize: 15,
     
     color: "#1a1a1a",
-    marginBottom: 2,
+    marginBottom: 1,
   },
   menuSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#666",
   },
   logoutButton: {
@@ -547,24 +604,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#fff",
     marginHorizontal: 16,
-    marginTop: 16,
+    marginTop: 12,
     marginBottom: 8,
-    padding: 16,
+    padding: 14,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "#FF3B30",
   },
   logoutText: {
-    fontSize: 16,
+    fontSize: 15,
     
     color: "#FF3B30",
-    marginLeft: 8,
+    marginLeft: 6,
   },
   version: {
     textAlign: "center",
     color: "#999",
-    fontSize: 12,
-    paddingVertical: 20,
+    fontSize: 11,
+    paddingVertical: 16,
   },
   loginPrompt: {
     flex: 1,

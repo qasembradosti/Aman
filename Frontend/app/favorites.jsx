@@ -337,7 +337,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: "bold",
     textAlign: "center",
     flex: 1,
   },
@@ -392,7 +391,6 @@ const styles = StyleSheet.create({
   bonusTagText: {
     color: "#fff",
     fontSize: 10,
-    fontWeight: "bold",
   },
   productInfo: {
     padding: 12,
@@ -409,7 +407,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   productPrice: {
-    fontWeight: "bold",
   },
   shareButton: {
     justifyContent: "center",
