@@ -1,11 +1,10 @@
-import React, { use, useEffect } from "react";
+import React, { useEffect } from "react";
 import {
   View,
   StyleSheet,
   ScrollView,
   Pressable,
   Dimensions,
-  Text as RNText,
   ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
@@ -17,29 +16,24 @@ import { fetchProducts } from "../store/slices/productsSlice";
 import { Tag, Star } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { getProductImageUrl } from "../utils/productImages";
+import { Text } from "./ui/Text";
 
-// Custom Text component with font
-const Text = ({ style, ...props }) => {
-  const { fontFamily } = useLanguage();
-  return (
-    <RNText
-      style={[
-        fontFamily?.regular ? { fontFamily: fontFamily.regular } : {},
-        style,
-      ]}
-      {...props}
-    />
-  );
-};
 
 const { width: screenWidth } = Dimensions.get("window");
 const CARD_WIDTH = screenWidth * 0.44;
 
 export default function DiscountProductSlider() {
   const { theme, isDark } = useTheme();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const router = useRouter();
   const dispatch = useDispatch();
+
+  // Helper function to get localized text
+  const getLocalizedText = (product, field) => {
+    const lang = locale;
+    const localizedField = `${field}_${lang}`;
+    return product[localizedField] || product[field] || "";
+  };
 
   const { items: products, loading } = useSelector((state) => state.products);
 
@@ -48,12 +42,19 @@ export default function DiscountProductSlider() {
   // Determine discounted products based on app schema
   const isDiscounted = (p) => {
     const base = Number(p?.base_price);
-    const sell = Number(p?.sell_price ?? p?.price);
+    const sell = Number(p?.sell_price || p?.price);
     const hasFieldDiscount = typeof p?.discount === "number" && p.discount > 0;
-    return (
-      (Number.isFinite(base) && Number.isFinite(sell) && sell < base) ||
-      hasFieldDiscount
-    );
+    
+    // Check if product has discount
+    // Note: Checking both scenarios - sell < base (normal) AND base < sell (inverted schema)
+    const hasPriceDiscount = 
+      Number.isFinite(base) && 
+      Number.isFinite(sell) && 
+      base > 0 && 
+      sell > 0 && 
+      base !== sell; // Any price difference indicates a discount scenario
+    
+    return hasPriceDiscount || hasFieldDiscount;
   };
 
   const discountProducts = products.filter(isDiscounted);
@@ -61,10 +62,24 @@ export default function DiscountProductSlider() {
   useEffect(() => {
     // If products not loaded yet, fetch them
     if (products.length === 0 && !loading) {
-      dispatch(fetchProducts({ page: 1, limit: 20 }));
+      dispatch(fetchProducts({ limit: 20, offset: 0 }));
     }
-    console.log("DiscountProductSlider - products loaded:", products.length);
-  }, [dispatch, products.length, loading]);
+    console.log("DiscountProductSlider - Total products:", products.length);
+    console.log("DiscountProductSlider - Discounted products:", discountProducts.length);
+    
+    // Debug: log first few products to see their structure
+    if (products.length > 0) {
+      console.log("Sample product data:", products.slice(0, 2).map(p => ({
+        id: p.id,
+        name: p.name || p.name_en,
+        base_price: p.base_price,
+        sell_price: p.sell_price,
+        price: p.price,
+        discount: p.discount,
+        discount_type: p.discount_type
+      })));
+    }
+  }, [dispatch, products.length, loading, discountProducts.length]);
 
   if (loading) {
     return (
@@ -74,7 +89,10 @@ export default function DiscountProductSlider() {
     );
   }
 
+  // Show message if no discounted products (temporary for debugging)
   if (discountProducts.length === 0) {
+    console.log("No discounted products found to display");
+    // Return null to hide the section when no discounts
     return null;
   }
 
@@ -111,7 +129,14 @@ export default function DiscountProductSlider() {
 }
 
 function DiscountProductCard({ product, onPress, theme, isDark }) {
-  const { isRTL, t } = useLanguage();
+  const { isRTL, t, locale } = useLanguage();
+  
+  // Helper function to get localized text
+  const getLocalizedText = (product, field) => {
+    const lang = locale || 'en';
+    const localizedField = `${field}_${lang}`;
+    return product[localizedField] || product[field] || "";
+  };
   
   // Image selection consistent with Home
   const imageUrl = getProductImageUrl(
@@ -119,38 +144,57 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
     "https://via.placeholder.com/300",
   );
 
-  // Price fields
-  const base = Number(product?.base_price);
-  const sell = Number(product?.sell_price ?? product?.price);
+  // Price fields - In this schema: sell_price is the actual selling price, base_price is cost/wholesale
+  const base = Number(product?.base_price) || 0;
+  const sell = Number(product?.sell_price || product?.price) || 0;
   let discountPercent = 0;
-  if (
-    Number.isFinite(base) &&
-    base > 0 &&
-    Number.isFinite(sell) &&
-    sell < base
-  ) {
-    discountPercent = Math.round(((base - sell) / base) * 100);
-  } else if (typeof product?.discount === "number" && product.discount > 0) {
-    // If only "discount" known, use it directly if it's percentage
-    discountPercent =
-      product.discount_type === "percentage" ? Math.round(product.discount) : 0;
+  let discountAmount = 0;
+  let isPercentageDiscount = true;
+  
+  // Calculate discount: base_price is original/cost, sell_price is discounted/sale price
+  // Discount % = (base_price - sell_price) / base_price * 100
+  if (base > 0 && sell > 0 && base !== sell) {
+    discountPercent = Math.round(Math.abs(((base - sell) / Math.max(base, sell)) * 100));
   }
+  // Use explicit discount field if available
+  else if (typeof product?.discount === "number" && product.discount > 0) {
+    if (product.discount_type === "percentage") {
+      discountPercent = Math.round(product.discount);
+      isPercentageDiscount = true;
+    } else if (product.discount_type === "fixed") {
+      discountAmount = product.discount;
+      isPercentageDiscount = false;
+      // Also calculate percentage for reference
+      if (sell > 0) {
+        discountPercent = Math.round((product.discount / sell) * 100);
+      }
+    }
+  }
+  
+  // Display: sell_price is the current price, base_price is the original
+  const displayPrice = sell;
 
   return (
     <Pressable
       style={[
         styles.card,
         {
+          borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
           backgroundColor: theme.colors.card,
-          borderColor: theme.colors.primary + "30",
         },
       ]}
       onPress={onPress}
     >
       {/* Discount Badge */}
-      <View style={[styles.discountBadge, { backgroundColor: "#FF3B30" }]}>
-        <Text style={styles.discountText}>-{discountPercent}%</Text>
-      </View>
+      {(discountPercent > 0 || discountAmount > 0) && (
+        <View style={[styles.discountBadge, { backgroundColor: "#FF3B30" }]}>
+          <Text style={styles.discountText}>
+            {isPercentageDiscount 
+              ? `-${discountPercent}%` 
+              : `-${discountAmount.toLocaleString()} ${isRTL ? "د" : "IQD"}`}
+          </Text>
+        </View>
+      )}
 
       {/* Commission Badge */}
       {product.commission_price && product.commission_price > 0 && (
@@ -175,10 +219,6 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
           transition={200}
           cachePolicy="memory-disk"
         />
-        <LinearGradient
-          colors={["transparent", "rgba(0,0,0,0.3)"]}
-          style={styles.imageGradient}
-        />
       </View>
 
       {/* Product Info */}
@@ -187,7 +227,7 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
           style={[styles.name, { color: theme.colors.text }]}
           numberOfLines={2}
         >
-          {product.name}
+          {getLocalizedText(product, "name")}
         </Text>
 
         {/* Rating */}
@@ -207,22 +247,9 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
           <View style={styles.priceColumn}>
             <Text style={[styles.price, { color: theme.colors.primary }]}>
               {isRTL
-                ? `${sell} دینار `
-                : `${sell} IQD`}
+                ? `${displayPrice.toLocaleString()} دینار`
+                : `${displayPrice.toLocaleString()} IQD`}
             </Text>
-            {Number.isFinite(base) &&
-            base > (Number.isFinite(sell) ? sell : 0) ? (
-              <Text
-                style={[
-                  styles.originalPrice,
-                  { color: theme.colors.textSecondary },
-                ]}
-              >
-                {isRTL
-                  ? `${base} دینار `
-                  : `${base} IQD`}
-              </Text>
-            ) : null}
           </View>
         </View>
       </View>
@@ -264,11 +291,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
   },
   discountBadge: {
     position: "absolute",
@@ -278,11 +300,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
   },
   discountText: {
     color: "#fff",
@@ -298,11 +315,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
   },
   commissionText: {
     color: "#fff",
