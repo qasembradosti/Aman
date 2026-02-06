@@ -108,17 +108,75 @@ export const updateOrderStatus = async (req, res) => {
       return res.status(400).json({ message: 'Invalid status value' });
     }
 
+    // Get current order status to validate transition
+    const currentOrder = await Order.getById(id);
+    if (!currentOrder) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const currentStatus = currentOrder.status;
+
+    // Check if order is already in a final state
+    if (currentStatus === 'delivered' || currentStatus === 'cancelled') {
+      return res.status(400).json({ 
+        message: `Order is already ${currentStatus}` 
+      });
+    }
+
+    // Validate sequential transition (Pending -> Processing -> Shipped -> Delivered)
+    // Also allow cancellation from non-final states
+    const validTransitions = {
+      'pending': ['processing', 'cancelled'],
+      'processing': ['shipped', 'cancelled'],
+      'shipped': ['delivered', 'cancelled']
+    };
+
+    if (status !== currentStatus && (!validTransitions[currentStatus] || !validTransitions[currentStatus].includes(status))) {
+      return res.status(400).json({ 
+        message: `Invalid status transition. Cannot change from '${currentStatus}' to '${status}'.` 
+      });
+    }
+
     const updated = await Order.updateStatus(id, status);
     console.log('✅ Update result:', updated);
 
     if (!updated) {
-      console.log('❌ Order not found:', id);
-      return res.status(404).json({ message: 'Order not found' });
+      console.log('❌ Order update failed:', id);
+      return res.status(500).json({ message: 'Failed to update order status' });
     }
 
     // Fetch and return the updated order
     const order = await Order.getById(id);
-    console.log('✅ Returning updated order:', order.id, order.status);
+
+    // Process commission if order is delivered
+    if (status === 'delivered') {
+      try {
+        const isWithdrawn = await Order.isCommissionWithdrawn(id);
+        if (!isWithdrawn) {
+          const commission = await Order.calculateCommission(id);
+          
+          if (commission > 0) {
+            console.log(`Processing commission for order #${id}: ${commission}`);
+            
+            // Add to wallet
+            await Wallet.credit(
+              order.user_id,
+              commission,
+              `Commission for Order #${order.id}`,
+              { order_id: order.id, type: 'order_commission' }
+            );
+            
+            // Mark as withdrawn
+            await Order.markCommissionWithdrawn(id);
+            console.log(`Commission of ${commission} added to user ${order.user_id}`);
+          }
+        }
+      } catch (err) {
+        console.error('❌ Error processing commission:', err);
+        // Continue to return response even if commission fails
+      }
+    }
+
     res.json({ message: 'Order status updated successfully', order });
   } catch (error) {
     console.error('❌ Error updating order status:', error);

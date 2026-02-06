@@ -31,7 +31,6 @@ apiService.interceptors.request.use(
       const token = await AsyncStorage.getItem('token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log('🔑 Token added to request:', config.url);
       } else {
         console.warn('⚠️ No token found for request:', config.url);
       }
@@ -49,18 +48,10 @@ apiService.interceptors.request.use(
 // Response interceptor for error handling
 apiService.interceptors.response.use(
   (response) => {
-    console.log('✅ API Response:', response.config.url, response.status);
     return response;
   },
   async (error) => {
-    console.error('❌ API Error:', {
-      url: error.config?.url,
-      status: error.response?.status,
-      message: error.response?.data?.message || error.message,
-    });
-    
     if (error.response?.status === 401) {
-      console.log('🔒 Unauthorized - clearing auth data');
       try {
         await AsyncStorage.multiRemove(['token', 'user']);
       } catch { }

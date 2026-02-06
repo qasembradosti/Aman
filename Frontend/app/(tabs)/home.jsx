@@ -180,7 +180,15 @@ export default function Home() {
       dispatch(fetchCategories({})), // Fetch all categories
       dispatch(fetchBrands({ is_active: "true" })), // Fetch only active brands
     ])
-      .catch(() => {})
+      .catch((error) => {
+        console.error("Refresh error:", error);
+        setDialog({
+          visible: true,
+          title: t("error") || "Error",
+          message:
+            t("refreshError") || "Unable to refresh data. Please try again.",
+        });
+      })
       .finally(() => setRefreshing(false));
   };
 
@@ -198,7 +206,16 @@ export default function Home() {
       }),
     )
       .unwrap()
-      .catch(() => {})
+      .catch((error) => {
+        console.error("Load more products error:", error);
+        setDialog({
+          visible: true,
+          title: t("error") || "Error",
+          message:
+            t("loadMoreError") ||
+            "Unable to load more products. Please try again.",
+        });
+      })
       .finally(() => setLoadingMore(false));
   }, [dispatch, loadingMore, hasMore, products.length, productsLoading]);
 
@@ -226,7 +243,7 @@ export default function Home() {
 
   const handleShareProduct = async (id, name) => {
     try {
-      const userId = user?.id || "unknown";
+      const userId = user?.id;
       const checkoutUrl = `https://checkout.aman-store.com/checkout?userId=${userId}&productId=${id}`;
 
       const result = await Share.share({
@@ -249,7 +266,6 @@ export default function Home() {
         title: "Error",
         message: "Unable to share product",
       });
-      console.error("Share error:", error);
     }
   };
 
@@ -258,8 +274,8 @@ export default function Home() {
     if (!isAuthenticated) {
       setDialog({
         visible: true,
-        title: t("loginRequired") || "Login Required",
-        message: t("loginToFavorite") || "Please login to add favorites",
+        title: t("loginRequired"),
+        message: t("loginToFavorite"),
       });
       return;
     }
@@ -279,46 +295,12 @@ export default function Home() {
         [productId]: !prev[productId],
       }));
 
-      console.error("Favorite toggle error:", error);
       setDialog({
         visible: true,
-        title: t("error") || "Error",
-        message: t("favoriteError") || "Unable to update favorites",
+        title: t("error"),
+        message: t("favoriteError"),
       });
     }
-  };
-
-  // Helper: compute seller bonus for a product (prefer explicit field, else 10% of price)
-  const computeBonus = (p) => {
-    return p?.seller_bonus || p?.price * 0.1;
-  };
-
-  const renderStars = (rating) => {
-    const stars = [];
-    const full = Math.floor(rating);
-    const hasHalf = rating - full >= 0.5;
-    for (let i = 0; i < full; i++) {
-      stars.push(
-        <Ionicons key={`full-${i}`} name="star" size={12} color="#FFB800" />,
-      );
-    }
-    if (hasHalf) {
-      stars.push(
-        <Ionicons key="half" name="star-half" size={12} color="#FFB800" />,
-      );
-    }
-    const remaining = 5 - stars.length;
-    for (let i = 0; i < remaining; i++) {
-      stars.push(
-        <Ionicons
-          key={`empty-${i}`}
-          name="star-outline"
-          size={12}
-          color="#FFB800"
-        />,
-      );
-    }
-    return stars;
   };
 
   return (
@@ -1173,11 +1155,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     position: "relative",
     borderColor: "transparent",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
   },
   productCardPressed: {
     // Lift effect on press
@@ -1202,7 +1179,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 10,
-
     elevation: 4,
   },
   bonusTagText: {

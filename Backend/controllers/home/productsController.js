@@ -58,11 +58,9 @@ const listProductVideos = async (req, productId) => {
     }
     
     const vid = videos[0];
-    console.log(`[listProductVideos] Raw video_url from DB: ${vid.video_url}`);
     
     const videoUrl = toVideoUrl(baseUrl, vid.video_url);
-    console.log(`[listProductVideos] Constructed videoUrl: ${videoUrl}`);
-    
+
     return {
       id: vid.id,
       filename: vid.video_url,
@@ -88,6 +86,7 @@ export const listProducts = async (req, res) => {
         const video = await listProductVideos(req, product.id);
         return {
           ...product,
+          discount_type: product.discount_type || 'percentage', // Ensure discount_type is always present
           images,
           video // Single video object or null
         };
@@ -145,7 +144,11 @@ export const createProduct = async (req, res) => {
       images = saved;
     }
 
-    res.status(201).json({ ...product, images });
+    res.status(201).json({ 
+      ...product, 
+      discount_type: product.discount_type || 'percentage', // Ensure discount_type is always present
+      images 
+    });
   } catch (err) {
     if (err.message === 'name and base_price are required') {
       return res.status(400).json({ message: err.message });
@@ -180,7 +183,6 @@ export const updateProduct = async (req, res) => {
       
       // Handle images
       if (imageFiles.length > 0) {
-        console.log(`📸 Processing ${imageFiles.length} images`);
         const { ProductImage } = await import('../models/productImage.js');
         
         for (const file of imageFiles) {
@@ -195,7 +197,6 @@ export const updateProduct = async (req, res) => {
       
       // Handle videos
       if (videoFiles.length > 0) {
-        console.log(`🎬 Processing ${videoFiles.length} videos`);
         const { ProductVideo } = await import('../models/productVideo.js');
         
         // Check if product already has a video
@@ -211,7 +212,6 @@ export const updateProduct = async (req, res) => {
             video_url: videoUrl,
             is_main: true
           });
-          console.log(`✅ Updated existing video for product ${id}`);
         } else {
           // Create new video record
           await ProductVideo.create({
@@ -219,7 +219,6 @@ export const updateProduct = async (req, res) => {
             video_url: videoUrl,
             is_main: true
           });
-          console.log(`✅ Created new video for product ${id}`);
         }
       }
     }
@@ -263,9 +262,7 @@ export const updateProduct = async (req, res) => {
             timestamp: new Date()
           });
         }
-        
-        console.log(`📢 Discount notification sent to ${users.length} users for product: ${product.name}`);
-      } catch (notifError) {
+              } catch (notifError) {
         console.error('Failed to send discount notifications:', notifError);
         // Don't fail the update if notification fails
       }
@@ -273,7 +270,12 @@ export const updateProduct = async (req, res) => {
     
     const images = await listProductImages(req, product.id);
     const video = await listProductVideos(req, product.id);
-    res.json({ ...product, images, video });
+    res.json({ 
+      ...product, 
+      discount_type: product.discount_type || 'percentage', // Ensure discount_type is always present
+      images, 
+      video 
+    });
   } catch (err) {
     res.status(500).json({ message: 'Failed to update product', error: err.message });
   }
@@ -302,7 +304,12 @@ export const getProduct = async (req, res) => {
     if (!product) return res.status(404).json({ message: 'Product not found' });
     const images = await listProductImages(req, product.id);
     const video = await listProductVideos(req, product.id);
-    res.json({ ...product, images, video });
+    res.json({ 
+      ...product, 
+      discount_type: product.discount_type || 'percentage', // Ensure discount_type is always present
+      images, 
+      video 
+    });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch product', error: err.message });
   }

@@ -131,14 +131,18 @@ const Order = {
         created_at: new Date()
       });
 
-      // Create order items with commission_price
-      const orderItems = items.map(item => ({
-        order_id: orderId,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        price: item.price,
-        commission_price: item.commission_price || 0
-      }));
+      // Create order items with commission_price from products table to be secure
+      const orderItems = [];
+      for (const item of items) {
+        const product = await trx('products').select('commission_price').where('id', item.product_id).first();
+        orderItems.push({
+          order_id: orderId,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          price: item.price,
+          commission_price: product?.commission_price || 0
+        });
+      }
 
       await trx('order_items').insert(orderItems);
 
@@ -215,12 +219,23 @@ const Order = {
 
   // Calculate total commission for an order
   calculateCommission: async (orderId) => {
+    // Join with products to get commission if missing in order_items (backwards compatibility)
     const items = await db('order_items')
-      .select('commission_price', 'quantity')
-      .where('order_id', orderId);
+      .leftJoin('products', 'order_items.product_id', 'products.id')
+      .select(
+        'order_items.commission_price as item_commission', 
+        'products.commission_price as product_commission',
+        'order_items.quantity'
+      )
+      .where('order_items.order_id', orderId);
 
     const totalCommission = items.reduce((sum, item) => {
-      return sum + (Number(item.commission_price || 0) * Number(item.quantity));
+      // Use recorded commission, or fallback to current product commission
+      const commission = Number(item.item_commission) > 0 
+        ? Number(item.item_commission) 
+        : Number(item.product_commission || 0);
+        
+      return sum + (commission * Number(item.quantity));
     }, 0);
 
     return totalCommission;

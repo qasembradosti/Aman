@@ -149,7 +149,7 @@ export default function ProductDetail() {
     if (dbProduct) {
       // Build specifications array dynamically
       const specs = [
-        { label: "Brand", value: dbProduct.brand_name || "Premium Brand" },
+        { label: "Brand", value: dbProduct.brand_name },
         {
           label: "Model",
           value:
@@ -174,10 +174,31 @@ export default function ProductDetail() {
         { label: "Dimensions", value: "15x10x5 cm" },
       );
 
+      // Calculate final price with discount logic
+      const sell = Number(dbProduct.sell_price) || 0;
+      const discount = Number(dbProduct.discount) || 0;
+      let finalPrice = sell;
+      
+      if (discount > 0) {
+        const type = (dbProduct.discount_type || "").toLowerCase();
+        const isPercentage = type === "percentage" || type === "parsentage" || type === "percent";
+        const isFixed = type === "fixed";
+        
+        if (isPercentage) {
+          finalPrice = sell - (sell * discount / 100);
+        } else if (isFixed) {
+          finalPrice = sell - discount;
+        }
+      }
+      finalPrice = Math.max(0, finalPrice);
+
       return {
         id: dbProduct.id,
         name: getLocalizedText(dbProduct, "name"),
-        price: dbProduct.sell_price,
+        price: Math.round(finalPrice),
+        original_sell_price: sell,
+        discount: discount,
+        discount_type: dbProduct.discount_type,
         base_price: dbProduct.base_price,
         commission_price: dbProduct.commission_price,
         originalPrice:
@@ -871,7 +892,7 @@ export default function ProductDetail() {
                         letterSpacing: -0.5,
                       }}
                     >
-                      {product.price}
+                      {product.price.toLocaleString()}
                     </Text>
                     <Text
                       style={{
@@ -883,6 +904,44 @@ export default function ProductDetail() {
                       {isRTL ? "دینار" : "IQD"}
                     </Text>
                   </View>
+                  
+                  {/* Original Price and Discount Badge */}
+                  {product.discount > 0 && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }}>
+                      {/* Original Price */}
+                      <Text
+                        style={{
+                          fontSize: 18,
+                          color: theme.colors.textSecondary,
+                          textDecorationLine: "line-through",
+                        }}
+                      >
+                        {product.original_sell_price.toLocaleString()} {isRTL ? "دینار" : "IQD"}
+                      </Text>
+                      
+                      {/* Discount Badge */}
+                      <View
+                        style={{
+                          backgroundColor: "#FF3B30",
+                          paddingHorizontal: 12,
+                          paddingVertical: 4,
+                          borderRadius: 12,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: "#fff",
+                            fontSize: 13,
+                            fontWeight: "bold",
+                          }}
+                        >
+                          {(product.discount_type || "").toLowerCase().includes("percent") 
+                            ? `-${Math.round(product.discount)}%` 
+                            : `-${product.discount.toLocaleString()} ${isRTL ? "د" : "IQD"}`}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
                 </View>
               </View>
 
