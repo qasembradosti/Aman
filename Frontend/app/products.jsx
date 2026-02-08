@@ -19,7 +19,7 @@ import {
   TextInput,
   Modal,
 } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -271,6 +271,7 @@ export default function Products() {
       const titleAr = product?.name_ar?.trim();
       const titleEn = product?.name_en?.trim();
       const titleKu = product?.name_ku?.trim();
+      const titleOm = product?.name_om?.trim();
       // Determine language and set name with fallbacks
       if (lang === "ar") {
         name = titleAr || titleEn || titleKu;
@@ -417,8 +418,6 @@ export default function Products() {
               styles.searchContainer,
               {
                 backgroundColor: theme.colors.card,
-                borderColor: theme.colors.border,
-                shadowColor: theme.colors.shadow || "#000",
               },
             ]}
           >
@@ -483,12 +482,7 @@ export default function Products() {
                     backgroundColor: theme.colors.card,
                     width: layout.cardWidth,
                   },
-                  {
-                    borderColor: theme.colors.border,
-                    borderWidth: StyleSheet.hairlineWidth,
-                  },
                   pressed && styles.productCardPressed,
-                  pressed && { borderColor: theme.colors.primary },
                 ]}
                 onPress={() => {
                   if (!navigationInProgress.current) {
@@ -698,7 +692,6 @@ export default function Products() {
             <View
               style={[
                 styles.modalHeader,
-                { borderBottomColor: theme.colors.border },
               ]}
             >
               <View
@@ -756,10 +749,6 @@ export default function Products() {
                           selectedBrand === "all"
                             ? theme.colors.primary
                             : theme.colors.card,
-                        borderColor:
-                          selectedBrand === "all"
-                            ? theme.colors.primary
-                            : theme.colors.border,
                       },
                     ]}
                     onPress={() => setSelectedBrand("all")}
@@ -800,10 +789,6 @@ export default function Products() {
                             selectedBrand === String(brand.id)
                               ? theme.colors.primary
                               : theme.colors.card,
-                          borderColor:
-                            selectedBrand === String(brand.id)
-                              ? theme.colors.primary
-                              : theme.colors.border,
                         },
                       ]}
                       onPress={() => setSelectedBrand(String(brand.id))}
@@ -856,7 +841,6 @@ export default function Products() {
                           selectedCategory === "all"
                             ? theme.colors.primary
                             : theme.colors.card,
-                        borderColor: theme.colors.border,
                       },
                     ]}
                     onPress={() => setSelectedCategory("all")}
@@ -900,7 +884,6 @@ export default function Products() {
                               selectedCategory === String(category.id)
                                 ? theme.colors.primary
                                 : theme.colors.card,
-                            borderColor: theme.colors.border,
                           },
                         ]}
                         onPress={() => setSelectedCategory(String(category.id))}
@@ -983,7 +966,6 @@ export default function Products() {
                             sortBy === option.key
                               ? theme.colors.primary
                               : theme.colors.card,
-                          borderColor: theme.colors.border,
                         },
                       ]}
                       onPress={() => setSortBy(option.key)}
@@ -1011,7 +993,6 @@ export default function Products() {
             <View
               style={[
                 styles.modalFooter,
-                { borderTopColor: theme.colors.border },
               ]}
             >
               <TouchableOpacity
@@ -1061,11 +1042,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   backButton: {
     padding: 4,
@@ -1193,11 +1169,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     flexDirection: "row",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   paginationButtonText: {
     fontSize: 14,
@@ -1231,7 +1202,6 @@ const styles = StyleSheet.create({
   },
   brandCard: {
     borderRadius: 12,
-    borderWidth: 1,
     padding: 12,
     marginRight: 12,
     alignItems: "center",
@@ -1257,7 +1227,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 2,
-    borderWidth: 1,
     height: 48,
   },
   searchIcon: {
@@ -1280,8 +1249,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "transparent",
     marginRight: 8,
     justifyContent: "center",
     alignItems: "center",
@@ -1298,11 +1265,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     maxHeight: "85%",
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 10,
   },
   modalHeader: {
     flexDirection: "row",
@@ -1311,11 +1273,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 16,
-    borderBottomWidth: 1,
   },
   modalTitle: {
     fontSize: 22,
-    fontWeight: "700",
     letterSpacing: 0.3,
   },
   modalCloseButton: {
@@ -1331,7 +1291,6 @@ const styles = StyleSheet.create({
   },
   filterSectionTitle: {
     fontSize: 17,
-    fontWeight: "600",
     marginBottom: 14,
     letterSpacing: 0.2,
   },
@@ -1344,17 +1303,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 11,
     borderRadius: 12,
-    borderWidth: 1.5,
     marginBottom: 0,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
   filterOptionText: {
     fontSize: 14,
-    fontWeight: "500",
   },
   filterOptionContent: {
     flexDirection: "row",
@@ -1366,13 +1318,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 18,
     paddingBottom: 24,
-    borderTopWidth: 1,
     gap: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 4,
   },
   modalButton: {
     flex: 1,
@@ -1380,14 +1326,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   modalButtonText: {
     fontSize: 16,
-    fontWeight: "600",
   },
 });

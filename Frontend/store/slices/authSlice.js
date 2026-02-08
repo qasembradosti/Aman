@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../services/apiService';
 import { USE_STATIC_AUTH, tryStaticLogin } from '../../constants/devAuth';
+import { removePushToken } from '../../services/pushTokenService';
 
 // Async thunks
 export const login = createAsyncThunk(
@@ -178,6 +179,15 @@ export const resetPasswordWithCode = createAsyncThunk(
 
 export const logout = createAsyncThunk('auth/logout', async () => {
   console.log('🔓 Logging out...');
+  
+  // Remove push token from backend
+  try {
+    await removePushToken();
+  } catch (error) {
+    console.warn('⚠️ Failed to remove push token from backend:', error);
+    // Continue with logout even if this fails
+  }
+  
   // Remove token and user from AsyncStorage
   await AsyncStorage.multiRemove(['token', 'user']);
   console.log('✅ Token and user removed from AsyncStorage');

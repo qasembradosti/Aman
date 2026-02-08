@@ -9,6 +9,7 @@ import usersReducer from './slices/usersSlice';
 import dashboardReducer from './slices/dashboardSlice';
 import storesReducer from './slices/storesSlice';
 import withdrawalsReducer from './slices/withdrawalsSlice';
+import supportChatReducer from './slices/supportChatSlice';
 
 export const store = configureStore({
   reducer: {
@@ -22,6 +23,7 @@ export const store = configureStore({
     dashboard: dashboardReducer,
     stores: storesReducer,
     withdrawals: withdrawalsReducer,
+    supportChat: supportChatReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

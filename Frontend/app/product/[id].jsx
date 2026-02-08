@@ -15,7 +15,7 @@ import {
   Linking,
   Alert,
 } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../utils/ThemeContext";
@@ -31,6 +31,8 @@ import { useLanguage } from "../../utils/LanguageContext";
 import {
   getProductImageUrl,
   getProductImageUrls,
+  getProductVideoUrl,
+  resolveVideoUrl,
 } from "../../utils/productImages";
 import { Text } from "../../components/ui/Text";
 import VideoSlide from "../../components/VideoSlide";
@@ -232,8 +234,9 @@ export default function ProductDetail() {
           }));
 
           // Add video if available
-          if (dbProduct.video && dbProduct.video.url) {
-            mediaItems.push({ type: "video", uri: dbProduct.video.url });
+          const videoUrl = getProductVideoUrl(dbProduct);
+          if (videoUrl) {
+            mediaItems.push({ type: "video", uri: videoUrl });
           }
 
           return mediaItems.length > 0
@@ -932,7 +935,6 @@ export default function ProductDetail() {
                           style={{
                             color: "#fff",
                             fontSize: 13,
-                            fontWeight: "bold",
                           }}
                         >
                           {(product.discount_type || "").toLowerCase().includes("percent") 
@@ -1135,6 +1137,7 @@ export default function ProductDetail() {
                     {
                       color: theme.colors.text,
                       fontSize: layout.typography.xl,
+                      direction:isRTL ? "rtl" : "ltr",
                     },
                   ]}
                 >
@@ -1169,6 +1172,7 @@ export default function ProductDetail() {
                   lineHeight: layout.typography.md * 1.6,
                   marginTop: layout.spacing.sm,
                   direction: isRTL ? "rtl" : "ltr",
+                  textAlign,
                 },
               ]}
             >

@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { View, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Text as RNText } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";

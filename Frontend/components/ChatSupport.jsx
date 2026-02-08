@@ -499,7 +499,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 16,
-    fontWeight: "600",
     color: "#fff",
     marginBottom: 2,
   },
@@ -590,6 +589,5 @@ const styles = StyleSheet.create({
   newChatButtonText: {
     color: "#fff",
     fontSize: 14,
-    fontWeight: "600",
   },
 });

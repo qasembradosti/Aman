@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Share,
 } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -360,9 +360,6 @@ export default function Search() {
           {searchQuery.trim() && searchResults.length > 0 && (
             <View style={styles.section}>
               <View style={styles.resultsHeader}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text, marginBottom: 0 }]}>
-                  {t("searchResults") || "Search Results"} ({searchResults.length})
-                </Text>
                 <View style={styles.viewToggle}>
                   <TouchableOpacity
                     style={[
@@ -411,7 +408,10 @@ export default function Search() {
                     }}
                   >
                     {/* Image Container */}
-                    <View style={viewMode === "grid" ? styles.resultImageContainer : styles.listImageContainer}>
+                    <View style={[
+                      viewMode === "grid" ? styles.resultImageContainer : styles.listImageContainer,
+                      viewMode === "list" && isRTL && styles.listImageContainerRTL
+                    ]}>
                       <Image
                         source={{
                           uri: getProductImageUrl(
@@ -700,7 +700,10 @@ export default function Search() {
                     }}
                   >
                     {/* Image Container */}
-                    <View style={viewMode === "grid" ? styles.resultImageContainer : styles.listImageContainer}>
+                    <View style={[
+                      viewMode === "grid" ? styles.resultImageContainer : styles.listImageContainer,
+                      viewMode === "list" && isRTL && styles.listImageContainerRTL
+                    ]}>
                       <Image
                         source={{
                           uri: getProductImageUrl(
@@ -841,7 +844,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    
+    fontWeight: "600",
     color: "#1a1a1a",
     marginBottom: 16,
   },
@@ -899,7 +902,7 @@ const styles = StyleSheet.create({
   },
   productName: {
     fontSize: 15,
-    
+    fontWeight: "500",
     color: "#1a1a1a",
     marginBottom: 4,
   },
@@ -915,7 +918,7 @@ const styles = StyleSheet.create({
   },
   productPrice: {
     fontSize: 16,
-    
+    fontWeight: "600",
   },
   resultsHeader: {
     flexDirection: "row",
@@ -951,13 +954,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#e6e6e6",
     overflow: "hidden",
-    backgroundColor: "#fff",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    marginBottom: 8,
+    backgroundColor: "#fff"
   },
   listCard: {
     width: "100%",
@@ -967,12 +964,7 @@ const styles = StyleSheet.create({
     borderColor: "#e6e6e6",
     overflow: "hidden",
     backgroundColor: "#fff",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    marginBottom: 8,
+    minHeight: 120,
   },
   productCardPressed: {
     transform: [{ scale: 0.97 }],
@@ -998,6 +990,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderTopLeftRadius: 16,
     borderBottomLeftRadius: 16,
+  },
+  listImageContainerRTL: {
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
+    borderTopRightRadius: 16,
+    borderBottomRightRadius: 16,
   },
   resultImage: {
     width: "100%",
@@ -1026,11 +1024,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   productInfo: {
     padding: 10,
@@ -1039,6 +1032,7 @@ const styles = StyleSheet.create({
   },
   resultName: {
     fontSize: 13,
+    fontWeight: "500",
     color: "#1a1a1a",
     marginBottom: 8,
     lineHeight: 16,
@@ -1062,6 +1056,7 @@ const styles = StyleSheet.create({
   },
   resultPrice: {
     fontSize: 16,
+    fontWeight: "600",
     color: "#1a1a1a",
   },
   shareButton: {
@@ -1079,7 +1074,7 @@ const styles = StyleSheet.create({
   },
   noResultsText: {
     fontSize: 18,
-    
+    fontWeight: "600",
     marginTop: 16,
     marginBottom: 8,
   },

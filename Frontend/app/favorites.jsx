@@ -10,7 +10,7 @@ import {
   Dimensions,
   Share,
 } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -396,7 +396,6 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   productName: {
-    fontWeight: "600",
     marginBottom: 8,
     lineHeight: 18,
   },
@@ -430,6 +429,5 @@ const styles = StyleSheet.create({
   exploreButtonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "600",
   },
 });

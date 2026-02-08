@@ -9,7 +9,7 @@ import {
   Share,
   ActivityIndicator,
 } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "react-native";
 import {
   Pressable,
 } from "react-native";

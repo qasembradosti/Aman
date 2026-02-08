@@ -1,21 +1,17 @@
-import React, { useEffect, useState, useRef } from "react";
-import { View, StyleSheet, Text, Image, Animated } from "react-native";
-import { useRouter } from "expo-router";
+import React, { useEffect, useRef } from "react";
+import { View, StyleSheet, Image, Animated } from "react-native";
 
 export default function SplashScreen() {
-  const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
-  const slideAnim = useRef(new Animated.Value(-100)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(0.5)).current;
+  const textFadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Start animations
+    // Logo animation
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 1200,
+        duration: 600,
         useNativeDriver: true,
       }),
       Animated.spring(scaleAnim, {
@@ -24,41 +20,22 @@ export default function SplashScreen() {
         tension: 40,
         useNativeDriver: true,
       }),
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        friction: 8,
-        tension: 40,
-        useNativeDriver: true,
-      }),
-      Animated.timing(rotateAnim, {
+    ]).start(() => {
+      // Text animation after logo
+      Animated.timing(textFadeAnim, {
         toValue: 1,
-        duration: 1500,
+        duration: 500,
         useNativeDriver: true,
-      }),
-    ]).start();
-
-    // Pulsing animation loop
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [router, fadeAnim, scaleAnim, slideAnim, rotateAnim, pulseAnim]);
+      }).start();
+    });
+  }, []);
 
   return (
     <View style={styles.container}>
+      {/* Logo */}
       <Animated.View
         style={[
-          styles.content,
+          styles.logoContainer,
           {
             opacity: fadeAnim,
             transform: [{ scale: scaleAnim }],
@@ -70,16 +47,28 @@ export default function SplashScreen() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Animated.Text 
-          style={[
-            styles.appName, 
-            { 
-              opacity: fadeAnim,
-              transform: [{ translateX: slideAnim }],
-            }
-          ]}
-        >
-          Aman Store
+      </Animated.View>
+
+      {/* Brand Text */}
+      <Animated.View
+        style={[
+          styles.textContainer,
+          {
+            opacity: textFadeAnim,
+            transform: [
+              {
+                translateY: textFadeAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [20, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <Animated.Text style={styles.brandText}>Aman</Animated.Text>
+        <Animated.Text style={styles.taglineText}>
+          Your Shopping Partner
         </Animated.Text>
       </Animated.View>
     </View>
@@ -91,31 +80,40 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#ffffff",
   },
-  content: {
-    alignItems: "center",
-  },
-  logo: {
+  logoContainer: {
     width: 150,
     height: 150,
     borderRadius: 35,
-    marginBottom: 30,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  appName: {
-    fontSize: 25,
-    color: "#000000",
+  logo: {
+    width: 110,
+    height: 110,
+  },
+  textContainer: {
+    marginTop: 40,
+    alignItems: "center",
+  },
+  brandText: {
+    fontSize: 42,
+    fontWeight: "bold",
+    color: "#1F2937",
+    letterSpacing: 3,
     marginBottom: 10,
   },
-  tagline: {
+  taglineText: {
     fontSize: 16,
-    color: "rgba(255, 255, 255, 0.9)",
-    marginBottom: 40,
-  },
-  loader: {
-    marginTop: 20,
-  },
-  noConnection: {
-    fontSize: 16,
-    color: "#ffffff",
+    color: "#6B7280",
+    letterSpacing: 1.5,
+    fontWeight: "300",
   },
 });

@@ -24,7 +24,7 @@ import {
   fetchOrderById,
 } from "../../store/slices/ordersSlice";
 import { getApiBaseUrl } from "../../utils/apiConfig";
-import { Image } from "expo-image";
+import { Image } from "react-native";
 import InfoDialog from "../../components/InfoDialog";
 import ChatSupport from "../../components/ChatSupport";
 import ChatHeaderButton from "../../components/ChatHeaderButton";
@@ -1008,7 +1008,6 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                           <Text
                             style={{
                               fontSize: layout.typography.lg,
-                              fontWeight: "600",
                               color: theme.colors.text,
                             }}
                           >
@@ -1053,7 +1052,6 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                         style={{
                           color: getStatusColor(order.status),
                           fontSize: layout.typography.xs,
-                          fontWeight: "600",
                         }}
                       >
                         {getStatusText(order.status)}
@@ -1100,7 +1098,6 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                             style={{
                               fontSize: layout.typography.xs,
                               color: theme.colors.textSecondary,
-                              fontWeight: "500",
                             }}
                           >
                             {t("products")}
@@ -1174,7 +1171,6 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                             style={{
                               fontSize: layout.typography.md,
                               color: theme.colors.text,
-                              fontWeight: "600",
                             }}
                           >
                             {order.items || 0}
@@ -1225,7 +1221,6 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                             style={{
                               fontSize: layout.typography.md,
                               color: theme.colors.primary,
-                              fontWeight: "700",
                               writingDirection: "ltr",
                             }}
                           >
@@ -1251,7 +1246,6 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                       style={{
                         color: theme.colors.primary,
                         fontSize: layout.typography.sm,
-                        fontWeight: "600",
                       }}
                     >
                       {t("viewDetails")}
@@ -2031,7 +2025,6 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                     style={{
                       color: "#fff",
                       fontSize: layout.typography.md,
-                      fontWeight: "600",
                     }}
                   >
                     {t("contactSupport")}

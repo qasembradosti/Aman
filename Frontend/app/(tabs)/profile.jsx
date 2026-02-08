@@ -172,7 +172,7 @@ export default function Profile() {
                   resizeMode="cover"
                 />
               ) : (
-                <Ionicons name="person" size={40} color={theme.colors.primary} />
+                <Ionicons name="person" size={32} color={theme.colors.primary} />
               )}
             </View>
             <TouchableOpacity
@@ -182,7 +182,7 @@ export default function Profile() {
               ]}
               onPress={() => router.push("/edit-profile")}
             >
-              <Ionicons name="camera" size={16} color="#fff" />
+              <Ionicons name="camera" size={14} color="#fff" />
             </TouchableOpacity>
           </View>
           <Text style={[styles.userName, { color: theme.colors.text }]}>
@@ -226,7 +226,7 @@ export default function Profile() {
               <View style={[styles.walletTop, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.walletLabel, { textAlign: isRTL ? "right" : "left" }]}>
-                    <Ionicons name="wallet-outline" size={12} color="rgba(255,255,255,0.9)" />
+                    <Ionicons name="wallet-outline" size={11} color="rgba(255,255,255,0.9)" />
                     {"  "}{t("walletBalance")}
                   </Text>
                   <Text style={[styles.walletBalance, { textAlign: isRTL ? "right" : "left" }]}>
@@ -244,7 +244,7 @@ export default function Profile() {
                 >
                   <Octicons
                     name={showBalance ? "eye-closed" : "eye"}
-                    size={16}
+                    size={14}
                     color="#fff"
                   />
                 </TouchableOpacity>
@@ -261,7 +261,7 @@ export default function Profile() {
                   onPress={() => router.push("/withdraw")}
                 >
                   <View style={styles.actionIconContainer}>
-                    <Ionicons name="arrow-up-outline" size={18} color="#fff" />
+                    <Ionicons name="arrow-up-outline" size={16} color="#fff" />
                   </View>
                   <Text style={styles.walletButtonText}>{t("withdraw")}</Text>
                 </TouchableOpacity>
@@ -271,7 +271,7 @@ export default function Profile() {
                   onPress={() => router.push("/wallet-history")}
                 >
                   <View style={styles.actionIconContainer}>
-                    <Ionicons name="time-outline" size={18} color="#fff" />
+                    <Ionicons name="time-outline" size={16} color="#fff" />
                   </View>
                   <Text style={styles.walletButtonText}>{t("history")}</Text>
                 </TouchableOpacity>
@@ -289,20 +289,17 @@ export default function Profile() {
               style={[
                 styles.menuItem,
                 {
-                  backgroundColor: theme.colors.card,
                   flexDirection: isRTL ? "row-reverse" : "row",
                 },
               ]}
               onPress={item.onPress || (() => {})}
             >
-              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", flex: 1,gap:10 }}>
-                <View style={styles.menuIconContainer}>
-                  <Ionicons
-                    name={item.icon}
-                    size={24}
-                    color={theme.colors.primary}
-                  />
-                </View>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", flex: 1, gap: 12 }}>
+                <Ionicons
+                  name={item.icon}
+                  size={22}
+                  color={theme.colors.primary}
+                />
                 <View
                   style={[
                     styles.menuTextContainer,
@@ -314,20 +311,12 @@ export default function Profile() {
                   >
                     {item.title}
                   </Text>
-                  <Text
-                    style={[
-                      styles.menuSubtitle,
-                      { color: theme.colors.textSecondary },
-                    ]}
-                  >
-                    {item.subtitle}
-                  </Text>
                 </View>
               </View>
               <Ionicons
                 name={isRTL ? "chevron-back" : "chevron-forward"}
-                size={20}
-                color="#ccc"
+                size={18}
+                color={theme.colors.textSecondary}
               />
             </TouchableOpacity>
           ))}
@@ -335,9 +324,25 @@ export default function Profile() {
 
         {/* Logout Button */}
         {isAuthenticated && (
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
-            <Text style={styles.logoutText}>{t("logout")}</Text>
+          <TouchableOpacity 
+            style={[
+              styles.menuItem,
+              {
+                flexDirection: isRTL ? "row-reverse" : "row",
+                marginHorizontal: 16,
+              },
+            ]} 
+            onPress={handleLogout}
+          >
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", flex: 1, gap: 12 }}>
+              <Ionicons name="log-out-outline" size={22} color="#FF3B30" />
+              <Text style={[styles.logoutText, { flex: 1 }]}>{t("logout")}</Text>
+            </View>
+            <Ionicons
+              name={isRTL ? "chevron-back" : "chevron-forward"}
+              size={18}
+              color={theme.colors.textSecondary}
+            />
           </TouchableOpacity>
         )}
 
@@ -383,7 +388,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -391,19 +396,19 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(0,0,0,0.08)",
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
   },
   walletContainer: {
-    marginTop: 10,
-    marginBottom: 10,
+    marginTop: 8,
+    marginBottom: 8,
     marginHorizontal: 16,
   },
   walletCard: {
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 0,
     overflow: "hidden",
     position: "relative",
@@ -411,27 +416,27 @@ const styles = StyleSheet.create({
   decorativeCircle1: {},
   decorativeCircle2: {},
   walletContent: {
-    padding: 12,
+    padding: 14,
     position: "relative",
     zIndex: 1,
   },
   walletTop: {
-    marginBottom: 12,
+    marginBottom: 10,
     alignItems: "center",
     justifyContent: "space-between",
   },
   walletLabel: {
     fontSize: 10,
     color: "rgba(255,255,255,0.9)",
-    marginBottom: 4,
-    
-    letterSpacing: 0.5,
+    marginBottom: 3,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
   walletBalance: {
-    fontSize: 24,
+    fontSize: 20,
     color: "#fff",
-    
-    letterSpacing: -0.5,
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
   walletBottom: {
     flexDirection: "row",
@@ -445,55 +450,51 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
-    paddingVertical: 8,
+    paddingVertical: 7,
     paddingHorizontal: 6,
-    backgroundColor: "rgba(255,255,255,0.25)",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 8,
   },
   actionIconContainer: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "rgba(255,255,255,0.15)",
     justifyContent: "center",
     alignItems: "center",
   },
   walletButtonText: {
     fontSize: 10,
     color: "#fff",
-    
+    fontWeight: '600',
     textAlign: "center",
   },
   showButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.25)",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
   },
   profileHeader: {
     backgroundColor: "#fff",
     alignItems: "center",
-    paddingVertical: 20,
+    paddingVertical: 16,
     paddingHorizontal: 16,
   },
   avatarContainer: {
     position: "relative",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: "#E8E9F8",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 3,
+    borderWidth: 2,
     overflow: "hidden",
     // borderColor provided inline via theme
   },
@@ -505,9 +506,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 0,
     right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     // backgroundColor provided inline via theme
     justifyContent: "center",
     alignItems: "center",
@@ -515,26 +516,27 @@ const styles = StyleSheet.create({
     borderColor: "#fff",
   },
   userName: {
-    fontSize: 20,
+    fontSize: 17,
+    fontWeight: '600',
     color: "#1a1a1a",
     marginBottom: 2,
   },
   userEmail: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#666",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   loginButtonSmall: {
     // backgroundColor provided inline via theme
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 18,
+    paddingVertical: 7,
+    paddingHorizontal: 18,
+    borderRadius: 16,
     marginTop: 4,
   },
   loginButtonSmallText: {
     color: "#fff",
-    fontSize: 14,
-    
+    fontSize: 13,
+    fontWeight: '600',
   },
   statsContainer: {
     flexDirection: "row",
@@ -563,65 +565,45 @@ const styles = StyleSheet.create({
     backgroundColor: "#e0e0e0",
   },
   menuContainer: {
-    marginTop: 10,
+    marginTop: 8,
     marginHorizontal: 16,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    overflow: "hidden",
   },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    paddingVertical: 12,
+    paddingHorizontal: 4,
   },
   menuIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: "#E8E9F8",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
   },
   menuTextContainer: {
     flex: 1,
   },
   menuTitle: {
     fontSize: 15,
-    
+    fontWeight: '600',
     color: "#1a1a1a",
-    marginBottom: 1,
   },
   menuSubtitle: {
     fontSize: 11,
-    color: "#666",
-  },
-  logoutButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#FF3B30",
+    color: "#888",
   },
   logoutText: {
     fontSize: 15,
-    
+    fontWeight: '600',
     color: "#FF3B30",
-    marginLeft: 6,
   },
   version: {
     textAlign: "center",
     color: "#999",
-    fontSize: 11,
-    paddingVertical: 16,
+    fontSize: 10,
+    paddingVertical: 12,
   },
   loginPrompt: {
     flex: 1,

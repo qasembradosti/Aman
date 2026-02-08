@@ -11,7 +11,7 @@ import {
   TextInput,
   Modal,
 } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "react-native";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -37,7 +37,7 @@ export default function BrandProductsScreen() {
   const [viewMode, setViewMode] = useState("grid"); // grid, list
   const router = useRouter();
   const { theme } = useTheme();
-  const { t, isRTL } = useLanguage();
+  const { t, isRTL,locale } = useLanguage();
   const navigationInProgress = useRef(false);
 
   const rowDirection = isRTL ? "row-reverse" : "row";
@@ -66,6 +66,13 @@ export default function BrandProductsScreen() {
     } finally {
       setLoading(false);
     }
+  };
+  // Helper function to get localized text
+  const getLocalizedText = (product, field) => {
+    // Ensure language has a default fallback
+    const lang = locale;
+    const localizedField = `${field}_${lang}`;
+    return product[localizedField] || product[field] || "";
   };
 
   const applyFiltersAndSort = () => {
@@ -123,7 +130,12 @@ export default function BrandProductsScreen() {
     if (!navigationInProgress.current) {
       navigationInProgress.current = true;
       const productId = product.id || product.product_id;
-      console.log('Product ID:', productId, 'Navigating to:', `/product/${productId}`);
+      console.log(
+        "Product ID:",
+        productId,
+        "Navigating to:",
+        `/product/${productId}`,
+      );
       router.push(`/product/${productId}`);
       setTimeout(() => {
         navigationInProgress.current = false;
@@ -264,7 +276,7 @@ export default function BrandProductsScreen() {
                       { color: sortBy === "name" ? "#fff" : theme.colors.text },
                     ]}
                   >
-                    {t("name") || "Name"}
+                    {t("name")}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -494,10 +506,7 @@ export default function BrandProductsScreen() {
                         ]}
                         numberOfLines={viewMode === "grid" ? 2 : 3}
                       >
-                        {item.name_ku ||
-                          item.name_ar ||
-                          item.name_en ||
-                          item.name}
+                        {getLocalizedText(item, "name")}
                       </Text>
                       {viewMode === "list" && item.product_code && (
                         <Text
@@ -675,7 +684,6 @@ const styles = StyleSheet.create({
   },
   filterChipText: {
     fontSize: 13,
-    fontWeight: "500",
   },
   viewModeButton: {
     width: 40,
@@ -710,11 +718,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     overflow: "hidden",
     borderWidth: StyleSheet.hairlineWidth,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    borderWidth:0.5
   },
   productCardList: {
     borderRadius: 16,
@@ -722,11 +726,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
   },
   imageContainer: {
     position: "relative",
@@ -773,11 +772,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
@@ -796,7 +790,6 @@ const styles = StyleSheet.create({
   },
   productName: {
     fontSize: 14,
-    fontWeight: "500",
     marginBottom: 8,
     lineHeight: 18,
     minHeight: 36,
@@ -826,7 +819,6 @@ const styles = StyleSheet.create({
   },
   stockText: {
     fontSize: 11,
-    fontWeight: "600",
   },
   emptyContainer: {
     alignItems: "center",

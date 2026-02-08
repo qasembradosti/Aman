@@ -2,6 +2,15 @@ import { getApiBaseUrl } from '../utils/apiConfig';
 
 const API_BASE_URL = getApiBaseUrl();
 
+const parseJsonResponse = async (response) => {
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(`Unexpected response format (${response.status})`);
+  }
+
+  return response.json();
+};
+
 // Create or get conversation
 export const createOrGetConversation = async (token, data = {}) => {
   try {
@@ -14,7 +23,7 @@ export const createOrGetConversation = async (token, data = {}) => {
       body: JSON.stringify(data),
     });
 
-    const result = await response.json();
+    const result = await parseJsonResponse(response);
     
     if (!response.ok) {
       throw new Error(result.message || 'Failed to create conversation');
@@ -37,7 +46,7 @@ export const getUserConversations = async (token) => {
       },
     });
 
-    const result = await response.json();
+    const result = await parseJsonResponse(response);
     
     if (!response.ok) {
       throw new Error(result.message || 'Failed to get conversations');
@@ -63,7 +72,7 @@ export const getConversationMessages = async (token, conversationId, params = {}
       },
     });
 
-    const result = await response.json();
+    const result = await parseJsonResponse(response);
     
     if (!response.ok) {
       throw new Error(result.message || 'Failed to get messages');
@@ -88,7 +97,7 @@ export const sendMessage = async (token, data) => {
       body: JSON.stringify(data),
     });
 
-    const result = await response.json();
+    const result = await parseJsonResponse(response);
     
     if (!response.ok) {
       throw new Error(result.message || 'Failed to send message');
@@ -111,7 +120,7 @@ export const getUnreadCount = async (token) => {
       },
     });
 
-    const result = await response.json();
+    const result = await parseJsonResponse(response);
     
     if (!response.ok) {
       throw new Error(result.message || 'Failed to get unread count');
@@ -134,7 +143,7 @@ export const closeConversation = async (token, conversationId) => {
       },
     });
 
-    const result = await response.json();
+    const result = await parseJsonResponse(response);
     
     if (!response.ok) {
       throw new Error(result.message || 'Failed to close conversation');

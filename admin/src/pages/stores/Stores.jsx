@@ -424,7 +424,7 @@ const Stores = () => {
                     </p>
                   </div>
                 )}
-                <input
+                <Input
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"

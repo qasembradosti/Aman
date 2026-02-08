@@ -1130,7 +1130,7 @@ const Products = () => {
                     </span>
                   </Button>
                 )}
-                <input
+                <Input
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
@@ -1218,7 +1218,7 @@ const Products = () => {
                     </span>
                   </Button>
                 )}
-                <input
+                <Input
                   ref={videoInputRef}
                   type="file"
                   accept="video/*"
@@ -1510,7 +1510,7 @@ const Products = () => {
                   </h3>
                   <div>
                     <Label className="flex items-center gap-2 cursor-pointer">
-                      <input
+                      <Input
                         type="checkbox"
                         checked={formData.in_stock}
                         onChange={(e) =>

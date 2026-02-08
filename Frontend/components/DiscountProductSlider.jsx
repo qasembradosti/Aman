@@ -18,7 +18,7 @@ import { getProductImageUrl } from "../utils/productImages";
 import { Text } from "./ui/Text";
 
 const { width: screenWidth } = Dimensions.get("window");
-const CARD_WIDTH = screenWidth * 0.44;
+const CARD_WIDTH = screenWidth * 0.65;
 
 export default function DiscountProductSlider() {
   const { theme, isDark } = useTheme();
@@ -66,7 +66,7 @@ export default function DiscountProductSlider() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.titleContainer}>
-          <Tag size={24} color={theme.colors.primary} />
+          <View style={[styles.accentBar, { backgroundColor: theme.colors.primary }]} />
           <Text style={[styles.title, { color: theme.colors.text }]}>
             {t("discountProducts")}
           </Text>
@@ -78,14 +78,15 @@ export default function DiscountProductSlider() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         decelerationRate="fast"
-        snapToInterval={CARD_WIDTH + 12}
+        snapToInterval={CARD_WIDTH + 16}
       >
-        {discountProducts.map((product) => (
+        {discountProducts.map((product, index) => (
           <DiscountProductCard
             key={product.id}
             product={product}
             theme={theme}
             isDark={isDark}
+            isLast={index === discountProducts.length - 1}
             onPress={() => router.push(`/product/${product.id}`)}
           />
         ))}
@@ -94,7 +95,7 @@ export default function DiscountProductSlider() {
   );
 }
 
-function DiscountProductCard({ product, onPress, theme, isDark }) {
+function DiscountProductCard({ product, onPress, theme, isDark, isLast }) {
   const { isRTL, locale } = useLanguage();
 
   const getLocalizedText = (field) => {
@@ -115,6 +116,7 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
 
   let finalPrice = sell;
   let badgeText = "";
+  let savedAmount = 0;
 
   const type = (product?.discount_type || "").toLowerCase();
   const isPercentage =
@@ -123,9 +125,11 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
 
   if (discount > 0) {
     if (isPercentage) {
-      finalPrice = sell - (sell * discount / 100);
+      savedAmount = (sell * discount / 100);
+      finalPrice = sell - savedAmount;
       badgeText = `-${Math.round(discount)}%`;
     } else if (isFixed) {
+      savedAmount = discount;
       finalPrice = sell - discount;
       badgeText = `-${discount.toLocaleString()} ${isRTL ? "د" : "IQD"}`;
     }
@@ -133,6 +137,7 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
 
   finalPrice = Math.max(0, finalPrice);
   const displayPrice = Math.round(finalPrice);
+  const originalPrice = Math.round(sell);
 
   return (
     <Pressable
@@ -140,7 +145,7 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
         styles.card,
         {
           backgroundColor: theme.colors.card,
-          borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
+          marginRight: isLast ? 0 : 16,
         },
       ]}
       onPress={onPress}
@@ -170,71 +175,91 @@ function DiscountProductCard({ product, onPress, theme, isDark }) {
 
         {product.rating && (
           <View style={styles.ratingRow}>
-            <Star size={12} color="#FFA500" fill="#FFA500" />
-            <Text style={styles.rating}>{product.rating.toFixed(1)}</Text>
+            <Star size={14} color="#FFA500" fill="#FFA500" />
+            <Text style={[styles.rating, { color: theme.colors.textSecondary }]}>
+              {product.rating.toFixed(1)}
+            </Text>
           </View>
         )}
 
-        <Text style={[styles.price, { color: theme.colors.primary }]}>
-          {isRTL
-            ? `${displayPrice.toLocaleString()} دینار`
-            : `${displayPrice.toLocaleString()} IQD`}
-        </Text>
+        <View style={styles.priceRow}>
+          <Text style={[styles.price, { color: theme.colors.primary }]}>
+            {isRTL
+              ? `${displayPrice.toLocaleString()} دینار`
+              : `${displayPrice.toLocaleString()} IQD`}
+          </Text>
+          <Text style={[styles.originalPrice, { color: theme.colors.textSecondary }]}>
+            {isRTL
+              ? `${originalPrice.toLocaleString()} د`
+              : `${originalPrice.toLocaleString()}`}
+          </Text>
+        </View>
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { marginBottom: 24 },
+  container: { 
+    marginBottom: 24,
+  },
   loadingContainer: { padding: 20, alignItems: "center" },
 
   header: {
     paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 18,
   },
 
   titleContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 12,
+  },
+
+  accentBar: {
+    width: 5,
+    height: 26,
+    borderRadius: 3,
   },
 
   title: {
-    fontSize: 20,
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 
   scrollContent: {
     paddingHorizontal: 16,
-    gap: 12,
   },
 
   card: {
     width: CARD_WIDTH,
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: "hidden",
+    borderRadius: 20,
+    overflow: 'hidden',
   },
 
   discountBadge: {
     position: "absolute",
-    top: 10,
-    left: 10,
+    top: 14,
+    left: 14,
     zIndex: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
     backgroundColor: "#FF3B30",
   },
 
   discountText: {
     color: "#fff",
-    fontSize: 12,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 
   imageContainer: {
     width: "100%",
-    height: 140,
+    height: 200,
+    backgroundColor: '#F8F9FA',
   },
 
   image: {
@@ -243,27 +268,45 @@ const styles = StyleSheet.create({
   },
 
   info: {
-    padding: 10,
+    padding: 16,
   },
 
   name: {
-    fontSize: 13,
-    marginBottom: 6,
-    lineHeight: 16,
+    fontSize: 16,
+    marginBottom: 8,
+    lineHeight: 22,
+    fontWeight: '600',
   },
 
   ratingRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    marginBottom: 6,
+    gap: 5,
+    marginBottom: 10,
   },
 
   rating: {
-    fontSize: 11,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
   },
 
   price: {
     fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+
+  originalPrice: {
+    fontSize: 14,
+    textDecorationLine: 'line-through',
+    opacity: 0.5,
+    fontWeight: '500',
   },
 });

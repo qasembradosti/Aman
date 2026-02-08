@@ -128,10 +128,7 @@ const Orders = () => {
   };
 
   const filteredOrders = items.filter((order) => {
-    const matchesSearch =
-      order.id?.toString().includes(searchQuery) ||
-      order.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer_email?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = order.id?.toString().includes(searchQuery);
     const matchesStatus =
       statusFilter === "all" || order.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -234,11 +231,8 @@ const Orders = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">
-                        {order.customer_name || "N/A"}
-                      </div>
                       <div className="text-xs text-gray-500">
-                        {order.customer_email || order.customer_phone || ""}
+                        {order.user_phone }
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
@@ -361,10 +355,10 @@ const Orders = () => {
                                   ? JSON.parse(selectedOrder.shipping_address)
                                   : selectedOrder.shipping_address;
                               return (
-                                addr?.phone || selectedOrder.user_phone || "N/A"
+                                addr?.phone || selectedOrder.phone || "N/A"
                               );
                             } catch {
-                              return selectedOrder.user_phone || "N/A";
+                              return selectedOrder.phone || "N/A";
                             }
                           })()}
                         </p>
@@ -419,7 +413,7 @@ const Orders = () => {
                                           height="100%"
                                           frameBorder="0"
                                           className="select-none"
-                                          style={{ border: 0, }}
+                                          style={{ border: 0 }}
                                           src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}&layer=mapnik&marker=${lat},${lng}`}
                                           allowFullScreen
                                         />
@@ -606,9 +600,7 @@ const Orders = () => {
                           <Label className="text-gray-500">
                             Payment Method
                           </Label>
-                          <p className="text-sm font-medium">
-                            Pay on Delivary
-                          </p>
+                          <p className="text-sm font-medium">Pay on Delivary</p>
                         </div>
                         <div>
                           <Label className="text-gray-500">

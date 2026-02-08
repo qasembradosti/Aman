@@ -1,0 +1,90 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Expo
+.expo/
+.expo-shared/
+
+# Build outputs
+dist/
+build/
+web-build/
+
+# Development
+.vscode/
+.idea/
+
+# Testing
+coverage/
+__tests__/
+*.test.js
+*.spec.js
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files (if not needed for build)
+*.env.local
+*.env.development
+*.env.test
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Android/iOS builds (if present locally)
+android/app/build/
+android/.gradle/
+ios/build/
+ios/Pods/
+
+# Large media files not needed for build
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.psd
+*.ai
+*.sketch
+*.fig
+
+# Backup files
+*.bak
+*.backup
+
+# Package manager
+.yarn/
+.pnp.*
+
+# Editor files
+*.swp
+*.swo
+*~
+
+# Screenshots/demos (if any)
+screenshots/
+demo/
+
+# Documentation files
+README.md
+CHANGELOG.md
+LICENSE

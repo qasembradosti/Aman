@@ -990,7 +990,7 @@ const Checkout = () => {
                     <span className="text-red-500 ml-1">{t.required}</span>
                   </span>
                 </label>
-                <input
+                <Input
                   type="text"
                   id="city"
                   name="city"
@@ -1026,7 +1026,7 @@ const Checkout = () => {
                     <span className="text-red-500 ml-1">{t.required}</span>
                   </span>
                 </label>
-                <input
+                <Input
                   type="tel"
                   id="phone"
                   name="phone"

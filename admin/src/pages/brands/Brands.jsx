@@ -491,7 +491,7 @@ const Brands = () => {
                       </div>
                     </div>
                   )}
-                  <input
+                  <Input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"

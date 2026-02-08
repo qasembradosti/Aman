@@ -7,7 +7,7 @@ import {
   Pressable,
   ActivityIndicator,
 } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "react-native";
 import { Text } from "./ui/Text";
 import { useTheme } from "../utils/ThemeContext";
 import { LinearGradient } from "expo-linear-gradient";

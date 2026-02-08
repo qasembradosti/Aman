@@ -3,6 +3,7 @@ import { Ionicons, FontAwesome6 } from "@expo/vector-icons";
 import { useTheme } from "../../utils/ThemeContext";
 import { LayoutGrid } from "lucide-react-native";
 import { useLanguage } from "../../utils/LanguageContext";
+import { Platform } from "react-native";
 
 export default function TabLayout() {
   const { t, isRTL, fontFamilyName } = useLanguage();
@@ -11,20 +12,37 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: isDark ? "#8E8E93" : "#8E8E93",
+        tabBarInactiveTintColor: isDark ? "#8E8E93" : "#A0A0A0",
         headerShown: false,
         tabBarStyle: {
           backgroundColor: theme.colors.card,
-          borderTopWidth: 1,
-          borderTopColor: theme.colors.border,
-          paddingBottom: 5,
-          paddingTop: 5,
-          height: 60,
+          borderTopWidth: 0,
+          paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+          paddingTop: 6,
+          height: Platform.OS === 'ios' ? 80 : 62,
+          borderRadius: 20,
+          position: 'absolute',
+          marginBottom: 6,
+          marginHorizontal: 6,
+          elevation: 2,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -8 },
+          shadowOpacity: 1,
+          shadowRadius: 16,
         },
         tabBarLabelStyle: {
           fontFamily: fontFamilyName,
-          // Ensure proper label rendering in RTL
+          fontSize: 9,
+          fontWeight: '700',
+          marginTop: 3,
           writingDirection: isRTL ? "rtl" : "ltr",
+          letterSpacing: 0.2,
+        },
+        tabBarIconStyle: {
+          marginTop: 2,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 0,
         },
       }}
     >
@@ -34,7 +52,11 @@ export default function TabLayout() {
           title: t("home"),
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
-            <LayoutGrid size={24} color={color} />
+            <LayoutGrid 
+              size={focused ? 21 : 20} 
+              color={color} 
+              strokeWidth={focused ? 2.5 : 2}
+            />
           ),
         }}
       />
@@ -44,7 +66,11 @@ export default function TabLayout() {
           title: t("rankings"),
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
-            <FontAwesome6 name={"medal"} size={24} color={color} />
+            <FontAwesome6 
+              name={"medal"} 
+              size={focused ? 21 : 20} 
+              color={color} 
+            />
           ),
         }}
       />
@@ -55,7 +81,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "search" : "search-outline"}
-              size={24}
+              size={focused ? 21 : 20}
               color={color}
             />
           ),
@@ -68,7 +94,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "receipt" : "receipt-outline"}
-              size={24}
+              size={focused ? 21 : 20}
               color={color}
             />
           ),
@@ -81,7 +107,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "person" : "person-outline"}
-              size={24}
+              size={focused ? 21 : 20}
               color={color}
             />
           ),

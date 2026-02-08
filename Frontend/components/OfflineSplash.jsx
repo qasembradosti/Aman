@@ -343,7 +343,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: "bold",
     marginBottom: 12,
     textAlign: "center",
     letterSpacing: 0.5,
@@ -383,7 +382,6 @@ const styles = StyleSheet.create({
   },
   checkingText: {
     fontSize: 14,
-    fontWeight: "500",
     marginTop: 8,
   },
   loadingContainer: {
@@ -392,7 +390,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    fontWeight: "500",
   },
   primaryButton: {
     width: "100%",
@@ -414,7 +411,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     fontSize: 17,
-    fontWeight: "700",
     color: "#ffffff",
     letterSpacing: 0.5,
   },

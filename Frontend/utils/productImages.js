@@ -4,7 +4,10 @@ const ABSOLUTE_URL = /^https?:\/\//i;
 
 const extractImageValue = (value) => {
   if (!value) return null;
-  if (typeof value === "string") return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.replace(/^['"]|['"]$/g, "");
+  }
   return value.url || value.image_url || value.image || null;
 };
 
@@ -15,12 +18,44 @@ const joinBaseUrl = (baseUrl, path) => {
   return `${trimmedBase}/${trimmedPath}`;
 };
 
+const normalizeAbsoluteUrl = (url, baseUrl) => {
+  if (!baseUrl) return url;
+  try {
+    const parsed = new URL(url);
+    const base = new URL(baseUrl);
+    const localHosts = new Set([
+      "localhost",
+      "127.0.0.1",
+      "10.0.2.2",
+      "0.0.0.0",
+    ]);
+
+    if (localHosts.has(parsed.hostname)) {
+      parsed.protocol = base.protocol;
+      parsed.host = base.host;
+      return parsed.toString();
+    }
+
+    if (parsed.hostname === base.hostname && parsed.protocol !== base.protocol) {
+      parsed.protocol = base.protocol;
+      return parsed.toString();
+    }
+
+    return url;
+  } catch (error) {
+    return url;
+  }
+};
+
 export const resolveImageUrl = (value) => {
   const imageValue = extractImageValue(value);
   if (!imageValue) return null;
   const url = String(imageValue);
-  if (ABSOLUTE_URL.test(url)) return url;
-  return joinBaseUrl(getApiBaseUrl(), url);
+  const baseUrl = getApiBaseUrl();
+  if (ABSOLUTE_URL.test(url)) {
+    return normalizeAbsoluteUrl(url, baseUrl);
+  }
+  return joinBaseUrl(baseUrl, url);
 };
 
 export const getProductImageUrl = (product, fallback) => {
@@ -50,7 +85,10 @@ export const getProductImageUrls = (product, fallback) => {
 // Extract video value from various formats
 const extractVideoValue = (value) => {
   if (!value) return null;
-  if (typeof value === "string") return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.replace(/^['"]|['"]$/g, "");
+  }
   return value.url || value.video_url || value.video || null;
 };
 
@@ -59,8 +97,11 @@ export const resolveVideoUrl = (value) => {
   const videoValue = extractVideoValue(value);
   if (!videoValue) return null;
   const url = String(videoValue);
-  if (ABSOLUTE_URL.test(url)) return url;
-  return joinBaseUrl(getApiBaseUrl(), url);
+  const baseUrl = getApiBaseUrl();
+  if (ABSOLUTE_URL.test(url)) {
+    return normalizeAbsoluteUrl(url, baseUrl);
+  }
+  return joinBaseUrl(baseUrl, url);
 };
 
 // Get product video URL

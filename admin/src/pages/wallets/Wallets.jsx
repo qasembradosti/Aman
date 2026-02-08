@@ -22,6 +22,8 @@ import {
 } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -182,7 +184,7 @@ export default function Wallets() {
         <div className="p-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
+            <Input
               type="text"
               placeholder="Search by username, email, phone..."
               value={searchTerm}
@@ -374,7 +376,7 @@ export default function Wallets() {
                       <Label htmlFor="amount">
                         Amount (IQD)
                       </Label>
-                      <input
+                      <Input
                         id="amount"
                         type="number"
                         step="0.01"
@@ -390,7 +392,7 @@ export default function Wallets() {
                       <Label htmlFor="note">
                         Note (Optional)
                       </Label>
-                      <textarea
+                      <Textarea
                         id="note"
                         value={note}
                         onChange={(e) => setNote(e.target.value)}

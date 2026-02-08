@@ -157,10 +157,9 @@ export default function RootLayout() {
       } catch (error) {
         setFontsLoaded(true);
       } finally {
-        // Reduced delay for faster app startup
         setTimeout(() => {
           setIsAppReady(true);
-        }, 500);
+        }, 4000);
       }
     }
 

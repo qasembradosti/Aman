@@ -8,6 +8,7 @@ import {
   View,
   Image,
 } from "react-native";
+import { useSelector } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import Text from "../../components/ui/Text";
@@ -224,6 +225,7 @@ function RankItem({ item, highlight, theme }) {
 export default function Rank() {
   const { t, isRTL } = useLanguage();
   const { theme } = useTheme();
+  const currentUser = useSelector((state) => state.auth?.user);
   const [data, setData] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -232,6 +234,9 @@ export default function Rank() {
   // Filters (UI only for now)
   const [period, setPeriod] = useState("allTime"); // 'weekly' | 'monthly' | 'yearly' | 'allTime'
   const [scope, setScope] = useState("global"); // 'global' | 'friends'
+
+  // Check if current user is admin or superadmin
+  const isAdminUser = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
 
   const fetchLeaderboard = useCallback(
     async (selectedPeriod = period) => {
@@ -243,9 +248,9 @@ export default function Rank() {
           params: { limit: 50, period: apiPeriod },
         });
         const rows = Array.isArray(res.data) ? res.data : [];
-        // Filter out superadmin users and normalize
+        // Filter out admin and superadmin users and normalize
         const normalized = rows
-          .filter((r) => r.role !== "superadmin") // Filter out superadmin
+          .filter((r) => r.role !== "superadmin" && r.role !== "admin") // Filter out admin and superadmin
           .map((r) => ({
             id: r.id,
             username: r.username,
@@ -257,11 +262,11 @@ export default function Rank() {
         setData(normalized);
       } catch (e) {
         console.warn(
-          "Failed to fetch leaderboard, using static fallback",
+          "Failed to fetch leaderboard",
           e.message,
         );
         setError(e.message || "Failed to load leaderboard");
-        setData(computeRanked(STATIC_LEADERBOARD));
+        setData([]);
       } finally {
         setLoading(false);
       }
@@ -355,7 +360,8 @@ export default function Rank() {
             </Text>
           </View>
         )}
-        ListFooterComponent={() => (
+        ListFooterComponent={
+          !isAdminUser ? () => (
           <View style={{ marginTop: 12 }}>
             <View style={[styles.item, { backgroundColor: theme.colors.card }]}>
               <View style={[styles.rankBadge, styles.rankBadgeHighlight]}>
@@ -381,7 +387,7 @@ export default function Rank() {
                     { color: theme.colors.textSecondary },
                   ]}
                 >
-                  #{data.findIndex((u) => u.id === 1) + 1} {t?.("of") || "of"}{" "}
+                  #{data.findIndex((u) => u.id === currentUser?.id) + 1} {t?.("of") || "of"}{" "}
                   {data.length}
                 </Text>
                 {period !== "allTime" && (
@@ -397,17 +403,17 @@ export default function Rank() {
                         ? t?.("thisMonth") || "This month"
                         : t?.("thisYear") || "This year"}
                     :{" "}
-                    {typeof data[0]?.netChange === "number"
-                      ? (data[0].netChange >= 0 ? "+" : "") +
+                    {typeof data.find(u => u.id === currentUser?.id)?.netChange === "number"
+                      ? (data.find(u => u.id === currentUser?.id).netChange >= 0 ? "+" : "") +
                         "$" +
-                        data[0].netChange.toFixed(2)
+                        data.find(u => u.id === currentUser?.id).netChange.toFixed(2)
                       : "—"}
                   </Text>
                 )}
               </View>
               <View style={styles.balanceWrap}>
                 <Text style={[styles.balance, { color: theme.colors.primary }]}>
-                  ${Number(data[0]?.balance || 0).toFixed(2)}
+                  ${Number(data.find(u => u.id === currentUser?.id)?.balance || 0).toFixed(2)}
                 </Text>
               </View>
             </View>
@@ -423,7 +429,8 @@ export default function Rank() {
               </View>
             )}
           </View>
-        )}
+        ) : null
+        }
       />
     </SafeAreaView>
   );

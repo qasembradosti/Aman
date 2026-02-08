@@ -344,12 +344,49 @@ export const translations = {
     logoutError: "Failed to logout",
 
     // About Page
-    aboutApp: "About Our App",
-    aboutAppText: "This application is designed to provide a seamless shopping experience, connecting you with a wide range of products from various sellers. Our platform is built with performance and user-friendliness in mind.",
+    aboutApp: "About Aman",
+    aboutAppText: "Aman Store is your one-stop destination for quality products at great prices. We connect you with trusted sellers and ensure a seamless shopping experience from browsing to delivery.",
+    appTagline: "Your Trusted Shopping Partner",
+    whoWeAre: "Who we are",
+    whyChooseUs: "Why Choose Us?",
     ourMission: "Our Mission",
     ourMissionText: "Our mission is to empower local sellers and provide customers with a diverse marketplace. We aim to create a community where everyone can discover, shop, and thrive.",
+    ourValues: "Our Values",
     contactUs: "Contact Us",
-    contactUsText: "For any inquiries or support, please email us at support@example.com or call our helpline.",
+    contactUsText: "We'd love to hear from you",
+    getInTouch: "Get In Touch",
+    emailUs: "Email Us",
+    whatsapp: "WhatsApp",
+    visitWebsite: "Visit Website",
+    followUs: "Follow Us",
+    madeWithLove: "Made with ❤️ in Kurdistan",
+    allRightsReserved: "All rights reserved.",
+    
+    // About Stats
+    customers: "Customers",
+    satisfaction: "Satisfaction",
+    
+    // About Features
+    easyShopping: "Easy Shopping",
+    easyShoppingDesc: "Browse and shop with ease",
+    securePayments: "Secure Payments",
+    securePaymentsDesc: "Your transactions are protected",
+    fastDelivery: "Fast Delivery",
+    fastDeliveryDesc: "Quick and reliable shipping",
+    qualityProducts: "Quality Products",
+    qualityProductsDesc: "Only the best for you",
+    earnRewards: "Earn Rewards",
+    earnRewardsDesc: "Get bonuses on every purchase",
+    support247: "24/7 Support",
+    support247Desc: "We're always here to help",
+    
+    // About Values
+    trustworthy: "Trustworthy",
+    trustworthyDesc: "Building trust through transparency and reliability",
+    customerFirst: "Customer First",
+    customerFirstDesc: "Your satisfaction is our top priority",
+    innovation: "Innovation",
+    innovationDesc: "Constantly improving your shopping experience",
 
     // Categories
     electronics: "Electronics",
@@ -785,12 +822,49 @@ export const translations = {
     logoutError: "فشل تسجيل الخروج",
 
     // About Page
-    aboutApp: "حول تطبيقنا",
-    aboutAppText: "تم تصميم هذا التطبيق لتوفير تجربة تسوق سلسة، وربطك بمجموعة واسعة من المنتجات من مختلف البائعين. تم بناء منصتنا مع مراعاة الأداء وسهولة الاستخدام.",
+    aboutApp: "حول أمان",
+    aboutAppText: "متجر أمان هو وجهتك الشاملة للمنتجات عالية الجودة بأسعار رائعة. نربطك بالبائعين الموثوقين ونضمن تجربة تسوق سلسة من التصفح إلى التوصيل.",
+    appTagline: "شريكك الموثوق في التسوق",
+    whoWeAre: "من نحن",
+    whyChooseUs: "لماذا تختارنا؟",
     ourMission: "مهمتنا",
     ourMissionText: "مهمتنا هي تمكين البائعين المحليين وتزويد العملاء بسوق متنوع. نهدف إلى إنشاء مجتمع حيث يمكن للجميع الاكتشاف والتسوق والازدهار.",
+    ourValues: "قيمنا",
     contactUs: "اتصل بنا",
-    contactUsText: "لأية استفسارات أو دعم، يرجى مراسلتنا عبر البريد الإلكتروني على support@example.com أو الاتصال بخط المساعدة الخاص بنا.",
+    contactUsText: "نود أن نسمع منك",
+    getInTouch: "تواصل معنا",
+    emailUs: "راسلنا",
+    whatsapp: "واتساب",
+    visitWebsite: "زيارة الموقع",
+    followUs: "تابعنا",
+    madeWithLove: "صنع بـ ❤️ في كردستان",
+    allRightsReserved: "جميع الحقوق محفوظة.",
+    
+    // About Stats
+    customers: "العملاء",
+    satisfaction: "الرضا",
+    
+    // About Features
+    easyShopping: "تسوق سهل",
+    easyShoppingDesc: "تصفح وتسوق بكل سهولة",
+    securePayments: "دفع آمن",
+    securePaymentsDesc: "معاملاتك محمية",
+    fastDelivery: "توصيل سريع",
+    fastDeliveryDesc: "شحن سريع وموثوق",
+    qualityProducts: "منتجات عالية الجودة",
+    qualityProductsDesc: "فقط الأفضل لك",
+    earnRewards: "اربح المكافآت",
+    earnRewardsDesc: "احصل على مكافآت مع كل عملية شراء",
+    support247: "دعم 24/7",
+    support247Desc: "نحن هنا دائماً لمساعدتك",
+    
+    // About Values
+    trustworthy: "جدير بالثقة",
+    trustworthyDesc: "بناء الثقة من خلال الشفافية والموثوقية",
+    customerFirst: "العميل أولاً",
+    customerFirstDesc: "رضاك هو أولويتنا القصوى",
+    innovation: "الابتكار",
+    innovationDesc: "نحسّن باستمرار تجربة التسوق الخاصة بك",
 
     // Categories
     electronics: "إلكترونيات",
@@ -1215,12 +1289,49 @@ export const translations = {
     logoutError: "چوونەدەرەوە سەرکەوتوو نەبوو",
 
     // About Page
-    aboutApp: "دەربارەی ئەپی ئێمە",
-    aboutAppText: "ئەم ئەپڵیکەیشنە دیزاین کراوە بۆ پێشکەشکردنی ئەزموونێکی کڕینی بێ کێشە، و بەستنەوەی تۆ بە کۆمەڵێک بەرهەمی جۆراوجۆر لە فرۆشیارە جیاوازەکانەوە. پلاتفۆرمی ئێمە بە لەبەرچاوگرتنی کارایی و ئاسانی بەکارهێنان دروستکراوە.",
+    aboutApp: "دەربارەی ئامان",
+    aboutAppText: "فرۆشگای ئامان شوێنی تەواوەتی تۆیە بۆ کاڵای کوالیتی بە نرخی زۆر باش. ئێمە تۆ بە فرۆشیارە متمانەپێکراوەکان دەبەستینەوە و دڵنیایی لە ئەزموونێکی کڕینی بێ کێشە دەکەینەوە لە گەڕان تا گەیاندن.",
+    appTagline: "هاوبەشی متمانەپێکراوی کڕینی تۆ",
+    whoWeAre: "ئێمە کێین",
+    whyChooseUs: "بۆچی ئێمە هەڵبژێریت؟",
     ourMission: "ئامانجی ئێمە",
     ourMissionText: "ئامانجی ئێمە بەهێزکردنی فرۆشیارە ناوخۆییەکان و دابینکردنی بازاڕێکی هەمەجۆرە بۆ کڕیاران. ئامانجمان دروستکردنی کۆمەڵگەیەکە کە هەمووان بتوانن بدۆزنەوە و بکڕن و گەشە بکەن.",
+    ourValues: "بەهاکانی ئێمە",
     contactUs: "پەیوەندیمان پێوە بکە",
-    contactUsText: "بۆ هەر پرسیارێک یان پشتگیرییەک، تکایە ئیمەیڵمان بۆ بنێرن لە support@example.com یان پەیوەندی بکەن بە هێڵی یارمەتی ئێمە.",
+    contactUsText: "خۆشحاڵین گوێمان لێت بێت",
+    getInTouch: "پەیوەندی بکە",
+    emailUs: "ئیمەیڵمان بۆ بنێرە",
+    whatsapp: "واتساپ",
+    visitWebsite: "سەردانی ماڵپەڕ بکە",
+    followUs: "بەدوامان بکەوە",
+    madeWithLove: "دروستکراوە بە ❤️ لە کوردستان",
+    allRightsReserved: "هەموو مافێک پارێزراوە.",
+    
+    // About Stats
+    customers: "کڕیار",
+    satisfaction: "ڕازیبوون",
+    
+    // About Features
+    easyShopping: "کڕینی ئاسان",
+    easyShoppingDesc: "گەڕان و کڕین بە ئاسانی",
+    securePayments: "پارەدانی پارێزراو",
+    securePaymentsDesc: "مامەڵەکانت پارێزراون",
+    fastDelivery: "گەیاندنی خێرا",
+    fastDeliveryDesc: "گەیاندنی خێرا و متمانەپێکراو",
+    qualityProducts: "کاڵای کوالیتی",
+    qualityProductsDesc: "تەنها باشترین بۆ تۆ",
+    earnRewards: "پاداشت بەدەست بهێنە",
+    earnRewardsDesc: "پاداشت وەربگرە لەگەڵ هەر کڕینێک",
+    support247: "پشتگیری 24/7",
+    support247Desc: "هەمیشە لێرەین بۆ یارمەتیدان",
+    
+    // About Values
+    trustworthy: "متمانەپێکراو",
+    trustworthyDesc: "بنیاتنانی متمانە لە ڕێگەی شەفافیەت و متمانەپێکراوی",
+    customerFirst: "کڕیار لە پێشەوە",
+    customerFirstDesc: "ڕازیبوونت ئەولەویەتی سەرەکی ئێمەیە",
+    innovation: "داهێنان",
+    innovationDesc: "بەردەوام باشترکردنی ئەزموونی کڕینەکەت",
 
     // Categories
     electronics: "ئەلیکترۆنیات",

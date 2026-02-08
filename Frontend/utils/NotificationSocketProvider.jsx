@@ -9,6 +9,7 @@ import { fetchNotifications, fetchUnreadCount, markAsRead } from '../store/slice
 import { getApiBaseUrl } from './apiConfig';
 import { useTheme } from './ThemeContext';
 import { Text } from '../components/ui/Text';
+import { registerPushToken as savePushTokenToBackend } from '../services/pushTokenService';
 
 // Check if running in Expo Go - if so, skip expo-notifications entirely
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -37,15 +38,25 @@ async function showLocalNotification(notification) {
   // In development/production builds, show native push notification
   try {
     const Notifications = require('expo-notifications');
+    const Platform = require('react-native').Platform;
+    
+    const notificationContent = {
+      title,
+      body,
+      sound: 'default',
+      data: notification,
+    };
+
+    // Add Android-specific config
+    if (Platform.OS === 'android') {
+      notificationContent.priority = Notifications.AndroidNotificationPriority.MAX;
+      notificationContent.channelId = 'important';
+      notificationContent.vibrate = [0, 500, 500, 500];
+    }
+
     await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        sound: 'default',
-        priority: Notifications.AndroidNotificationPriority?.HIGH,
-        data: notification,
-      },
-      trigger: null,
+      content: notificationContent,
+      trigger: null, // Show immediately
     });
   } catch (error) {
     console.log('❌ Failed to show notification:', error.message);
@@ -81,21 +92,37 @@ export function NotificationSocketProvider({ children }) {
 
         // Configure notification handler
         Notifications.setNotificationHandler({
-          handleNotification: async () => ({
+          handleNotification: async (notification) => ({
             shouldShowAlert: true,
             shouldPlaySound: true,
             shouldSetBadge: true,
+            priority: Notifications.AndroidNotificationPriority.MAX,
           }),
         });
 
-        // Setup Android channel
+        // Setup Android channel with high priority
         if (require('react-native').Platform.OS === 'android') {
           await Notifications.setNotificationChannelAsync('default', {
-            name: 'Default',
+            name: 'Default Notifications',
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
-            lightColor: '#FF7F50',
+            lightColor: '#4F46E5',
             sound: 'default',
+            enableVibrate: true,
+            showBadge: true,
+            lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+          });
+
+          // Create high priority channel
+          await Notifications.setNotificationChannelAsync('important', {
+            name: 'Important Notifications',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 500, 500, 500],
+            lightColor: '#FF0000',
+            sound: 'default',
+            enableVibrate: true,
+            showBadge: true,
+            lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
           });
         }
 
@@ -115,6 +142,14 @@ export function NotificationSocketProvider({ children }) {
             });
             const pushToken = tokenData.data;
             setExpoPushToken(pushToken);
+            
+            // Register push token with backend
+            try {
+              await savePushTokenToBackend(pushToken);
+            } catch (err) {
+              console.error('⚠️ Failed to save push token to backend:', err);
+              // Don't fail the whole setup if backend registration fails
+            }
           }
         }
 
@@ -199,7 +234,11 @@ export function NotificationSocketProvider({ children }) {
       console.log('📢 New notification received:', notification);
       dispatch(fetchNotifications({ limit: 50 }));
       dispatch(fetchUnreadCount());
-      // Show in-app notification dialog
+      
+      // Show native push notification (works in background/foreground)
+      await showLocalNotification(notification);
+      
+      // Show in-app notification dialog (only in Expo Go or when app is in foreground)
       showInAppNotification(notification);
     });
 

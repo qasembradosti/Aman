@@ -30,6 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
 
 export default function Banners() {
   const [banners, setBanners] = useState([]);
@@ -346,7 +347,7 @@ export default function Banners() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Title *
                 </label>
-                <input
+                <Input
                   type="text"
                   required
                   value={formData.title}
@@ -362,7 +363,7 @@ export default function Banners() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Subtitle
                 </label>
-                <input
+                <Input
                   type="text"
                   value={formData.subtitle}
                   onChange={(e) =>
@@ -377,7 +378,7 @@ export default function Banners() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Banner Image *
                 </label>
-                <input
+                <Input
                   type="file"
                   accept="image/*"
                   onChange={handleImageSelect}
@@ -396,7 +397,7 @@ export default function Banners() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Link URL (optional)
                 </label>
-                <input
+                <Input
                   type="url"
                   value={formData.link_url}
                   onChange={(e) =>
@@ -411,7 +412,7 @@ export default function Banners() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Display Order
                 </label>
-                <input
+                <Input
                   type="number"
                   value={formData.display_order}
                   onChange={(e) =>
@@ -426,7 +427,7 @@ export default function Banners() {
               </div>
 
               <div className="flex items-center gap-2">
-                <input
+                <Input
                   type="checkbox"
                   id="is_active"
                   checked={formData.is_active}

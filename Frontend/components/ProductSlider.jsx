@@ -7,7 +7,7 @@ import {
   Dimensions,
   Text as RNText,
 } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "react-native";
 import { useRouter } from "expo-router";
 import { useTheme } from "../utils/ThemeContext";
 import { useLanguage } from "../utils/LanguageContext";

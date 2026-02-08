@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import {
@@ -12,7 +13,6 @@ import {
   Loader2,
   XCircle,
 } from 'lucide-react';
-import axios from 'axios';
 import io from 'socket.io-client';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -23,6 +23,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
+import {
+  appendMessage,
+  closeConversation,
+  fetchAdminConversations,
+  fetchConversationMessages,
+  sendAdminMessage,
+  setSelectedConversationId,
+  upsertConversation,
+} from '../../store/slices/supportChatSlice';
+
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
@@ -45,16 +65,30 @@ const formatTime = (date) => {
 
 export default function SupportChat() {
   const navigate = useNavigate();
-  const [conversations, setConversations] = useState([]);
-  const [selectedConversation, setSelectedConversation] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const dispatch = useDispatch();
+  const {
+    conversations,
+    messagesByConversationId,
+    selectedConversationId,
+    loadingConversations,
+    loadingMessages,
+    sendingMessage,
+  } = useSelector((state) => state.supportChat);
   const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showEndChatDialog, setShowEndChatDialog] = useState(false);
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
+
+  const selectedConversation = useMemo(
+    () => conversations.find((conv) => conv.id === selectedConversationId) || null,
+    [conversations, selectedConversationId]
+  );
+
+  const messages = selectedConversationId
+    ? messagesByConversationId[selectedConversationId] || []
+    : [];
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -65,6 +99,31 @@ export default function SupportChat() {
   }, [messages]);
 
   // Setup Socket.IO connection
+  const loadConversations = useCallback(async () => {
+    try {
+      await dispatch(fetchAdminConversations(statusFilter)).unwrap();
+    } catch (error) {
+      console.error('Failed to load conversations:', error);
+      const message = String(error || '').toLowerCase();
+      if (message.includes('access denied')) {
+        toast.error('Access denied');
+        navigate('/');
+      }
+    }
+  }, [dispatch, navigate, statusFilter]);
+
+  const loadMessages = useCallback(
+    async (conversationId) => {
+      try {
+        await dispatch(fetchConversationMessages(conversationId)).unwrap();
+      } catch (error) {
+        console.error('Failed to load messages:', error);
+        toast.error('Failed to load messages');
+      }
+    },
+    [dispatch]
+  );
+
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
     if (!token) return;
@@ -78,8 +137,6 @@ export default function SupportChat() {
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('Admin Socket.IO connected');
-      // Join admin chat room to receive all new messages
       socket.emit('join_admin_chat', (response) => {
         if (response.success) {
           console.log('Joined admin chat room');
@@ -94,146 +151,78 @@ export default function SupportChat() {
     // Listen for new user messages
     socket.on('new_user_message', ({ conversation_id, message, conversation }) => {
       console.log('New user message received:', message);
-      
-      // Update conversations list to show new message
-      loadConversations();
-      
-      // If this conversation is currently open, add message to chat
-      if (selectedConversation?.id === conversation_id) {
-        setMessages((prev) => [...prev, message]);
+      if (conversation) {
+        dispatch(upsertConversation(conversation));
       }
+      if (message?.id) {
+        dispatch(appendMessage({ conversationId: conversation_id, message }));
+      }
+      loadConversations();
     });
 
     // Listen for new messages in current conversation
     socket.on('new_message', (message) => {
       console.log('New message in conversation:', message);
-      if (selectedConversation?.id === message.conversation_id) {
-        setMessages((prev) => {
-          // Avoid duplicates
-          if (prev.some(m => m.id === message.id)) return prev;
-          return [...prev, message];
-        });
+      if (message?.id) {
+        dispatch(appendMessage({ conversationId: message.conversation_id, message }));
       }
     });
 
     return () => {
       socket.disconnect();
     };
-  }, [selectedConversation]);
+  }, [dispatch, loadConversations]);
 
   useEffect(() => {
     loadConversations();
     const interval = setInterval(loadConversations, 30000); // Refresh every 30s instead of 10s since we have real-time
     return () => clearInterval(interval);
-  }, [statusFilter]);
-
-  const loadConversations = async () => {
-    try {
-      const token = localStorage.getItem('adminToken');
-      const response = await axios.get(
-        `${API_BASE_URL}/api/admin/conversations?status=${statusFilter}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (response.data.success) {
-        setConversations(response.data.conversations);
-      }
-    } catch (error) {
-      console.error('Failed to load conversations:', error);
-      if (error.response?.status === 403) {
-        toast.error('Access denied');
-        navigate('/');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadMessages = async (conversationId) => {
-    try {
-      const token = localStorage.getItem('adminToken');
-      const response = await axios.get(
-        `${API_BASE_URL}/api/conversation/${conversationId}/messages`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (response.data.success) {
-        setMessages(response.data.messages);
-      }
-    } catch (error) {
-      console.error('Failed to load messages:', error);
-      toast.error('Failed to load messages');
-    }
-  };
+  }, [loadConversations, statusFilter]);
 
   const handleSelectConversation = (conversation) => {
-    setSelectedConversation(conversation);
+    dispatch(setSelectedConversationId(conversation.id));
     loadMessages(conversation.id);
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation || sending) return;
+    if (!newMessage.trim() || !selectedConversation || sendingMessage) return;
 
     const messageText = newMessage.trim();
     setNewMessage('');
 
     try {
-      setSending(true);
-      const token = localStorage.getItem('adminToken');
-      const response = await axios.post(
-        `${API_BASE_URL}/api/admin/message`,
-        {
-          conversation_id: selectedConversation.id,
+      await dispatch(
+        sendAdminMessage({
+          conversationId: selectedConversation.id,
           message: messageText,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (response.data.success) {
-        setMessages((prev) => [...prev, response.data.message]);
-        loadConversations();
-        toast.success('Message sent');
-      }
+        })
+      ).unwrap();
+      loadConversations();
+      toast.success('Message sent');
     } catch (error) {
       console.error('Failed to send message:', error);
       toast.error('Failed to send message');
       setNewMessage(messageText);
-    } finally {
-      setSending(false);
     }
   };
 
-  const handleEndChat = async () => {
+  const handleEndChatClick = () => {
+    if (!selectedConversation) return;
+    setShowEndChatDialog(true);
+  };
+
+  const handleConfirmEndChat = async () => {
     if (!selectedConversation) return;
 
-    if (!window.confirm('Are you sure you want to end this chat conversation?')) {
-      return;
-    }
-
     try {
-      const token = localStorage.getItem('adminToken');
-      const response = await axios.patch(
-        `${API_BASE_URL}/api/conversation/${selectedConversation.id}/close`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (response.data.success) {
-        toast.success('Chat conversation ended');
-        setSelectedConversation((prev) => ({ ...prev, status: 'closed' }));
-        loadConversations();
-      }
+      await dispatch(closeConversation(selectedConversation.id)).unwrap();
+      toast.success('Chat conversation ended');
+      loadConversations();
     } catch (error) {
       console.error('Failed to end chat:', error);
       toast.error('Failed to end chat');
+    } finally {
+      setShowEndChatDialog(false);
     }
   };
 
@@ -257,7 +246,7 @@ export default function SupportChat() {
     conv.subject?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  if (loading) {
+  if (loadingConversations) {
     return (
       <div className="flex items-center justify-center min-h-[80vh]">
         <Loader2 className="w-8 h-8 animate-spin text-gray-600" />
@@ -267,6 +256,23 @@ export default function SupportChat() {
 
   return (
     <div className="space-y-6">
+      <AlertDialog open={showEndChatDialog} onOpenChange={setShowEndChatDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>End Conversation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to end this chat conversation? This will mark the ticket as closed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmEndChat} className="bg-red-600 hover:bg-red-700">
+              End Chat
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Support Chat</h1>
         <div className="flex items-center gap-3">
@@ -385,7 +391,7 @@ export default function SupportChat() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={handleEndChat}
+                      onClick={handleEndChatClick}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                     >
                       <XCircle className="w-4 h-4 mr-1" />
@@ -403,6 +409,11 @@ export default function SupportChat() {
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-4">
+                {loadingMessages && messages.length === 0 && (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+                  </div>
+                )}
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
@@ -447,14 +458,14 @@ export default function SupportChat() {
                           handleSendMessage();
                         }
                       }}
-                      disabled={sending}
+                      disabled={sendingMessage}
                       className="flex-1"
                     />
                     <Button
                       onClick={handleSendMessage}
-                      disabled={!newMessage.trim() || sending}
+                      disabled={!newMessage.trim() || sendingMessage}
                     >
-                      {sending ? (
+                      {sendingMessage ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <Send className="w-4 h-4" />

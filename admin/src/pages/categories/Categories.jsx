@@ -151,7 +151,6 @@ const Categories = () => {
         imageUrl = response.data.file.url;
       } catch (error) {
         console.error("Image upload failed:", error);
-        alert("Image upload failed. Please try again.");
         setUploading(false);
         return;
       }
@@ -698,7 +697,7 @@ const Categories = () => {
                       </p>
                     </div>
                   )}
-                  <input
+                  <Input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"

@@ -28,7 +28,6 @@ export default function VideoSlide({ uri, width, height }) {
       <VideoView 
         style={{ width: '100%', height: '100%' }}
         player={player} 
-        allowsFullscreen={false}
         allowsPictureInPicture={false}
         nativeControls={false}
         contentFit="contain"
