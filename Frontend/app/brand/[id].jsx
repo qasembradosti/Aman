@@ -37,7 +37,7 @@ export default function BrandProductsScreen() {
   const [viewMode, setViewMode] = useState("grid"); // grid, list
   const router = useRouter();
   const { theme } = useTheme();
-  const { t, isRTL,locale } = useLanguage();
+  const { t, isRTL, locale } = useLanguage();
   const navigationInProgress = useRef(false);
 
   const rowDirection = isRTL ? "row-reverse" : "row";
@@ -69,9 +69,13 @@ export default function BrandProductsScreen() {
   };
   // Helper function to get localized text
   const getLocalizedText = (product, field) => {
+    if (!product) return "";
+    
     // Ensure language has a default fallback
-    const lang = locale;
+    const lang = locale || "en";
     const localizedField = `${field}_${lang}`;
+    
+    // Return the localized field, fallback to base field, or empty string
     return product[localizedField] || product[field] || "";
   };
 
@@ -197,7 +201,7 @@ export default function BrandProductsScreen() {
               onPress={() => router.back()}
             >
               <Ionicons
-                name={isRTL ? "arrow-forward" : "arrow-back"}
+                name={isRTL ? "arrow-back" : "arrow-forward"}
                 size={24}
                 color={theme.colors.text}
               />

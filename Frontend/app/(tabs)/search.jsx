@@ -45,7 +45,7 @@ const Text = ({ style, ...props }) => {
 export default function Search() {
   const router = useRouter();
   const dispatch = useDispatch();
-  const { t, isRTL, language } = useLanguage();
+  const { t, isRTL, locale } = useLanguage();
   const { theme } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [recentSearches, setRecentSearches] = useState([]);
@@ -70,11 +70,11 @@ export default function Search() {
     const titleKu = product?.name_ku?.trim();
     
     // Determine language and set name with fallbacks
-    if (language === "ar") {
+    if (locale === "ar") {
       return titleAr || titleEn || titleKu || "Product";
-    } else if (language === "en") {
+    } else if (locale === "en") {
       return titleEn || titleAr || titleKu || "Product";
-    } else if (language === "ku") {
+    } else if (locale === "ku") {
       return titleKu || titleEn || titleAr || "Product";
     } else {
       return titleEn || titleAr || titleKu || "Product";
@@ -91,11 +91,11 @@ export default function Search() {
     const defaultName = category?.name?.trim();
     
     // Determine language and set name with fallbacks
-    if (language === "ar") {
+    if (locale === "ar") {
       return nameAr || defaultName || nameEn || nameKu || "Category";
-    } else if (language === "en") {
+    } else if (locale === "en") {
       return nameEn || defaultName || nameAr || nameKu || "Category";
-    } else if (language === "ku") {
+    } else if (locale === "ku") {
       return nameKu || defaultName || nameEn || nameAr || "Category";
     } else {
       return nameEn || defaultName || nameAr || nameKu || "Category";
@@ -844,7 +844,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "600",
     color: "#1a1a1a",
     marginBottom: 16,
   },
@@ -902,7 +901,6 @@ const styles = StyleSheet.create({
   },
   productName: {
     fontSize: 15,
-    fontWeight: "500",
     color: "#1a1a1a",
     marginBottom: 4,
   },
@@ -918,7 +916,6 @@ const styles = StyleSheet.create({
   },
   productPrice: {
     fontSize: 16,
-    fontWeight: "600",
   },
   resultsHeader: {
     flexDirection: "row",
@@ -1032,7 +1029,6 @@ const styles = StyleSheet.create({
   },
   resultName: {
     fontSize: 13,
-    fontWeight: "500",
     color: "#1a1a1a",
     marginBottom: 8,
     lineHeight: 16,
@@ -1056,7 +1052,6 @@ const styles = StyleSheet.create({
   },
   resultPrice: {
     fontSize: 16,
-    fontWeight: "600",
     color: "#1a1a1a",
   },
   shareButton: {
@@ -1074,7 +1069,6 @@ const styles = StyleSheet.create({
   },
   noResultsText: {
     fontSize: 18,
-    fontWeight: "600",
     marginTop: 16,
     marginBottom: 8,
   },

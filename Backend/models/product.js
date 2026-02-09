@@ -8,6 +8,8 @@ const Product = {
       category_id,
       brand_id,
       in_stock,
+      is_trend,
+      is_important,
       min_price,
       max_price,
       sort = 'created_at',
@@ -53,6 +55,16 @@ const Product = {
     // In stock filter
     if (in_stock !== undefined) {
       query.where('products.in_stock', in_stock);
+    }
+
+    // Trending filter
+    if (is_trend !== undefined) {
+      query.where('products.is_trend', is_trend);
+    }
+
+    // Important filter
+    if (is_important !== undefined) {
+      query.where('products.is_important', is_important);
     }
 
     // Price range filters
@@ -130,34 +142,13 @@ const Product = {
       size,
       volume,
       colors,
+      is_trend,
+      is_important,
     } = productData;
 
-
-    const [id] = await db('products').insert({
-      name_en,
-      name_ku,  
-      name_ar,
-      category_id: category_id || null,
-      brand_id: brand_id || null,
-      store_id: store_id || null,
-      base_price,
-      sell_price: sell_price || null,
-      commission_price: commission_price || null,
-      in_stock: in_stock !== undefined ? in_stock : true,
-      description_ku: description_ku || null,
-      description_en: description_en || null,
-      description_ar: description_ar || null,
-      key_features_en: key_features_en ? JSON.stringify(key_features_en) : null,
-      key_features_ku: key_features_ku ? JSON.stringify(key_features_ku) : null,
-      key_features_ar: key_features_ar ? JSON.stringify(key_features_ar) : null,
-      discount: discount || 0,
-      discount_type: discount_type || 'percentage',
-      discount_expires: discount_expires || null,
-      product_code: product_code || null,
-      size: size || null,
-      volume: volume || null,
-      colors: colors ? JSON.stringify(colors) : null,
-    });
+    if (!name_en || !base_price) {
+      throw new Error('name and base_price are required');
+    }
 
     return await Product.findById(id);
   },

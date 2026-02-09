@@ -118,7 +118,7 @@ export default function WithdrawalRequestsScreen() {
           style={styles.backButton}
         >
           <Ionicons
-            name={isRTL ? "arrow-forward" : "arrow-back"}
+            name={isRTL ? "arrow-back" : "arrow-forward"}
             size={24}
             color={theme.colors.text}
           />

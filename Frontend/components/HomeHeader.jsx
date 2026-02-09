@@ -185,7 +185,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 18,
-    fontWeight: "700",
 
     letterSpacing: -0.8,
     marginBottom: 2,

@@ -11,7 +11,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   Share,
+  Platform,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -57,6 +59,9 @@ export default function Orders() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [dateFilter, setDateFilter] = useState("all"); // all, today, week, month, custom
+  const [customDateRange, setCustomDateRange] = useState({ from: "", to: "" });
+  const [showFromDatePicker, setShowFromDatePicker] = useState(false);
+  const [showToDatePicker, setShowToDatePicker] = useState(false);
   const [priceRange, setPriceRange] = useState({ min: "", max: "" });
   const [sortBy, setSortBy] = useState("date-desc"); // date-desc, date-asc, price-desc, price-asc
   const [selectedStatuses, setSelectedStatuses] = useState([]);
@@ -81,7 +86,6 @@ export default function Orders() {
       console.log("⚠️ User not authenticated, skipping orders fetch");
       return;
     }
-    console.log("📦 Fetching orders for tab:", activeTab);
     const params = activeTab !== "all" ? { status: activeTab } : {};
     dispatch(fetchOrdersThunk(params));
   }, [dispatch, activeTab, isAuthenticated]);
@@ -196,6 +200,20 @@ export default function Orders() {
             const monthAgo = new Date(today);
             monthAgo.setMonth(monthAgo.getMonth() - 1);
             return orderDate >= monthAgo;
+          case "custom":
+            if (customDateRange.from || customDateRange.to) {
+              const fromDate = customDateRange.from ? new Date(customDateRange.from) : null;
+              const toDate = customDateRange.to ? new Date(customDateRange.to) : null;
+              
+              if (fromDate && toDate) {
+                return orderDate >= fromDate && orderDate <= toDate;
+              } else if (fromDate) {
+                return orderDate >= fromDate;
+              } else if (toDate) {
+                return orderDate <= toDate;
+              }
+            }
+            return true;
           default:
             return true;
         }
@@ -235,6 +253,7 @@ export default function Orders() {
     activeTab,
     selectedStatuses,
     dateFilter,
+    customDateRange,
     priceRange,
     sortBy,
   ]);
@@ -322,6 +341,27 @@ export default function Orders() {
     }
   };
 
+  const getOrderCommissionTotal = (order) => {
+    // For list view, use pre-calculated commission_total from backend
+    if (typeof order?.items === 'number' || !Array.isArray(order?.items)) {
+      const total = Number(order?.commission_total || 0);
+      return total;
+    }
+
+    // For detail view with items array, calculate from items
+    if (order.items.length === 0) {
+      return 0;
+    }
+
+    const total = order.items.reduce((sum, item) => {
+      const commission = Number(item?.commission_price || 0);
+      const quantity = Number(item?.quantity || 1);
+      return sum + commission * quantity;
+    }, 0);
+    
+    return total;
+  };
+
   // Fetch order details when clicking on an order
   const handleOrderClick = async (order) => {
     setSelectedOrder(order);
@@ -405,10 +445,42 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
   const clearAllFilters = () => {
     setSearchQuery("");
     setDateFilter("all");
+    setCustomDateRange({ from: "", to: "" });
     setPriceRange({ min: "", max: "" });
     setSortBy("date-desc");
     setSelectedStatuses([]);
     setActiveTab("all");
+  };
+
+  // Date picker helpers
+  const formatDateForDisplay = (dateString) => {
+    if (!dateString) return null;
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString(locale || 'en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  const handleFromDateChange = (event, selectedDate) => {
+    setShowFromDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      const dateString = selectedDate.toISOString().split('T')[0];
+      setCustomDateRange((prev) => ({ ...prev, from: dateString }));
+    }
+  };
+
+  const handleToDateChange = (event, selectedDate) => {
+    setShowToDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      const dateString = selectedDate.toISOString().split('T')[0];
+      setCustomDateRange((prev) => ({ ...prev, to: dateString }));
+    }
   };
 
   const getActiveFilterCount = () => {
@@ -979,7 +1051,12 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                     }}
                   >
                     {/* Order Info */}
-                    <View style={{ flex: 1 }}>
+                    <View
+                      style={{
+                        flex: 1,
+                        alignItems: isRTL ? "flex-end" : "flex-start",
+                      }}
+                    >
                       <View
                         style={{
                           flexDirection: isRTL ? "row-reverse" : "row",
@@ -1009,6 +1086,7 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                             style={{
                               fontSize: layout.typography.lg,
                               color: theme.colors.text,
+                              textAlign: isRTL ? "right" : "left",
                             }}
                           >
                             {t("order")} #{order.id}
@@ -1018,6 +1096,7 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                               fontSize: layout.typography.xs,
                               color: theme.colors.textSecondary,
                               marginTop: 2,
+                              textAlign: isRTL ? "right" : "left",
                             }}
                           >
                             {formatDate(order.date)}
@@ -1098,6 +1177,7 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                             style={{
                               fontSize: layout.typography.xs,
                               color: theme.colors.textSecondary,
+                              textAlign: isRTL ? "right" : "left",
                             }}
                           >
                             {t("products")}
@@ -1108,6 +1188,7 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                             fontSize: layout.typography.sm,
                             color: theme.colors.text,
                             lineHeight: layout.typography.sm * 1.4,
+                            textAlign: isRTL ? "right" : "left",
                           }}
                         >
                           {order.products.length > 2
@@ -1163,18 +1244,47 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                             style={{
                               fontSize: layout.typography.xs,
                               color: theme.colors.textSecondary,
+                              textAlign: isRTL ? "right" : "left",
                             }}
                           >
                             {t("items")}
                           </Text>
-                          <Text
+                          <View
                             style={{
-                              fontSize: layout.typography.md,
-                              color: theme.colors.text,
+                              flexDirection: isRTL ? "row-reverse" : "row",
+                              alignItems: "center",
+                              gap: layout.spacing.xs,
                             }}
                           >
-                            {order.items || 0}
-                          </Text>
+                            <Text
+                              style={{
+                                fontSize: layout.typography.md,
+                                color: theme.colors.text,
+                                textAlign: isRTL ? "right" : "left",
+                              }}
+                            >
+                              {order.items || 0}
+                            </Text>
+                            {getOrderCommissionTotal(order) > 0 && (
+                              <View
+                                style={{
+                                  backgroundColor: theme.colors.primary + "15",
+                                  paddingHorizontal: 6,
+                                  paddingVertical: 3,
+                                  borderRadius: layout.borderRadius.md,
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    fontSize: layout.typography.xs - 1,
+                                    color: theme.colors.primary,
+                                  }}
+                                >
+                                  +{formatCurrency(getOrderCommissionTotal(order))}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
                         </View>
                       </View>
 
@@ -1213,6 +1323,7 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                             style={{
                               fontSize: layout.typography.xs,
                               color: theme.colors.textSecondary,
+                              textAlign: isRTL ? "right" : "left",
                             }}
                           >
                             {t("total")}
@@ -1222,6 +1333,7 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                               fontSize: layout.typography.md,
                               color: theme.colors.primary,
                               writingDirection: "ltr",
+                              textAlign: isRTL ? "right" : "left",
                             }}
                           >
                             {formatCurrency(order.total || 0)}
@@ -2325,6 +2437,12 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                       icon: "calendar",
                       color: theme.colors.warning,
                     },
+                    {
+                      value: "custom",
+                      label: t("customRange"),
+                      icon: "calendar-number-outline",
+                      color: theme.colors.danger,
+                    },
                   ].map((option) => (
                     <TouchableOpacity
                       key={option.value}
@@ -2374,6 +2492,138 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                   ))}
                 </ScrollView>
               </View>
+              
+              {/* Custom Date Range Inputs */}
+              {dateFilter === "custom" && (
+                <View
+                  style={{
+                    marginTop: layout.spacing.lg,
+                    gap: layout.spacing.md,
+                  }}
+                >
+                  {/* From Date */}
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: isRTL ? "row-reverse" : "row",
+                      alignItems: "center",
+                      backgroundColor: theme.colors.card,
+                      borderRadius: layout.borderRadius.xl,
+                      padding: layout.spacing.lg,
+                      borderWidth: 1,
+                      borderColor: customDateRange.from ? theme.colors.primary : theme.colors.border,
+                    }}
+                    onPress={() => setShowFromDatePicker(true)}
+                  >
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: theme.colors.primary + "15",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginRight: isRTL ? 0 : layout.spacing.md,
+                        marginLeft: isRTL ? layout.spacing.md : 0,
+                      }}
+                    >
+                      <Ionicons
+                        name="calendar-outline"
+                        size={20}
+                        color={theme.colors.primary}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: layout.typography.sm,
+                          color: theme.colors.textSecondary,
+                          marginBottom: layout.spacing.xs,
+                        }}
+                      >
+                        {t("fromDate")}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: layout.typography.lg,
+                          color: customDateRange.from ? theme.colors.text : theme.colors.textSecondary,
+                        }}
+                      >
+                        {customDateRange.from ? formatDateForDisplay(customDateRange.from) : t("selectDate")}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-down"
+                      size={20}
+                      color={theme.colors.textSecondary}
+                      style={{
+                        marginLeft: isRTL ? 0 : layout.spacing.sm,
+                        marginRight: isRTL ? layout.spacing.sm : 0,
+                      }}
+                    />
+                  </TouchableOpacity>
+
+                  {/* To Date */}
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: isRTL ? "row-reverse" : "row",
+                      alignItems: "center",
+                      backgroundColor: theme.colors.card,
+                      borderRadius: layout.borderRadius.xl,
+                      padding: layout.spacing.lg,
+                      borderWidth: 1,
+                      borderColor: customDateRange.to ? theme.colors.primary : theme.colors.border,
+                    }}
+                    onPress={() => setShowToDatePicker(true)}
+                  >
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: theme.colors.danger + "15",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginRight: isRTL ? 0 : layout.spacing.md,
+                        marginLeft: isRTL ? layout.spacing.md : 0,
+                      }}
+                    >
+                      <Ionicons
+                        name="calendar"
+                        size={20}
+                        color={theme.colors.danger}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: layout.typography.sm,
+                          color: theme.colors.textSecondary,
+                          marginBottom: layout.spacing.xs,
+                        }}
+                      >
+                        {t("toDate")}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: layout.typography.lg,
+                          color: customDateRange.to ? theme.colors.text : theme.colors.textSecondary,
+                        }}
+                      >
+                        {customDateRange.to ? formatDateForDisplay(customDateRange.to) : t("selectDate")}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-down"
+                      size={20}
+                      color={theme.colors.textSecondary}
+                      style={{
+                        marginLeft: isRTL ? 0 : layout.spacing.sm,
+                        marginRight: isRTL ? layout.spacing.sm : 0,
+                      }}
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
 
             {/* Price Range Section */}
@@ -2813,6 +3063,27 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
           </View>
         </SafeAreaView>
       </Modal>
+
+      {/* Date Pickers */}
+      {showFromDatePicker && (
+        <DateTimePicker
+          value={customDateRange.from ? new Date(customDateRange.from) : new Date()}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleFromDateChange}
+          maximumDate={customDateRange.to ? new Date(customDateRange.to) : undefined}
+        />
+      )}
+      
+      {showToDatePicker && (
+        <DateTimePicker
+          value={customDateRange.to ? new Date(customDateRange.to) : new Date()}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleToDateChange}
+          minimumDate={customDateRange.from ? new Date(customDateRange.from) : undefined}
+        />
+      )}
 
       {/* Info Dialog */}
       <InfoDialog

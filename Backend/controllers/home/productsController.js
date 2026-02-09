@@ -50,7 +50,6 @@ const listProductVideos = async (req, productId) => {
     const baseUrl = getBaseUrl(req);
     const videos = await ProductVideo.listByProduct(productId);
     
-    console.log(`[listProductVideos] Product ${productId}: Found ${videos.length} videos`);
     
     // Return single video object or null (only one video per product)
     if (videos.length === 0) {
@@ -76,8 +75,31 @@ const listProductVideos = async (req, productId) => {
 
 export const listProducts = async (req, res) => {
   try {
+    console.log('📋 listProducts called with query:', req.query);
+    
+    // Convert is_trend and is_important to integers if present
+    if (req.query.is_trend !== undefined) {
+      req.query.is_trend = parseInt(req.query.is_trend);
+      console.log('🔥 Filtering by is_trend:', req.query.is_trend);
+    }
+    if (req.query.is_important !== undefined) {
+      req.query.is_important = parseInt(req.query.is_important);
+      console.log('⭐ Filtering by is_important:', req.query.is_important);
+    }
+    
     const result = await Product.findAll(req.query);
     const products = result.data || result;
+    console.log(`✅ Found ${products.length} products`);
+    
+    // Log first product for debugging
+    if (products.length > 0) {
+      console.log('📦 First product:', {
+        id: products[0].id,
+        name: products[0].name_en,
+        is_trend: products[0].is_trend,
+        is_important: products[0].is_important
+      });
+    }
     
     // Fetch images and video for each product
     const productsWithMedia = await Promise.all(
@@ -171,7 +193,6 @@ export const updateProduct = async (req, res) => {
     }
     
     const updateData = { ...req.body };
-    console.log('Update Product - ID:', id, 'Update Data:', updateData); // Added log
     
     // Handle uploaded files if present (images and videos)
     if (req.files && req.files.length > 0) {

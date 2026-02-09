@@ -224,7 +224,6 @@ const styles = StyleSheet.create({
 
   title: {
     fontSize: 22,
-    fontWeight: '700',
     letterSpacing: 0.3,
   },
 
@@ -252,7 +251,6 @@ const styles = StyleSheet.create({
   discountText: {
     color: "#fff",
     fontSize: 14,
-    fontWeight: '700',
     letterSpacing: 0.3,
   },
 
@@ -275,7 +273,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 8,
     lineHeight: 22,
-    fontWeight: '600',
   },
 
   ratingRow: {
@@ -287,7 +284,6 @@ const styles = StyleSheet.create({
 
   rating: {
     fontSize: 14,
-    fontWeight: '500',
   },
 
   priceRow: {
@@ -299,7 +295,6 @@ const styles = StyleSheet.create({
 
   price: {
     fontSize: 18,
-    fontWeight: '700',
     letterSpacing: 0.2,
   },
 
@@ -307,6 +302,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textDecorationLine: 'line-through',
     opacity: 0.5,
-    fontWeight: '500',
   },
 });

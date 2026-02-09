@@ -1,5 +1,13 @@
 import React from "react";
-import { View, StyleSheet, ScrollView, Image, Linking, TouchableOpacity, Dimensions } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Image,
+  Linking,
+  TouchableOpacity,
+  Dimensions,
+} from "react-native";
 import appIcon from "../assets/images/aman-app.png";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../utils/ThemeContext";
@@ -32,39 +40,43 @@ export default function About() {
     { icon: "people", value: "50K+", label: t("customers") || "Customers" },
     { icon: "cube", value: "10K+", label: t("products") || "Products" },
     { icon: "star", value: "4.8", label: t("rating") || "Rating" },
-    { icon: "checkmark-done", value: "99%", label: t("satisfaction") || "Satisfaction" },
+    {
+      icon: "checkmark-done",
+      value: "99%",
+      label: t("satisfaction") || "Satisfaction",
+    },
   ];
 
   const features = [
-    { 
-      icon: "cart-outline", 
+    {
+      icon: "cart-outline",
       title: t("easyShopping") || "Easy Shopping",
-      description: t("easyShoppingDesc") || "Browse and shop with ease"
+      description: t("easyShoppingDesc") || "Browse and shop with ease",
     },
-    { 
-      icon: "shield-checkmark-outline", 
+    {
+      icon: "shield-checkmark-outline",
       title: t("securePayments") || "Secure Payments",
-      description: t("securePaymentsDesc") || "Your transactions are protected"
+      description: t("securePaymentsDesc") || "Your transactions are protected",
     },
-    { 
-      icon: "rocket-outline", 
+    {
+      icon: "rocket-outline",
       title: t("fastDelivery") || "Fast Delivery",
-      description: t("fastDeliveryDesc") || "Quick and reliable shipping"
+      description: t("fastDeliveryDesc") || "Quick and reliable shipping",
     },
-    { 
-      icon: "heart-outline", 
+    {
+      icon: "heart-outline",
       title: t("qualityProducts") || "Quality Products",
-      description: t("qualityProductsDesc") || "Only the best for you"
+      description: t("qualityProductsDesc") || "Only the best for you",
     },
-    { 
-      icon: "cash-outline", 
+    {
+      icon: "cash-outline",
       title: t("earnRewards") || "Earn Rewards",
-      description: t("earnRewardsDesc") || "Get bonuses on every purchase"
+      description: t("earnRewardsDesc") || "Get bonuses on every purchase",
     },
-    { 
-      icon: "headset-outline", 
+    {
+      icon: "headset-outline",
       title: t("support247") || "24/7 Support",
-      description: t("support247Desc") || "We're always here to help"
+      description: t("support247Desc") || "We're always here to help",
     },
   ];
 
@@ -72,19 +84,23 @@ export default function About() {
     {
       icon: "shield-checkmark",
       title: t("trustworthy") || "Trustworthy",
-      description: t("trustworthyDesc") || "Building trust through transparency and reliability",
+      description:
+        t("trustworthyDesc") ||
+        "Building trust through transparency and reliability",
       color: "#4CAF50",
     },
     {
       icon: "people",
       title: t("customerFirst") || "Customer First",
-      description: t("customerFirstDesc") || "Your satisfaction is our top priority",
+      description:
+        t("customerFirstDesc") || "Your satisfaction is our top priority",
       color: "#2196F3",
     },
     {
       icon: "trending-up",
       title: t("innovation") || "Innovation",
-      description: t("innovationDesc") || "Constantly improving your shopping experience",
+      description:
+        t("innovationDesc") || "Constantly improving your shopping experience",
       color: "#FF9800",
     },
   ];
@@ -93,7 +109,11 @@ export default function About() {
     { icon: "logo-facebook", color: "#1877F2", url: "https://facebook.com" },
     { icon: "logo-instagram", color: "#E4405F", url: "https://instagram.com" },
     { icon: "logo-twitter", color: "#1DA1F2", url: "https://twitter.com" },
-    { icon: "logo-whatsapp", color: "#25D366", url: "https://wa.me/9647501234567" },
+    {
+      icon: "logo-whatsapp",
+      color: "#25D366",
+      url: "https://wa.me/9647501234567",
+    },
   ];
 
   return (
@@ -104,16 +124,20 @@ export default function About() {
           backgroundColor: theme.colors.background,
         },
       ]}
-      edges={['top']}
+      edges={["top"]}
     >
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
         <TouchableOpacity
-          onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/profile")}
+          onPress={() =>
+            router.canGoBack()
+              ? router.back()
+              : router.replace("/(tabs)/profile")
+          }
           style={styles.backButton}
         >
           <Ionicons
-            name={isRTL ? "arrow-forward" : "arrow-back"}
+            name={isRTL ? "arrow-back" : "arrow-forward"}
             size={24}
             color={theme.colors.text}
           />
@@ -124,14 +148,14 @@ export default function About() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Section with Gradient */}
         <LinearGradient
-          colors={[theme.colors.primary, theme.colors.primary + 'dd']}
+          colors={[theme.colors.primary, theme.colors.primary + "dd"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroSection}
@@ -163,13 +187,27 @@ export default function About() {
         <View style={styles.statsSection}>
           {stats.map((stat, index) => (
             <View key={index} style={styles.statCard}>
-              <View style={[styles.statIconContainer, { backgroundColor: theme.colors.primary + '15' }]}>
-                <Ionicons name={stat.icon} size={24} color={theme.colors.primary} />
+              <View
+                style={[
+                  styles.statIconContainer,
+                  { backgroundColor: theme.colors.primary + "15" },
+                ]}
+              >
+                <Ionicons
+                  name={stat.icon}
+                  size={24}
+                  color={theme.colors.primary}
+                />
               </View>
               <Text style={[styles.statValue, { color: theme.colors.text }]}>
                 {stat.value}
               </Text>
-              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.statLabel,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
                 {stat.label}
               </Text>
             </View>
@@ -178,22 +216,46 @@ export default function About() {
 
         {/* About Section */}
         <View style={styles.sectionContainer}>
-          <View style={[styles.sectionCard, { backgroundColor: theme.colors.card }]}>
+          <View
+            style={[styles.sectionCard, { backgroundColor: theme.colors.card }]}
+          >
             <View style={styles.sectionHeaderRow}>
-              <View style={[styles.iconBadge, { backgroundColor: theme.colors.primary + '15' }]}>
-                <Ionicons name="information-circle" size={28} color={theme.colors.primary} />
+              <View
+                style={[
+                  styles.iconBadge,
+                  { backgroundColor: theme.colors.primary + "15" },
+                ]}
+              >
+                <Ionicons
+                  name="information-circle"
+                  size={28}
+                  color={theme.colors.primary}
+                />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                <Text
+                  style={[styles.sectionTitle, { color: theme.colors.text }]}
+                >
                   {t("aboutApp") || "About Aman"}
                 </Text>
-                <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
+                <Text
+                  style={[
+                    styles.sectionSubtitle,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
                   {t("whoWeAre") || "Who we are"}
                 </Text>
               </View>
             </View>
-            <Text style={[styles.sectionText, { color: theme.colors.textSecondary }]}>
-              {t("aboutAppText") || "Aman Store is your one-stop destination for quality products at great prices. We connect you with trusted sellers and ensure a seamless shopping experience from browsing to delivery."}
+            <Text
+              style={[
+                styles.sectionText,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
+              {t("aboutAppText") ||
+                "Aman Store is your one-stop destination for quality products at great prices. We connect you with trusted sellers and ensure a seamless shopping experience from browsing to delivery."}
             </Text>
           </View>
         </View>
@@ -205,17 +267,36 @@ export default function About() {
           </Text>
           <View style={styles.featuresGrid}>
             {features.map((feature, index) => (
-              <View 
+              <View
                 key={index}
-                style={[styles.featureCard, { backgroundColor: theme.colors.card }]}
+                style={[
+                  styles.featureCard,
+                  { backgroundColor: theme.colors.card },
+                ]}
               >
-                <View style={[styles.featureIcon, { backgroundColor: theme.colors.primary + '15' }]}>
-                  <Ionicons name={feature.icon} size={26} color={theme.colors.primary} />
+                <View
+                  style={[
+                    styles.featureIcon,
+                    { backgroundColor: theme.colors.primary + "15" },
+                  ]}
+                >
+                  <Ionicons
+                    name={feature.icon}
+                    size={26}
+                    color={theme.colors.primary}
+                  />
                 </View>
-                <Text style={[styles.featureTitle, { color: theme.colors.text }]}>
+                <Text
+                  style={[styles.featureTitle, { color: theme.colors.text }]}
+                >
                   {feature.title}
                 </Text>
-                <Text style={[styles.featureDescription, { color: theme.colors.textSecondary }]}>
+                <Text
+                  style={[
+                    styles.featureDescription,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
                   {feature.description}
                 </Text>
               </View>
@@ -229,18 +310,28 @@ export default function About() {
             {t("ourValues") || "Our Values"}
           </Text>
           {values.map((value, index) => (
-            <View 
+            <View
               key={index}
               style={[styles.valueCard, { backgroundColor: theme.colors.card }]}
             >
-              <View style={[styles.valueIconContainer, { backgroundColor: value.color + '15' }]}>
+              <View
+                style={[
+                  styles.valueIconContainer,
+                  { backgroundColor: value.color + "15" },
+                ]}
+              >
                 <Ionicons name={value.icon} size={32} color={value.color} />
               </View>
               <View style={styles.valueContent}>
                 <Text style={[styles.valueTitle, { color: theme.colors.text }]}>
                   {value.title}
                 </Text>
-                <Text style={[styles.valueDescription, { color: theme.colors.textSecondary }]}>
+                <Text
+                  style={[
+                    styles.valueDescription,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
                   {value.description}
                 </Text>
               </View>
@@ -250,20 +341,35 @@ export default function About() {
 
         {/* Contact Section */}
         <View style={styles.sectionContainer}>
-          <View style={[styles.contactCard, { backgroundColor: theme.colors.card }]}>
-            <View style={[styles.contactHeader, { backgroundColor: theme.colors.primary + '10' }]}>
+          <View
+            style={[styles.contactCard, { backgroundColor: theme.colors.card }]}
+          >
+            <View
+              style={[
+                styles.contactHeader,
+                { backgroundColor: theme.colors.primary + "10" },
+              ]}
+            >
               <Ionicons name="mail" size={32} color={theme.colors.primary} />
               <Text style={[styles.contactTitle, { color: theme.colors.text }]}>
                 {t("getInTouch") || "Get In Touch"}
               </Text>
-              <Text style={[styles.contactSubtitle, { color: theme.colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.contactSubtitle,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
                 {t("contactUsText") || "We'd love to hear from you"}
               </Text>
             </View>
 
             <View style={styles.contactButtons}>
               <TouchableOpacity
-                style={[styles.contactButton, { backgroundColor: theme.colors.primary }]}
+                style={[
+                  styles.contactButton,
+                  { backgroundColor: theme.colors.primary },
+                ]}
                 onPress={openEmail}
                 activeOpacity={0.8}
               >
@@ -286,12 +392,24 @@ export default function About() {
             </View>
 
             <TouchableOpacity
-              style={[styles.websiteButton, { backgroundColor: theme.colors.background }]}
+              style={[
+                styles.websiteButton,
+                { backgroundColor: theme.colors.background },
+              ]}
               onPress={openWebsite}
               activeOpacity={0.8}
             >
-              <Ionicons name="globe-outline" size={20} color={theme.colors.primary} />
-              <Text style={[styles.websiteButtonText, { color: theme.colors.primary }]}>
+              <Ionicons
+                name="globe-outline"
+                size={20}
+                color={theme.colors.primary}
+              />
+              <Text
+                style={[
+                  styles.websiteButtonText,
+                  { color: theme.colors.primary },
+                ]}
+              >
                 {t("visitWebsite") || "Visit Website"}
               </Text>
             </TouchableOpacity>
@@ -307,7 +425,10 @@ export default function About() {
             {socialLinks.map((social, index) => (
               <TouchableOpacity
                 key={index}
-                style={[styles.socialButton, { backgroundColor: social.color + '15' }]}
+                style={[
+                  styles.socialButton,
+                  { backgroundColor: social.color + "15" },
+                ]}
                 onPress={() => Linking.openURL(social.url)}
                 activeOpacity={0.7}
               >
@@ -319,12 +440,22 @@ export default function About() {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <View style={[styles.footerDivider, { backgroundColor: theme.colors.border }]} />
-          <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>
+          <View
+            style={[
+              styles.footerDivider,
+              { backgroundColor: theme.colors.border },
+            ]}
+          />
+          <Text
+            style={[styles.footerText, { color: theme.colors.textSecondary }]}
+          >
             {t("madeWithLove") || "Made with ❤️ in Kurdistan"}
           </Text>
-          <Text style={[styles.copyright, { color: theme.colors.textSecondary }]}>
-            © {new Date().getFullYear()} Aman Store. {t("allRightsReserved") || "All rights reserved."}
+          <Text
+            style={[styles.copyright, { color: theme.colors.textSecondary }]}
+          >
+            © {new Date().getFullYear()} Aman Store.{" "}
+            {t("allRightsReserved") || "All rights reserved."}
           </Text>
         </View>
       </ScrollView>
@@ -351,7 +482,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: "600",
+
     flex: 1,
     textAlign: "center",
   },
@@ -361,7 +492,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: 40,
   },
-  
+
   // Hero Section
   heroSection: {
     paddingTop: 50,
@@ -399,7 +530,6 @@ const styles = StyleSheet.create({
   },
   appName: {
     fontSize: 36,
-    fontWeight: "bold",
     color: "#fff",
     letterSpacing: 1.5,
     marginBottom: 8,
@@ -426,7 +556,6 @@ const styles = StyleSheet.create({
   versionText: {
     color: "#fff",
     fontSize: 13,
-    fontWeight: "600",
   },
 
   // Stats Section
@@ -452,7 +581,6 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 28,
-    fontWeight: "bold",
     marginBottom: 4,
   },
   statLabel: {
@@ -467,7 +595,6 @@ const styles = StyleSheet.create({
   },
   mainTitle: {
     fontSize: 24,
-    fontWeight: "bold",
     marginBottom: 20,
     textAlign: "center",
   },
@@ -492,7 +619,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 22,
-    fontWeight: "bold",
     marginBottom: 4,
   },
   sectionSubtitle: {
@@ -525,7 +651,7 @@ const styles = StyleSheet.create({
   },
   featureTitle: {
     fontSize: 15,
-    fontWeight: "600",
+
     textAlign: "center",
     marginBottom: 6,
   },
@@ -556,7 +682,6 @@ const styles = StyleSheet.create({
   },
   valueTitle: {
     fontSize: 18,
-    fontWeight: "bold",
     marginBottom: 6,
   },
   valueDescription: {
@@ -576,7 +701,6 @@ const styles = StyleSheet.create({
   },
   contactTitle: {
     fontSize: 24,
-    fontWeight: "bold",
     marginTop: 16,
     marginBottom: 8,
   },
@@ -601,7 +725,6 @@ const styles = StyleSheet.create({
   contactButtonText: {
     color: "#fff",
     fontSize: 15,
-    fontWeight: "600",
   },
   websiteButton: {
     flexDirection: "row",
@@ -615,7 +738,6 @@ const styles = StyleSheet.create({
   },
   websiteButtonText: {
     fontSize: 15,
-    fontWeight: "600",
   },
 
   // Social Section

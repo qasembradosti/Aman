@@ -45,7 +45,7 @@ const useResponsiveLayout = () => {
   const columns = isLandscape ? 3 : isLargePhone ? 3 : 2;
   const totalGapWidth = cardGap * (columns - 1);
   const cardWidth = Math.floor(
-    (width - horizontalPadding * 2 - totalGapWidth) / columns
+    (width - horizontalPadding * 2 - totalGapWidth) / columns,
   );
 
   const productNameSize = isSmallPhone ? 12 : 13;
@@ -100,12 +100,16 @@ export default function Favorites() {
         setLoading(true);
       }
       setError(null);
-      
+
       const response = await favoriteService.getUserFavorites({ limit: 100 });
       setFavorites(response.data || []);
     } catch (err) {
       console.error("Load favorites error:", err);
-      setError(err?.response?.data?.message || t("errorLoadingFavorites") || "Failed to load favorites");
+      setError(
+        err?.response?.data?.message ||
+          t("errorLoadingFavorites") ||
+          "Failed to load favorites",
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -172,9 +176,7 @@ export default function Favorites() {
             cachePolicy="memory-disk"
           />
           {item.commission_price && (
-            <View
-              style={[styles.bonusTag, { backgroundColor: "green" }]}
-            >
+            <View style={[styles.bonusTag, { backgroundColor: "green" }]}>
               <Text style={styles.bonusTagText}>
                 {isRTL
                   ? `${item.commission_price} دینار `
@@ -212,9 +214,7 @@ export default function Favorites() {
                 },
               ]}
             >
-              {isRTL
-                ? `${item.sell_price} دینار `
-                : `${item.sell_price} IQD`}
+              {isRTL ? `${item.sell_price} دینار ` : `${item.sell_price} IQD`}
             </Text>
             <TouchableOpacity
               style={[
@@ -228,10 +228,7 @@ export default function Favorites() {
               ]}
               onPress={(e) => {
                 e.stopPropagation();
-                handleShareProduct(
-                  item.id,
-                  getLocalizedText(item, "name"),
-                );
+                handleShareProduct(item.id, getLocalizedText(item, "name"));
               }}
             >
               <Ionicons
@@ -253,7 +250,10 @@ export default function Favorites() {
         {t("noFavoritesYet")}
       </Text>
       <TouchableOpacity
-        style={[styles.exploreButton, { backgroundColor: theme.colors.primary }]}
+        style={[
+          styles.exploreButton,
+          { backgroundColor: theme.colors.primary },
+        ]}
         onPress={() => router.push("/(tabs)/home")}
       >
         <Text style={styles.exploreButtonText}>{t("exploreProducts")}</Text>
@@ -262,11 +262,20 @@ export default function Favorites() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
       <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={theme.colors.text} />
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <Ionicons
+              name={isRTL ? "arrow-forward" : "arrow-back"}
+              size={24}
+              color={theme.colors.text}
+            />
           </TouchableOpacity>
         </View>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
@@ -289,10 +298,10 @@ export default function Favorites() {
           contentContainerStyle={[
             styles.listContainer,
             { paddingHorizontal: layout.horizontalPadding },
-            favorites.length === 0 && { flex: 1, justifyContent: "center" }
+            favorites.length === 0 && { flex: 1, justifyContent: "center" },
           ]}
           columnWrapperStyle={
-             favorites.length > 0 ? { gap: layout.cardGap } : null
+            favorites.length > 0 ? { gap: layout.cardGap } : null
           }
           refreshControl={
             <RefreshControl
@@ -304,7 +313,7 @@ export default function Favorites() {
           ListEmptyComponent={EmptyState}
         />
       )}
-      
+
       <InfoDialog
         visible={dialog.visible}
         title={dialog.title}
@@ -405,8 +414,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 4,
   },
-  productPrice: {
-  },
+  productPrice: {},
   shareButton: {
     justifyContent: "center",
     alignItems: "center",

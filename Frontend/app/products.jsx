@@ -368,7 +368,7 @@ export default function Products() {
       ]}
     >
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <TouchableOpacity
           onPress={() =>
             router.canGoBack?.()
@@ -383,7 +383,7 @@ export default function Products() {
             color={theme.colors.text}
           />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
+        <Text style={[styles.headerTitle, { color: theme.colors.text, textAlign: "center" }]}>
           {t("allProducts") || "All Products"}
         </Text>
         <TouchableOpacity

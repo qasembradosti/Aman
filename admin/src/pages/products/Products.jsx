@@ -52,6 +52,7 @@ import {
 } from "../../components/ui/select";
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
+import { Checkbox } from "../../components/ui/checkbox";
 import api from "../../services/api";
 import {
   AlertDialog,
@@ -250,6 +251,7 @@ const Products = () => {
   const [stockFilter, setStockFilter] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
   const [discountFilter, setDiscountFilter] = useState("");
+  const [specialFilter, setSpecialFilter] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [sortBy, setSortBy] = useState("");
@@ -277,6 +279,8 @@ const Products = () => {
     size: "",
     volume: "",
     colors: "",
+    is_trend: false,
+    is_important: false,
   });
 
   useEffect(() => {
@@ -320,6 +324,8 @@ const Products = () => {
       if (brandFilter) params.brand_id = brandFilter;
       if (discountFilter === "with_discount") params.has_discount = true;
       if (discountFilter === "no_discount") params.has_discount = false;
+      if (specialFilter === "is_trend") params.is_trend = 1;
+      if (specialFilter === "is_important") params.is_important = 1;
       if (minPrice) params.min_price = minPrice;
       if (maxPrice) params.max_price = maxPrice;
       if (sortBy) params.sort = sortBy;
@@ -336,6 +342,7 @@ const Products = () => {
     stockFilter,
     brandFilter,
     discountFilter,
+    specialFilter,
     minPrice,
     maxPrice,
     sortBy,
@@ -351,6 +358,7 @@ const Products = () => {
     stockFilter,
     brandFilter,
     discountFilter,
+    specialFilter,
     minPrice,
     maxPrice,
     sortBy,
@@ -380,6 +388,8 @@ const Products = () => {
       size: "",
       volume: "",
       colors: "",
+      is_trend: false,
+      is_important: false,
     });
     setEditingProduct(null);
     setImageFiles([]);
@@ -425,6 +435,8 @@ const Products = () => {
       colors: Array.isArray(product.colors)
         ? product.colors.join(", ")
         : product.colors || "",
+      is_trend: product.is_trend || false,
+      is_important: product.is_important || false,
     });
     if (product.images && product.images.length > 0) {
       setImagePreviews(
@@ -540,6 +552,10 @@ const Products = () => {
     setDiscountFilter(val === "all" ? "" : val);
   }, []);
 
+  const handleSpecialFilterChange = useCallback((val) => {
+    setSpecialFilter(val === "all" ? "" : val);
+  }, []);
+
   const handleSortChange = useCallback((val) => {
     setSortBy(val === "default" ? "" : val);
   }, []);
@@ -550,6 +566,7 @@ const Products = () => {
     setStockFilter("");
     setBrandFilter("");
     setDiscountFilter("");
+    setSpecialFilter("");
     setMinPrice("");
     setMaxPrice("");
     setSortBy("");
@@ -612,6 +629,8 @@ const Products = () => {
         size: formData.size || null,
         volume: formData.volume || null,
         colors: colors && colors.length ? colors : null,
+        is_trend: formData.is_trend ? 1 : 0,
+        is_important: formData.is_important ? 1 : 0,
       };
       await dispatch(updateProduct({ id: editingProduct.id, data }));
       // Upload videos if any
@@ -667,6 +686,8 @@ const Products = () => {
       if (formData.size) fd.append("size", formData.size);
       if (formData.volume) fd.append("volume", formData.volume);
       if (formData.colors) fd.append("colors", formData.colors);
+      fd.append("is_trend", formData.is_trend ? 1 : 0);
+      fd.append("is_important", formData.is_important ? 1 : 0);
       imageFiles.forEach((file) => fd.append("images", file));
       const result = await dispatch(createProduct(fd));
       // Upload videos if any and product was created
@@ -858,6 +879,24 @@ const Products = () => {
               </Select>
             </div>
 
+            {/* Special Filter (Trending/Important) */}
+            <div>
+              <Label>Special</Label>
+              <Select
+                value={specialFilter || "all"}
+                onValueChange={handleSpecialFilterChange}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Special Products" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Products</SelectItem>
+                  <SelectItem value="is_trend">Trending Only</SelectItem>
+                  <SelectItem value="is_important">Important Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Min Price */}
             <div>
               <Label>Min Price</Label>
@@ -919,6 +958,7 @@ const Products = () => {
             stockFilter ||
             brandFilter ||
             discountFilter ||
+            specialFilter ||
             minPrice ||
             maxPrice ||
             sortBy) && (
@@ -1508,18 +1548,54 @@ const Products = () => {
                   <h3 className="text-sm font-semibold text-gray-700">
                     Stock & Inventory
                   </h3>
-                  <div>
-                    <Label className="flex items-center gap-2 cursor-pointer">
-                      <Input
-                        type="checkbox"
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+                      <Checkbox
+                        id="in_stock"
                         checked={formData.in_stock}
-                        onChange={(e) =>
-                          handleFormChange("in_stock", e.target.checked)
+                        onCheckedChange={(checked) =>
+                          handleFormChange("in_stock", checked)
                         }
-                        className="rounded border-gray-300"
                       />
-                      In Stock
-                    </Label>
+                      <Label 
+                        htmlFor="in_stock" 
+                        className="text-sm font-medium cursor-pointer flex-1"
+                      >
+                        In Stock
+                      </Label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+                      <Checkbox
+                        id="is_trend"
+                        checked={formData.is_trend}
+                        onCheckedChange={(checked) =>
+                          handleFormChange("is_trend", checked)
+                        }
+                      />
+                      <Label 
+                        htmlFor="is_trend" 
+                        className="text-sm font-medium cursor-pointer flex-1"
+                      >
+                        Trending Product
+                      </Label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+                      <Checkbox
+                        id="is_important"
+                        checked={formData.is_important}
+                        onCheckedChange={(checked) =>
+                          handleFormChange("is_important", checked)
+                        }
+                      />
+                      <Label 
+                        htmlFor="is_important" 
+                        className="text-sm font-medium cursor-pointer flex-1"
+                      >
+                        Important Product
+                      </Label>
+                    </div>
                   </div>
 
                   <div>

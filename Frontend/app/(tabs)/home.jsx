@@ -30,6 +30,7 @@ import DiscountProductSlider from "../../components/DiscountProductSlider";
 import { useRef } from "react";
 import { Heart, Star } from "lucide-react-native";
 import { toggleFavorite } from "../../services/favoriteService";
+import TrendingProductSlider from "@/components/TrendingProductSlider";
 // Custom Text component with font
 const Text = ({ style, ...props }) => {
   const { fontFamily } = useLanguage();
@@ -188,7 +189,7 @@ export default function Home() {
       fetchProducts({
         limit: 100, // Fetch more to have a good pool for randomization
         offset: 0,
-      })
+      }),
     )
       .then((response) => {
         // Handle both unwrapped and wrapped responses
@@ -198,8 +199,10 @@ export default function Home() {
           const randomProducts = shuffled.slice(0, horizontalLimit);
           // Filter out products that are already in the list
           setHorizontalProducts((prev) => {
-            const existingIds = new Set(prev.map(p => p.id));
-            const newProducts = randomProducts.filter(p => !existingIds.has(p.id));
+            const existingIds = new Set(prev.map((p) => p.id));
+            const newProducts = randomProducts.filter(
+              (p) => !existingIds.has(p.id),
+            );
             return [...prev, ...newProducts];
           });
         } else {
@@ -208,8 +211,10 @@ export default function Home() {
             const shuffled = [...products].sort(() => Math.random() - 0.5);
             const randomProducts = shuffled.slice(0, horizontalLimit);
             setHorizontalProducts((prev) => {
-              const existingIds = new Set(prev.map(p => p.id));
-              const newProducts = randomProducts.filter(p => !existingIds.has(p.id));
+              const existingIds = new Set(prev.map((p) => p.id));
+              const newProducts = randomProducts.filter(
+                (p) => !existingIds.has(p.id),
+              );
               return [...prev, ...newProducts];
             });
           }
@@ -224,8 +229,10 @@ export default function Home() {
           const shuffled = [...products].sort(() => Math.random() - 0.5);
           const randomProducts = shuffled.slice(0, horizontalLimit);
           setHorizontalProducts((prev) => {
-            const existingIds = new Set(prev.map(p => p.id));
-            const newProducts = randomProducts.filter(p => !existingIds.has(p.id));
+            const existingIds = new Set(prev.map((p) => p.id));
+            const newProducts = randomProducts.filter(
+              (p) => !existingIds.has(p.id),
+            );
             return [...prev, ...newProducts];
           });
         }
@@ -440,11 +447,11 @@ export default function Home() {
                 {t("categories")}
               </Text>
             </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => router.push("/categories")}
               style={[
                 styles.seeAllButton,
-                { backgroundColor: theme.colors.primary + '15' }
+                { backgroundColor: theme.colors.primary + "15" },
               ]}
             >
               <Text
@@ -458,7 +465,11 @@ export default function Home() {
               >
                 {t("seeAll")}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={theme.colors.primary}
+              />
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -523,103 +534,107 @@ export default function Home() {
               <View style={{ flexDirection: "column", gap: 10 }}>
                 {/* First Row */}
                 <View style={{ flexDirection: "row", gap: 12 }}>
-                  {parentCategories.filter((_, idx) => idx % 2 === 0).map((category) => (
-                    <Pressable
-                      key={category.id}
-                      style={({ pressed }) => [
-                        styles.categoryCard2Row,
-                        {
-                          backgroundColor: theme.colors.card,
-                          borderColor: theme.colors.border,
-                        },
-                        pressed && {
-                          transform: [{ scale: 0.95 }],
-                          opacity: 0.8,
-                        },
-                      ]}
-                      onPress={() => {
-                        router.push(`/products?category=${category.id}`);
-                      }}
-                    >
-                      <View
-                        style={[
-                          styles.categoryImageContainer2Row,
+                  {parentCategories
+                    .filter((_, idx) => idx % 2 === 0)
+                    .map((category) => (
+                      <Pressable
+                        key={category.id}
+                        style={({ pressed }) => [
+                          styles.categoryCard2Row,
                           {
-                            backgroundColor: theme.colors.primary + '10',
+                            backgroundColor: theme.colors.card,
+                            borderColor: theme.colors.border,
+                          },
+                          pressed && {
+                            transform: [{ scale: 0.95 }],
+                            opacity: 0.8,
                           },
                         ]}
+                        onPress={() => {
+                          router.push(`/products?category=${category.id}`);
+                        }}
                       >
-                        <Image
-                          source={{ uri: resolveCategoryImageUri(category) }}
-                          style={styles.categoryImage}
-                          contentFit="cover"
-                          transition={200}
-                          cachePolicy="memory-disk"
-                        />
-                      </View>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.categoryText2Row,
-                          {
-                            color: theme.colors.text,
-                          },
-                        ]}
-                      >
-                        {category.name}
-                      </Text>
-                    </Pressable>
-                  ))}
+                        <View
+                          style={[
+                            styles.categoryImageContainer2Row,
+                            {
+                              backgroundColor: theme.colors.primary + "10",
+                            },
+                          ]}
+                        >
+                          <Image
+                            source={{ uri: resolveCategoryImageUri(category) }}
+                            style={styles.categoryImage}
+                            contentFit="cover"
+                            transition={200}
+                            cachePolicy="memory-disk"
+                          />
+                        </View>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.categoryText2Row,
+                            {
+                              color: theme.colors.text,
+                            },
+                          ]}
+                        >
+                          {category.name}
+                        </Text>
+                      </Pressable>
+                    ))}
                 </View>
                 {/* Second Row */}
                 <View style={{ flexDirection: "row", gap: 12 }}>
-                  {parentCategories.filter((_, idx) => idx % 2 === 1).map((category) => (
-                    <Pressable
-                      key={category.id}
-                      style={({ pressed }) => [
-                        styles.categoryCard2Row,
-                        {
-                          backgroundColor: theme.colors.card,
-                          borderColor: theme.colors.border,
-                        },
-                        pressed && {
-                          transform: [{ scale: 0.95 }],
-                          opacity: 0.8,
-                        },
-                      ]}
-                      onPress={() => {
-                        router.push(`/products?category=${category.id}`);
-                      }}
-                    >
-                      <View
-                        style={[
-                          styles.categoryImageContainer2Row,
+                  {parentCategories
+                    .filter((_, idx) => idx % 2 === 1)
+                    .map((category) => (
+                      <Pressable
+                        key={category.id}
+                        style={({ pressed }) => [
+                          styles.categoryCard2Row,
                           {
-                            backgroundColor: theme.colors.primary + '10',
+                            backgroundColor: theme.colors.card,
+                            borderColor: theme.colors.border,
+                          },
+                          pressed && {
+                            transform: [{ scale: 0.95 }],
+                            opacity: 0.8,
                           },
                         ]}
+                        onPress={() => {
+                          router.push(`/products?category=${category.id}`);
+                        }}
                       >
-                        <Image
-                          source={{ uri: resolveCategoryImageUri(category) }}
-                          style={styles.categoryImage}
-                          contentFit="cover"
-                          transition={200}
-                          cachePolicy="memory-disk"
-                        />
-                      </View>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.categoryText2Row,
-                          {
-                            color: theme.colors.text,
-                          },
-                        ]}
-                      >
-                        {category.name}
-                      </Text>
-                    </Pressable>
-                  ))}
+                        <View
+                          style={[
+                            styles.categoryImageContainer2Row,
+                            {
+                              backgroundColor: theme.colors.primary + "10",
+                            },
+                          ]}
+                        >
+                          <Image
+                            source={{ uri: resolveCategoryImageUri(category) }}
+                            style={styles.categoryImage}
+                            contentFit="cover"
+                            transition={200}
+                            cachePolicy="memory-disk"
+                          />
+                        </View>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.categoryText2Row,
+                            {
+                              color: theme.colors.text,
+                            },
+                          ]}
+                        >
+                          {category.name}
+                        </Text>
+                      </Pressable>
+                    ))}
                 </View>
               </View>
             ) : null}
@@ -652,11 +667,11 @@ export default function Home() {
                 {t("brands")}
               </Text>
             </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => router.push("/brands")}
               style={[
                 styles.seeAllButton,
-                { backgroundColor: theme.colors.primary + '15' }
+                { backgroundColor: theme.colors.primary + "15" },
               ]}
             >
               <Text
@@ -670,7 +685,11 @@ export default function Home() {
               >
                 {t("seeAll")}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={theme.colors.primary}
+              />
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -735,103 +754,107 @@ export default function Home() {
               <View style={{ flexDirection: "column", gap: 10 }}>
                 {/* First Row */}
                 <View style={{ flexDirection: "row", gap: 12 }}>
-                  {brands.filter((_, idx) => idx % 2 === 0).map((brand) => (
-                    <Pressable
-                      key={brand.id}
-                      style={({ pressed }) => [
-                        styles.categoryCard2Row,
-                        {
-                          backgroundColor: theme.colors.card,
-                          borderColor: theme.colors.border,
-                        },
-                        pressed && {
-                          transform: [{ scale: 0.95 }],
-                          opacity: 0.8,
-                        },
-                      ]}
-                      onPress={() => {
-                        router.push(`/products?brand=${brand.id}`);
-                      }}
-                    >
-                      <View
-                        style={[
-                          styles.categoryImageContainer2Row,
+                  {brands
+                    .filter((_, idx) => idx % 2 === 0)
+                    .map((brand) => (
+                      <Pressable
+                        key={brand.id}
+                        style={({ pressed }) => [
+                          styles.categoryCard2Row,
                           {
-                            backgroundColor: theme.colors.primary + '10',
+                            backgroundColor: theme.colors.card,
+                            borderColor: theme.colors.border,
+                          },
+                          pressed && {
+                            transform: [{ scale: 0.95 }],
+                            opacity: 0.8,
                           },
                         ]}
+                        onPress={() => {
+                          router.push(`/products?brand=${brand.id}`);
+                        }}
                       >
-                        <Image
-                          source={{ uri: resolveBrandImageUri(brand) }}
-                          style={styles.categoryImage}
-                          contentFit="cover"
-                          transition={200}
-                          cachePolicy="memory-disk"
-                        />
-                      </View>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.categoryText2Row,
-                          {
-                            color: theme.colors.text,
-                          },
-                        ]}
-                      >
-                        {brand.name}
-                      </Text>
-                    </Pressable>
-                  ))}
+                        <View
+                          style={[
+                            styles.categoryImageContainer2Row,
+                            {
+                              backgroundColor: theme.colors.primary + "10",
+                            },
+                          ]}
+                        >
+                          <Image
+                            source={{ uri: resolveBrandImageUri(brand) }}
+                            style={styles.categoryImage}
+                            contentFit="cover"
+                            transition={200}
+                            cachePolicy="memory-disk"
+                          />
+                        </View>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.categoryText2Row,
+                            {
+                              color: theme.colors.text,
+                            },
+                          ]}
+                        >
+                          {brand.name}
+                        </Text>
+                      </Pressable>
+                    ))}
                 </View>
                 {/* Second Row */}
                 <View style={{ flexDirection: "row", gap: 12 }}>
-                  {brands.filter((_, idx) => idx % 2 === 1).map((brand) => (
-                    <Pressable
-                      key={brand.id}
-                      style={({ pressed }) => [
-                        styles.categoryCard2Row,
-                        {
-                          backgroundColor: theme.colors.card,
-                          borderColor: theme.colors.border,
-                        },
-                        pressed && {
-                          transform: [{ scale: 0.95 }],
-                          opacity: 0.8,
-                        },
-                      ]}
-                      onPress={() => {
-                        router.push(`/products?brand=${brand.id}`);
-                      }}
-                    >
-                      <View
-                        style={[
-                          styles.categoryImageContainer2Row,
+                  {brands
+                    .filter((_, idx) => idx % 2 === 1)
+                    .map((brand) => (
+                      <Pressable
+                        key={brand.id}
+                        style={({ pressed }) => [
+                          styles.categoryCard2Row,
                           {
-                            backgroundColor: theme.colors.primary + '10',
+                            backgroundColor: theme.colors.card,
+                            borderColor: theme.colors.border,
+                          },
+                          pressed && {
+                            transform: [{ scale: 0.95 }],
+                            opacity: 0.8,
                           },
                         ]}
+                        onPress={() => {
+                          router.push(`/products?brand=${brand.id}`);
+                        }}
                       >
-                        <Image
-                          source={{ uri: resolveBrandImageUri(brand) }}
-                          style={styles.categoryImage}
-                          contentFit="cover"
-                          transition={200}
-                          cachePolicy="memory-disk"
-                        />
-                      </View>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.categoryText2Row,
-                          {
-                            color: theme.colors.text,
-                          },
-                        ]}
-                      >
-                        {brand.name}
-                      </Text>
-                    </Pressable>
-                  ))}
+                        <View
+                          style={[
+                            styles.categoryImageContainer2Row,
+                            {
+                              backgroundColor: theme.colors.primary + "10",
+                            },
+                          ]}
+                        >
+                          <Image
+                            source={{ uri: resolveBrandImageUri(brand) }}
+                            style={styles.categoryImage}
+                            contentFit="cover"
+                            transition={200}
+                            cachePolicy="memory-disk"
+                          />
+                        </View>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.categoryText2Row,
+                            {
+                              color: theme.colors.text,
+                            },
+                          ]}
+                        >
+                          {brand.name}
+                        </Text>
+                      </Pressable>
+                    ))}
                 </View>
               </View>
             ) : null}
@@ -839,232 +862,7 @@ export default function Home() {
         </View>
 
         {/* Horizontal Product Slider */}
-        <View style={[styles.section, styles.horizontalProductsSection]}>
-          <View
-            style={[
-              styles.sectionHeader,
-              { paddingHorizontal: layout.horizontalPadding },
-            ]}
-          >
-            <View style={styles.sectionTitleContainer}>
-              <View style={[styles.titleAccent, { backgroundColor: '#FF5722' }]} />
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  {
-                    color: theme.colors.text,
-                    fontSize: layout.sectionTitleSize,
-                  },
-                ]}
-              >
-                {t("trendingProducts") || "Trending Products"}
-              </Text>
-            </View>
-            <TouchableOpacity 
-              onPress={() => router.push("/products")}
-              style={[
-                styles.seeAllButton,
-                { backgroundColor: theme.colors.primary + '15' }
-              ]}
-            >
-              <Text
-                style={[
-                  styles.seeAll,
-                  {
-                    color: theme.colors.primary,
-                    fontSize: layout.isSmallPhone ? 13 : 14,
-                  },
-                ]}
-              >
-                {t("seeAll")}
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
-            </TouchableOpacity>
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ paddingLeft: layout.horizontalPadding }}
-            contentContainerStyle={{
-              paddingRight: layout.horizontalPadding,
-              gap: 12,
-            }}
-            onScroll={({ nativeEvent }) => {
-              const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
-              const paddingToEnd = 100; // Load more when within 100px of end
-              if (
-                contentOffset.x + layoutMeasurement.width + paddingToEnd >=
-                contentSize.width
-              ) {
-                loadHorizontalProducts();
-              }
-            }}
-            scrollEventThrottle={400}
-          >
-            {horizontalLoading && horizontalProducts.length === 0 ? (
-              // Show loading skeleton only on initial load
-              <>
-                {[1, 2, 3, 4].map((i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.horizontalProductCard,
-                      { backgroundColor: theme.colors.border },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.horizontalProductImage,
-                        { backgroundColor: theme.colors.border },
-                      ]}
-                    />
-                    <View style={styles.horizontalProductInfo}>
-                      <View
-                        style={{
-                          width: "100%",
-                          height: 12,
-                          backgroundColor: theme.colors.border,
-                          borderRadius: 4,
-                          marginBottom: 4,
-                        }}
-                      />
-                      <View
-                        style={{
-                          width: "60%",
-                          height: 10,
-                          backgroundColor: theme.colors.border,
-                          borderRadius: 4,
-                        }}
-                      />
-                    </View>
-                  </View>
-                ))}
-              </>
-            ) : (
-              <>
-                {horizontalProducts.map((product, index) => (
-                  <Pressable
-                    key={`horizontal-${product.id}-${index}`}
-                    style={({ pressed }) => [
-                      styles.horizontalProductCard,
-                      { backgroundColor: theme.colors.card },
-                      pressed && {
-                        transform: [{ scale: 0.97 }],
-                        opacity: 0.9,
-                      },
-                    ]}
-                    onPress={() => {
-                      if (!navigationInProgress.current) {
-                        navigationInProgress.current = true;
-                        router.push(`/product/${product.id}`);
-                        setTimeout(() => {
-                          navigationInProgress.current = false;
-                        }, 500);
-                      }
-                    }}
-                  >
-                    <View style={styles.horizontalProductImage}>
-                      <Image
-                        source={{
-                          uri: getProductImageUrl(
-                            product,
-                            "https://via.placeholder.com/400",
-                          ),
-                        }}
-                        style={{ width: "100%", height: "100%" }}
-                        contentFit="cover"
-                        transition={200}
-                        cachePolicy="memory-disk"
-                      />
-                      {/* Commission Badge */}
-                      {product.commission_price && (
-                        <View
-                          style={[styles.bonusTag, { backgroundColor: "green" }]}
-                        >
-                          <Text style={styles.bonusTagText}>
-                            {isRTL
-                              ? `${product.commission_price} دینار `
-                              : `${product.commission_price} IQD`}
-                          </Text>
-                        </View>
-                      )}
-                      {/* Favorite Button */}
-                      <TouchableOpacity
-                        style={[
-                          styles.favoriteButton,
-                          {
-                            backgroundColor: theme.colors.card,
-                          },
-                        ]}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleToggleFavorite(product.id);
-                        }}
-                      >
-                        <Heart
-                          size={16}
-                          color={
-                            favorites[product.id] ? "#EF4444" : theme.colors.text
-                          }
-                          fill={favorites[product.id] ? "#EF4444" : "none"}
-                          strokeWidth={2}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    <View style={styles.horizontalProductInfo}>
-                      <Text
-                        numberOfLines={2}
-                        style={[
-                          styles.horizontalProductName,
-                          {
-                            color: theme.colors.text,
-                            fontSize: layout.isSmallPhone ? 12 : 13,
-                          },
-                        ]}
-                      >
-                        {getLocalizedText(product, "name")}
-                      </Text>
-                      {product.average_rating && product.average_rating > 0 && (
-                        <View style={styles.ratingRow}>
-                          <Star size={12} color="#FFA500" fill="#FFA500" />
-                          <Text
-                            style={[
-                              styles.rating,
-                              { color: theme.colors.textSecondary, fontSize: 11 },
-                            ]}
-                          >
-                            {product.average_rating.toFixed(1)}
-                          </Text>
-                        </View>
-                      )}
-                      <View style={styles.horizontalProductPriceRow}>
-                        <Text
-                          style={[
-                            styles.horizontalProductPrice,
-                            {
-                              color: theme.colors.primary,
-                              fontSize: layout.isSmallPhone ? 14 : 15,
-                            },
-                          ]}
-                        >
-                          {isRTL
-                            ? `${product.sell_price} دینار `
-                            : `${product.sell_price} IQD`}
-                        </Text>
-                      </View>
-                    </View>
-                  </Pressable>
-                ))}
-                {/* Loading Indicator at end */}
-                {horizontalLoading && horizontalProducts.length > 0 && (
-                  <View style={styles.horizontalLoadingCard}>
-                    <Ionicons name="hourglass-outline" size={24} color={theme.colors.primary} />
-                  </View>
-                )}
-              </>
-            )}
-          </ScrollView>
-        </View>
+        <TrendingProductSlider />
 
         {/* Recently Added (last 3 days) — moved after Categories */}
         {(() => {
@@ -1091,7 +889,9 @@ export default function Home() {
                 ]}
               >
                 <View style={styles.sectionTitleContainer}>
-                  <View style={[styles.titleAccent, { backgroundColor: '#4CAF50' }]} />
+                  <View
+                    style={[styles.titleAccent, { backgroundColor: "#4CAF50" }]}
+                  />
                   <Text
                     style={[
                       styles.sectionTitle,
@@ -1199,14 +999,15 @@ export default function Home() {
                             ? `${product.sell_price} دینار `
                             : `${product.sell_price} IQD`}
                         </Text>
-                        {product.average_rating && product.average_rating > 0 && (
-                          <View style={styles.recentRating}>
-                            <Star size={12} color="#FFA500" fill="#FFA500" />
-                            <Text style={styles.recentRatingText}>
-                              {product.average_rating.toFixed(1)}
-                            </Text>
-                          </View>
-                        )}
+                        {product.average_rating &&
+                          product.average_rating > 0 && (
+                            <View style={styles.recentRating}>
+                              <Star size={12} color="#FFA500" fill="#FFA500" />
+                              <Text style={styles.recentRatingText}>
+                                {product.average_rating.toFixed(1)}
+                              </Text>
+                            </View>
+                          )}
                       </View>
                     </View>
                   </Pressable>
@@ -1217,7 +1018,12 @@ export default function Home() {
         })()}
 
         {/* Featured Products */}
-        <View style={[styles.section, { backgroundColor: theme.colors.background, paddingTop: 20 }]}>
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: theme.colors.background, paddingTop: 20 },
+          ]}
+        >
           <View
             style={[
               styles.sectionHeader,
@@ -1238,11 +1044,11 @@ export default function Home() {
                 {t("featuredProducts")}
               </Text>
             </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => router.push("/products")}
               style={[
                 styles.seeAllButton,
-                { backgroundColor: theme.colors.primary + '15' }
+                { backgroundColor: theme.colors.primary + "15" },
               ]}
             >
               <Text
@@ -1256,7 +1062,11 @@ export default function Home() {
               >
                 {t("seeAll")}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={theme.colors.primary}
+              />
             </TouchableOpacity>
           </View>
           <View
@@ -1633,35 +1443,35 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     marginBottom: 0,
     borderRadius: 0,
-    backgroundColor: '#FAFAFA',
-    position: 'relative',
-    overflow: 'hidden',
+    backgroundColor: "#FAFAFA",
+    position: "relative",
+    overflow: "hidden",
   },
   middleBannerSection: {
     marginVertical: 0,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   brandsSection: {
     paddingVertical: 20,
     paddingBottom: 24,
     marginBottom: 0,
     borderRadius: 0,
-    backgroundColor: '#F5F5F5',
-    position: 'relative',
-    overflow: 'hidden',
+    backgroundColor: "#F5F5F5",
+    position: "relative",
+    overflow: "hidden",
   },
   recentSection: {
     paddingVertical: 20,
     paddingBottom: 24,
     marginBottom: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   horizontalProductsSection: {
     paddingVertical: 20,
     paddingBottom: 24,
     marginBottom: 0,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: "#FAFAFA",
   },
   horizontalProductCard: {
     width: 180,
@@ -1675,44 +1485,41 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 160,
     backgroundColor: "#f5f5f5",
-    position: 'relative',
+    position: "relative",
   },
   horizontalProductInfo: {
     padding: 12,
     gap: 6,
   },
   horizontalProductName: {
-    fontWeight: '500',
     lineHeight: 16,
     minHeight: 32,
   },
   horizontalProductPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginTop: 4,
   },
-  horizontalProductPrice: {
-    fontWeight: '700',
-  },
+  horizontalProductPrice: {},
   loadMoreCard: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 0,
-    alignSelf: 'center',
+    alignSelf: "center",
   },
   horizontalLoadingCard: {
     width: 80,
     height: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "transparent",
   },
   sectionBackdrop: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -1720,35 +1527,35 @@ const styles = StyleSheet.create({
     zIndex: 0,
   },
   decorativeCircle: {
-    position: 'absolute',
+    position: "absolute",
     borderRadius: 1000,
     opacity: 0.03,
   },
   decorativeCircle1: {
     width: 200,
     height: 200,
-    backgroundColor: '#000000',
+    backgroundColor: "#000000",
     top: -100,
     right: -50,
   },
   decorativeCircle2: {
     width: 150,
     height: 150,
-    backgroundColor: '#000000',
+    backgroundColor: "#000000",
     bottom: -75,
     left: -75,
   },
   decorativeCircle3: {
     width: 180,
     height: 180,
-    backgroundColor: '#000000',
+    backgroundColor: "#000000",
     top: -90,
     left: -60,
   },
   decorativeCircle4: {
     width: 160,
     height: 160,
-    backgroundColor: '#000000',
+    backgroundColor: "#000000",
     bottom: -80,
     right: -80,
   },
@@ -1772,7 +1579,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "600",
     letterSpacing: -0.3,
     color: "#1a1a1a",
   },
@@ -1787,19 +1593,17 @@ const styles = StyleSheet.create({
   seeAll: {
     color: "#4a90e2",
     fontSize: 14,
-    fontWeight: "500",
   },
   newBadge: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: "#4CAF50",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
     marginLeft: 8,
   },
   newBadgeText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 10,
-    fontWeight: '700',
     letterSpacing: 0.5,
   },
   categoriesScroll: {
@@ -1843,7 +1647,6 @@ const styles = StyleSheet.create({
   },
   categoryText2Row: {
     fontSize: 11,
-    fontWeight: "600",
     textAlign: "center",
     width: "100%",
     color: "#2c3e50",
@@ -1998,63 +1801,58 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 140,
     backgroundColor: "#f5f5f5",
-    position: 'relative',
+    position: "relative",
   },
   recentBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     left: 8,
-    backgroundColor: '#4CAF50',
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: "#4CAF50",
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
   recentBadgeText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 9,
-    fontWeight: '700',
     letterSpacing: 0.5,
   },
   quickAddButton: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 8,
     right: 8,
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   recentInfo: {
     padding: 12,
     gap: 6,
   },
   recentProductName: {
-    fontWeight: '500',
     lineHeight: 16,
     minHeight: 32,
   },
   recentPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginTop: 2,
   },
-  recentPrice: {
-    fontWeight: '700',
-  },
+  recentPrice: {},
   recentRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 3,
   },
   recentRatingText: {
     fontSize: 11,
-    color: '#666',
-    fontWeight: '600',
+    color: "#666",
   },
 });

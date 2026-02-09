@@ -336,7 +336,7 @@ export default function Profile() {
           >
             <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", flex: 1, gap: 12 }}>
               <Ionicons name="log-out-outline" size={22} color="#FF3B30" />
-              <Text style={[styles.logoutText, { flex: 1 }]}>{t("logout")}</Text>
+              <Text style={[styles.logoutText, { flex: 1, textAlign: isRTL ? "right" : "left" }]}>{t("logout")}</Text>
             </View>
             <Ionicons
               name={isRTL ? "chevron-back" : "chevron-forward"}
@@ -397,7 +397,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
@@ -429,13 +428,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: "rgba(255,255,255,0.9)",
     marginBottom: 3,
-    fontWeight: '500',
     letterSpacing: 0.3,
   },
   walletBalance: {
     fontSize: 20,
     color: "#fff",
-    fontWeight: '700',
     letterSpacing: -0.3,
   },
   walletBottom: {
@@ -466,7 +463,6 @@ const styles = StyleSheet.create({
   walletButtonText: {
     fontSize: 10,
     color: "#fff",
-    fontWeight: '600',
     textAlign: "center",
   },
   showButton: {
@@ -517,7 +513,6 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 17,
-    fontWeight: '600',
     color: "#1a1a1a",
     marginBottom: 2,
   },
@@ -536,7 +531,6 @@ const styles = StyleSheet.create({
   loginButtonSmallText: {
     color: "#fff",
     fontSize: 13,
-    fontWeight: '600',
   },
   statsContainer: {
     flexDirection: "row",
@@ -587,7 +581,6 @@ const styles = StyleSheet.create({
   },
   menuTitle: {
     fontSize: 15,
-    fontWeight: '600',
     color: "#1a1a1a",
   },
   menuSubtitle: {
@@ -596,7 +589,6 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     fontSize: 15,
-    fontWeight: '600',
     color: "#FF3B30",
   },
   version: {

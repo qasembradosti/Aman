@@ -11,7 +11,10 @@ const Order = {
         'users.first_name as user_first_name',
         'users.last_name as user_last_name',
         'users.phone as user_phone',
-        db.raw('(SELECT COUNT(*) FROM order_items WHERE order_items.order_id = orders.id) as items_count')
+        db.raw('(SELECT COUNT(*) FROM order_items WHERE order_items.order_id = orders.id) as items_count'),
+        db.raw(
+          '(SELECT COALESCE(SUM(order_items.commission_price * order_items.quantity), 0) FROM order_items WHERE order_items.order_id = orders.id) as commission_total'
+        )
       )
       .leftJoin('users', 'orders.user_id', 'users.id');
 

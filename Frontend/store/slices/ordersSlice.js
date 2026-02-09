@@ -101,6 +101,7 @@ const ordersSlice = createSlice({
           total: order.total_amount || order.total,
           date: order.created_at || order.date,
           items: order.items_count || order.items || 0,
+          commission_total: order.commission_total,
           products: [], // Products list not included in backend list endpoint
           // Keep original fields too for compatibility
         }));

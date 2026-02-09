@@ -560,7 +560,7 @@ export default function ProductDetail() {
             }
           >
             <Ionicons
-              name={isRTL ? "arrow-forward" : "arrow-back"}
+              name={isRTL ? "arrow-back" : "arrow-forward"}
               size={24}
               color={theme.colors.text}
             />
@@ -1137,7 +1137,7 @@ export default function ProductDetail() {
                     {
                       color: theme.colors.text,
                       fontSize: layout.typography.xl,
-                      direction:isRTL ? "rtl" : "ltr",
+                      direction: isRTL ? "rtl" : "ltr",
                     },
                   ]}
                 >
@@ -1172,7 +1172,6 @@ export default function ProductDetail() {
                   lineHeight: layout.typography.md * 1.6,
                   marginTop: layout.spacing.sm,
                   direction: isRTL ? "rtl" : "ltr",
-                  textAlign,
                 },
               ]}
             >
@@ -1192,62 +1191,6 @@ export default function ProductDetail() {
               },
             ]}
           >
-            {/* Key Features */}
-            <View style={[styles.subsection, { marginTop: 0 }]}>
-              <Text
-                style={[
-                  styles.subsectionTitle,
-                  {
-                    color: theme.colors.text,
-                    fontSize: layout.typography.lg,
-                    marginBottom: layout.spacing.sm,
-                    textAlign,
-                  },
-                ]}
-              >
-                {t("keyFeatures") || "Key Features"}
-              </Text>
-              {product.features.map((feature, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.featureItem,
-                    {
-                      flexDirection: isRTL ? "row-reverse" : "row",
-                      marginBottom: layout.spacing.sm,
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.featureBullet,
-                      { backgroundColor: theme.colors.primary + "30" },
-                    ]}
-                  >
-                    <Ionicons
-                      name="checkmark"
-                      size={14}
-                      color={theme.colors.primary}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.featureText,
-                      {
-                        color: theme.colors.text,
-                        fontSize: layout.typography.md,
-                        marginLeft: isRTL ? 0 : layout.spacing.sm,
-                        marginRight: isRTL ? layout.spacing.sm : 0,
-                        flex: 1,
-                        textAlign,
-                      },
-                    ]}
-                  >
-                    {feature}
-                  </Text>
-                </View>
-              ))}
-            </View>
 
             {/* Specifications */}
             <View style={[styles.subsection, { marginTop: layout.spacing.lg }]}>
