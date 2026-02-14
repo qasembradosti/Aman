@@ -60,7 +60,7 @@ export const getBannerById = async (req, res) => {
 // Create banner
 export const createBanner = async (req, res) => {
   try {
-    const { title, subtitle, link_url, is_active, display_order } = req.body;
+    const { title, title_ar, title_ku, subtitle, subtitle_ar, subtitle_ku, link_url, is_active, display_order } = req.body;
 
     if (!title) {
       return res.status(400).json({
@@ -72,7 +72,7 @@ export const createBanner = async (req, res) => {
     // Check if image file was uploaded
     let image_url = null;
     if (req.file) {
-      image_url = `/images/products/${req.file.filename}`;
+      image_url = `/images/${req.file.filename}`;
     } else if (req.body.image_url) {
       image_url = req.body.image_url;
     } else {
@@ -84,7 +84,11 @@ export const createBanner = async (req, res) => {
 
     const bannerData = {
       title,
+      title_ar: title_ar || null,
+      title_ku: title_ku || null,
       subtitle: subtitle || null,
+      subtitle_ar: subtitle_ar || null,
+      subtitle_ku: subtitle_ku || null,
       image_url,
       link_url: link_url || null,
       is_active: is_active !== undefined ? is_active : true,
@@ -110,7 +114,7 @@ export const createBanner = async (req, res) => {
 export const updateBanner = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, subtitle, link_url, is_active, display_order } = req.body;
+    const { title, title_ar, title_ku, subtitle, subtitle_ar, subtitle_ku, link_url, is_active, display_order } = req.body;
 
     const existingBanner = await Banner.getById(id);
     if (!existingBanner) {
@@ -122,14 +126,18 @@ export const updateBanner = async (req, res) => {
 
     const bannerData = {};
     if (title !== undefined) bannerData.title = title;
+    if (title_ar !== undefined) bannerData.title_ar = title_ar;
+    if (title_ku !== undefined) bannerData.title_ku = title_ku;
     if (subtitle !== undefined) bannerData.subtitle = subtitle;
+    if (subtitle_ar !== undefined) bannerData.subtitle_ar = subtitle_ar;
+    if (subtitle_ku !== undefined) bannerData.subtitle_ku = subtitle_ku;
     if (link_url !== undefined) bannerData.link_url = link_url;
     if (is_active !== undefined) bannerData.is_active = is_active;
     if (display_order !== undefined) bannerData.display_order = display_order;
     
     // Handle image update
     if (req.file) {
-      bannerData.image_url = `/images/products/${req.file.filename}`;
+      bannerData.image_url = `/images/${req.file.filename}`;
     } else if (req.body.image_url !== undefined) {
       bannerData.image_url = req.body.image_url;
     }

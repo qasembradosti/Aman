@@ -96,7 +96,7 @@ export default function Products() {
   const router = useRouter();
   const { category: routeCategory, brand: routeBrand } = useLocalSearchParams();
   const dispatch = useDispatch();
-  const { t, isRTL, language } = useLanguage();
+  const { t, isRTL, language, locale } = useLanguage();
   const { theme } = useTheme();
   const layout = useResponsiveLayout();
   const navigationInProgress = useRef(false);
@@ -144,19 +144,20 @@ export default function Products() {
     if (selectedBrand && selectedBrand !== "all") {
       fetchParams.brand_id = selectedBrand;
     }
-    
-    dispatch(fetchProducts(fetchParams)).unwrap()
+
+    dispatch(fetchProducts(fetchParams))
+      .unwrap()
       .then((response) => {
         const dataLength = response?.data?.length || response?.length || 0;
         setOffset(pageSize);
         setHasMore(dataLength >= pageSize);
       })
       .catch((error) => {
-        console.error('Error fetching products:', error);
+        console.error("Error fetching products:", error);
         setOffset(pageSize);
         setHasMore(false);
       });
-    
+
     dispatch(fetchBrands({ limit: 100 }));
     dispatch(fetchCategories({ limit: 100 }));
   }, [dispatch, selectedCategory, selectedBrand]);
@@ -164,23 +165,24 @@ export default function Products() {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     const fetchParams = { limit: pageSize, offset: 0 };
-    
+
     if (selectedCategory && selectedCategory !== "all") {
       fetchParams.category_id = selectedCategory;
     }
-    
+
     if (selectedBrand && selectedBrand !== "all") {
       fetchParams.brand_id = selectedBrand;
     }
-    
-    dispatch(fetchProducts(fetchParams)).unwrap()
+
+    dispatch(fetchProducts(fetchParams))
+      .unwrap()
       .then((response) => {
         const dataLength = response?.data?.length || response?.length || 0;
         setOffset(pageSize);
         setHasMore(dataLength >= pageSize);
       })
       .catch((error) => {
-        console.error('Error refreshing products:', error);
+        console.error("Error refreshing products:", error);
       })
       .finally(() => {
         setRefreshing(false);
@@ -192,18 +194,19 @@ export default function Products() {
 
     setLoadingMore(true);
     const fetchParams = { limit: pageSize, offset, append: true };
-    
+
     if (selectedCategory && selectedCategory !== "all") {
       fetchParams.category_id = selectedCategory;
     }
-    
+
     if (selectedBrand && selectedBrand !== "all") {
       fetchParams.brand_id = selectedBrand;
     }
 
-    console.log('Loading more products with params:', fetchParams);
+    console.log("Loading more products with params:", fetchParams);
 
-    dispatch(fetchProducts(fetchParams)).unwrap()
+    dispatch(fetchProducts(fetchParams))
+      .unwrap()
       .then((response) => {
         const newItems = response?.data || response || [];
         const dataLength = newItems.length;
@@ -212,13 +215,21 @@ export default function Products() {
         setHasMore(dataLength >= pageSize);
       })
       .catch((error) => {
-        console.error('Error loading more products:', error);
+        console.error("Error loading more products:", error);
         setHasMore(false);
       })
       .finally(() => {
         setLoadingMore(false);
       });
-  }, [dispatch, loadingMore, hasMore, offset, selectedCategory, selectedBrand, productsLoading]);
+  }, [
+    dispatch,
+    loadingMore,
+    hasMore,
+    offset,
+    selectedCategory,
+    selectedBrand,
+    productsLoading,
+  ]);
 
   const handleScroll = (event) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
@@ -261,35 +272,11 @@ export default function Products() {
     return undefined;
   };
 
-  const getLocalizedProductName = (product, lang) => {
-    if (!product) return "Product";
-
-    try {
-      let name = "";
-
-      // Check if localized fields exist
-      const titleAr = product?.name_ar?.trim();
-      const titleEn = product?.name_en?.trim();
-      const titleKu = product?.name_ku?.trim();
-      const titleOm = product?.name_om?.trim();
-      // Determine language and set name with fallbacks
-      if (lang === "ar") {
-        name = titleAr || titleEn || titleKu;
-      } else if (lang === "en") {
-        name = titleEn || titleAr || titleKu;
-      } else if (lang === "ku") {
-        name = titleKu || titleEn || titleAr;
-      } else if (lang === "om") {
-        name = titleOm || titleEn || titleAr;
-      } else {
-        name = titleEn || titleAr || titleKu;
-      }
-
-      return name || "Product";
-    } catch (error) {
-      console.warn("Error getting localized product name:", error);
-      return product?.title || "Product";
-    }
+  const getLocalizedProductName = (product, field) => {
+    // Ensure language has a default fallback
+    const lang = locale;
+    const localizedField = `${field}_${lang}`;
+    return product[localizedField] || product[field] || "";
   };
 
   const getFilteredProducts = useMemo(() => {
@@ -301,7 +288,7 @@ export default function Products() {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((product) => {
-        const name = getLocalizedProductName(product, language).toLowerCase();
+        const name = getLocalizedProductName(product, "name").toLowerCase();
         const description = (product.description || "").toLowerCase();
         return name.includes(query) || description.includes(query);
       });
@@ -322,12 +309,7 @@ export default function Products() {
     }
 
     return filtered;
-  }, [
-    products,
-    searchQuery,
-    sortBy,
-    language,
-  ]);
+  }, [products, searchQuery, sortBy, language]);
 
   const renderStars = (rating) => {
     const stars = [];
@@ -368,7 +350,15 @@ export default function Products() {
       ]}
     >
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: theme.colors.card,
+            flexDirection: isRTL ? "row-reverse" : "row",
+          },
+        ]}
+      >
         <TouchableOpacity
           onPress={() =>
             router.canGoBack?.()
@@ -383,7 +373,12 @@ export default function Products() {
             color={theme.colors.text}
           />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.colors.text, textAlign: "center" }]}>
+        <Text
+          style={[
+            styles.headerTitle,
+            { color: theme.colors.text, textAlign: "center" },
+          ]}
+        >
           {t("allProducts") || "All Products"}
         </Text>
         <TouchableOpacity
@@ -524,7 +519,9 @@ export default function Products() {
                       <View
                         style={[
                           styles.bonusTag,
-                          { backgroundColor: theme.colors.success || "#34C759" },
+                          {
+                            backgroundColor: theme.colors.success || "#34C759",
+                          },
                         ]}
                       >
                         <Text style={styles.bonusTagText}>
@@ -548,33 +545,8 @@ export default function Products() {
                       },
                     ]}
                   >
-                    {getLocalizedProductName(product, language)}
+                    {getLocalizedProductName(product, "name")}
                   </Text>
-
-                  <View
-                    style={[
-                      styles.ratingRow,
-                      { flexDirection: isRTL ? "row-reverse" : "row" },
-                    ]}
-                  >
-                    <View style={styles.starsRow}>
-                      {renderStars(product.rating || 4.0)}
-                    </View>
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.ratingText,
-                        {
-                          color: theme.colors.textSecondary,
-                          marginLeft: isRTL ? 0 : 6,
-                          marginRight: isRTL ? 6 : 0,
-                        },
-                      ]}
-                    >
-                      {product.rating || 4.0}
-                    </Text>
-                  </View>
-
                   <View
                     style={[
                       styles.bottomRow,
@@ -612,7 +584,7 @@ export default function Products() {
                         e.stopPropagation();
                         handleShareProduct(
                           product.id,
-                          getLocalizedProductName(product, language),
+                          getLocalizedProductName(product, "name"),
                         );
                       }}
                     >
@@ -689,11 +661,7 @@ export default function Products() {
             ]}
           >
             {/* Modal Header */}
-            <View
-              style={[
-                styles.modalHeader,
-              ]}
-            >
+            <View style={[styles.modalHeader]}>
               <View
                 style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
               >
@@ -990,11 +958,7 @@ export default function Products() {
             </ScrollView>
 
             {/* Modal Footer Actions */}
-            <View
-              style={[
-                styles.modalFooter,
-              ]}
-            >
+            <View style={[styles.modalFooter]}>
               <TouchableOpacity
                 style={[
                   styles.modalButton,

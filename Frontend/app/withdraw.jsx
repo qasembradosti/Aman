@@ -199,6 +199,7 @@ export default function WithdrawScreen() {
             styles.header,
             {
               backgroundColor: theme.colors.card,
+              flexDirection: isRTL ? "row-reverse" : "row",
             },
           ]}
         >
@@ -207,7 +208,7 @@ export default function WithdrawScreen() {
             style={styles.backButton}
           >
             <Ionicons
-              name={isRTL ? "arrow-back" : "arrow-forward"}
+              name={isRTL ? "arrow-forward" : "arrow-back"}
               size={24}
               color={theme.colors.text}
             />

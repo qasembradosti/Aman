@@ -29,7 +29,7 @@ export default function CategoryScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
   const navigationInProgress = useRef(false);
-  const { t, isRTL } = useLanguage();
+  const { t, isRTL, locale } = useLanguage();
   const { theme } = useTheme();
   const API_BASE_URL = getApiBaseUrl();
 
@@ -97,9 +97,10 @@ export default function CategoryScreen() {
 
   const handleShareProduct = async (item) => {
     try {
+      const itemName = getLocalizedName(item);
       await Share.share({
-        title: item.name,
-        message: `Check out this product: ${item.name}`,
+        title: itemName,
+        message: `Check out this product: ${itemName}`,
         url: `https://yourapp.com/product/${item.id}`,
       });
     } catch (_e) {
@@ -107,7 +108,40 @@ export default function CategoryScreen() {
     }
   };
 
-  const renderItem = ({ item }) => (
+  // Helper function to get localized product name
+  const getLocalizedName = (product) => {
+    const lang = locale || "en";
+    return product[`name_${lang}`] || product.name || "";
+  };
+
+  // Helper function to get localized category name
+  const getLocalizedCategoryName = (cat) => {
+    const lang = locale || "en";
+    return cat[`name_${lang}`] || cat.name || "";
+  };
+
+  // Helper function to calculate final price
+  const calculateFinalPrice = (product) => {
+    const sell = Number(product?.sell_price) || 0;
+    const discount = Number(product?.discount) || 0;
+    const type = (product?.discount_type || "").toLowerCase();
+    
+    if (discount > 0) {
+      if (type === "percentage" || type === "parsentage" || type === "percent") {
+        const savedAmount = (sell * discount) / 100;
+        return Math.max(0, sell - savedAmount);
+      } else if (type === "fixed") {
+        return Math.max(0, sell - discount);
+      }
+    }
+    return sell;
+  };
+
+  const renderItem = ({ item }) => {
+    const finalPrice = Math.round(calculateFinalPrice(item));
+    const itemName = getLocalizedName(item);
+    
+    return (
     <Pressable
       style={({ pressed }) => [
         styles.card,
@@ -139,13 +173,13 @@ export default function CategoryScreen() {
       <View style={styles.cardInfo}>
         {/* Name */}
         <Text numberOfLines={2} style={[styles.name, { color: theme.colors.text }]}>
-          {item.name}
+          {itemName}
         </Text>
 
         {/* Price and Share at bottom */}
         <View style={styles.rowBetween}>
           <Text style={[styles.price, { color: theme.colors.primary }]}>
-            {item.price} IQD
+            {finalPrice.toLocaleString()} {isRTL ? "د" : "IQD"}
           </Text>
           <TouchableOpacity
             style={[styles.shareBtn, { backgroundColor: theme.colors.primary }]}
@@ -159,7 +193,8 @@ export default function CategoryScreen() {
         </View>
       </View>
     </Pressable>
-  );
+    );
+  };
 
   return (
     <SafeAreaView
@@ -171,13 +206,13 @@ export default function CategoryScreen() {
       <View style={[styles.header, { backgroundColor: theme.colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <TouchableOpacity onPress={() => router.canGoBack?.() ? router.back() : router.replace('/(tabs)/home')} style={styles.backBtn}>
           <Ionicons
-            name={isRTL ? "arrow-back" : "arrow-forward"}
+            name={isRTL ? "arrow-forward" : "arrow-back"}
             size={22}
             color={theme.colors.text}
           />
         </TouchableOpacity>
         <Text style={[styles.title, { color: theme.colors.text }]}>
-          {category?.name || t(String(slug))}
+          {category ? getLocalizedCategoryName(category) : t(String(slug))}
         </Text>
         <View style={{ width: 44 }} />
       </View>

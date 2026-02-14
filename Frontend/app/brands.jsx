@@ -19,7 +19,10 @@ import { getApiBaseUrl } from "../utils/apiConfig";
 import Text from "@/components/ui/Text";
 
 const { width } = Dimensions.get("window");
-const CARD_WIDTH = (width - 44) / 2;
+const HORIZONTAL_PADDING = 16;
+const CARD_GAP = 12;
+const COLUMNS = 3;
+const CARD_WIDTH = (width - (HORIZONTAL_PADDING * 2) - (CARD_GAP * (COLUMNS - 1))) / COLUMNS;
 
 export default function BrandsScreen() {
   const [brands, setBrands] = useState([]);
@@ -78,7 +81,6 @@ export default function BrandsScreen() {
 
   const renderBrandItem = ({ item, index }) => {
     const brandImage = resolveBrandImageUri(item);
-    const isLeftCard = isRTL ? index % 2 === 1 : index % 2 === 0;
 
     return (
       <TouchableOpacity
@@ -86,31 +88,35 @@ export default function BrandsScreen() {
           styles.brandCard,
           {
             backgroundColor: theme.colors.card,
+            borderColor: theme.colors.border,
             width: CARD_WIDTH,
-            marginLeft: isLeftCard ? 0 : 12,
-            marginRight: isLeftCard ? 12 : 0,
           },
         ]}
         onPress={() => handleBrandPress(item)}
         activeOpacity={0.7}
       >
-        {brandImage ? (
-          <Image
-            source={{ uri: brandImage }}
-            style={styles.brandLogo}
-            contentFit="contain"
-            transition={200}
-            cachePolicy="memory-disk"
-          />
-        ) : (
-          <View style={styles.placeholderLogo}>
+        <View
+          style={[
+            styles.brandLogoContainer,
+            { backgroundColor: theme.colors.primary + "10" },
+          ]}
+        >
+          {brandImage ? (
+            <Image
+              source={{ uri: brandImage }}
+              style={styles.brandLogo}
+              contentFit="cover"
+              transition={200}
+              cachePolicy="memory-disk"
+            />
+          ) : (
             <Ionicons
               name="storefront-outline"
-              size={40}
+              size={35}
               color={theme.colors.textSecondary}
             />
-          </View>
-        )}
+          )}
+        </View>
         
         <Text
           style={[styles.brandName, { color: theme.colors.text }]}
@@ -145,7 +151,7 @@ export default function BrandsScreen() {
       edges={["top"]}
     >
       {/* Modern Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.card, flexDirection: !isRTL ? "row-reverse" : "row" }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={[
@@ -219,7 +225,8 @@ export default function BrandsScreen() {
         data={filteredBrands}
         renderItem={renderBrandItem}
         keyExtractor={(item) => item.id.toString()}
-        numColumns={2}
+        numColumns={3}
+        columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
@@ -366,29 +373,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 24,
   },
+  columnWrapper: {
+    justifyContent: "flex-start",
+    gap: 12,
+    marginBottom: 12,
+  },
   brandCard: {
-    borderRadius: 16,
-    marginBottom: 16,
-    padding: 24,
     alignItems: "center",
+    borderRadius: 18,
+    borderWidth: 0,
+    padding: 12,
+    backgroundColor: "#fff",
+  },
+  brandLogoContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    overflow: "hidden",
+    marginBottom: 8,
     justifyContent: "center",
-    minHeight: 140,
+    alignItems: "center",
+    borderWidth: 3,
+    borderColor: "#fff",
   },
   brandLogo: {
-    width: 70,
-    height: 70,
-    marginBottom: 12,
-  },
-  placeholderLogo: {
-    width: 70,
-    height: 70,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
+    width: "100%",
+    height: "100%",
   },
   brandName: {
-    fontSize: 14,
+    fontSize: 12,
     textAlign: "center",
+    width: "100%",
   },
   // Empty State
   emptyContainer: {

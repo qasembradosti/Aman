@@ -16,6 +16,7 @@ import {
   X,
   Wallet,
   DollarSign,
+  Printer,
 } from "lucide-react";
 import {
   Dialog,
@@ -61,6 +62,53 @@ const Orders = () => {
   useEffect(() => {
     dispatch(fetchOrders());
   }, [dispatch]);
+
+  useEffect(() => {
+    // Add print styles when component mounts
+    const styleId = 'print-styles';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          .print-content, .print-content * {
+            visibility: visible;
+          }
+          .print-content {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 0;
+          }
+          .print-header {
+            padding: 1.5cm 2cm 1cm 2cm;
+            border-bottom: 3px solid #000;
+            margin-bottom: 0;
+          }
+          .print-body {
+            padding: 1.5cm 2cm;
+          }
+          @page {
+            size: A4;
+            margin: 0;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+          }
+          .print-section {
+            page-break-inside: avoid;
+            margin-bottom: 1.5rem;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
 
   const openDetail = async (order) => {
     setShowDetailModal(true);
@@ -147,6 +195,10 @@ const Orders = () => {
 
   const formatCurrency = (amount) => {
     return `${Number(amount || 0).toLocaleString()} IQD`;
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   return (
@@ -288,22 +340,67 @@ const Orders = () => {
 
       {/* Order Detail Modal */}
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl print:max-w-none print:w-full print:shadow-none print:border-none">
+          <DialogHeader className="print:hidden">
             <DialogTitle>Order Details #{selectedOrder?.id}</DialogTitle>
             <DialogClose onClick={closeDetailModal} />
           </DialogHeader>
 
-          <DialogBody className="space-y-6 max-h-[70vh] overflow-y-auto">
+          {/* Print Header - Only visible when printing */}
+          <div className="hidden print:block print-header mb-8">
+            <div className="flex items-center justify-center gap-4 mb-6">
+              {/* Logo placeholder - replace src with actual logo path */}
+              <div className="w-20 h-20 bg-linear-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center text-white font-bold text-2xl shadow-lg">
+                A
+              </div>
+              <div className="text-left">
+                <h1 className="text-4xl font-bold text-gray-900 leading-none">AMAN STORE</h1>
+                <p className="text-gray-600 text-sm mt-1">E-Commerce Platform</p>
+              </div>
+            </div>
+            
+            <div className="text-center mb-6 pb-4 border-b-2 border-gray-900">
+              <h2 className="text-2xl font-bold text-gray-900">INVOICE</h2>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-8">
+              <div>
+                <h3 className="text-xs font-bold text-gray-700 uppercase mb-2">Invoice To:</h3>
+                <p className="text-sm font-semibold text-gray-900">
+                  {selectedOrder?.user_first_name && selectedOrder?.user_last_name
+                    ? `${selectedOrder.user_first_name} ${selectedOrder.user_last_name}`
+                    : "N/A"}
+                </p>
+                <p className="text-sm text-gray-600">{selectedOrder?.user_email || "N/A"}</p>
+              </div>
+              <div className="text-right">
+                <h3 className="text-xs font-bold text-gray-700 uppercase mb-2">Invoice Details:</h3>
+                <p className="text-sm text-gray-900">
+                  <span className="font-semibold">Order Number:</span> #{selectedOrder?.id}
+                </p>
+                <p className="text-sm text-gray-900">
+                  <span className="font-semibold">Date:</span> {new Date(selectedOrder?.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+                <p className="text-sm text-gray-900">
+                  <span className="font-semibold">Status:</span> 
+                  <span className="ml-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-100 uppercase">
+                    {selectedOrder?.status}
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <DialogBody className="space-y-6 max-h-[70vh] overflow-y-auto print:max-h-full print:overflow-visible print:space-y-0 print-content">
             {loadingDetail ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
               </div>
             ) : (
               selectedOrder && (
-                <>
+                <div className="print:print-body">
                   {/* Order Info */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4 print-section">
                     <div>
                       <Label className="text-gray-500">Order Date</Label>
                       <p className="text-sm font-medium">
@@ -324,7 +421,7 @@ const Orders = () => {
                   </div>
 
                   {/* Customer Info */}
-                  <div className="border-t pt-4">
+                  <div className="border-t pt-4 print-section">
                     <h4 className="font-medium text-gray-900 mb-3">
                       Customer Information
                     </h4>
@@ -386,7 +483,7 @@ const Orders = () => {
                       </div>
 
                       {/* Location Map */}
-                      <div className="col-span-2 mt-3">
+                      <div className="col-span-2 mt-3 print:hidden">
                         {(() => {
                           try {
                             const addr =
@@ -429,15 +526,19 @@ const Orders = () => {
                           return null;
                         })()}
                       </div>
+
+
                     </div>
                   </div>
 
                   {/* Order Items */}
-                  <div className="border-t pt-4">
+                  <div className="border-t pt-4 print-section">
                     <h4 className="font-medium text-gray-900 mb-3">
                       Order Items
                     </h4>
-                    <div className="space-y-3">
+                    
+                    {/* Mobile/Screen View */}
+                    <div className="space-y-3 print:hidden">
                       {selectedOrder.items?.map((item, index) => (
                         <div
                           key={index}
@@ -479,14 +580,38 @@ const Orders = () => {
                         </p>
                       )}
                     </div>
+
+                    {/* Print Table View */}
+                    <div className="hidden print:block">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b-2 border-gray-900">
+                            <th className="text-left py-2 font-semibold text-gray-900">Product</th>
+                            <th className="text-center py-2 font-semibold text-gray-900">Quantity</th>
+                            <th className="text-right py-2 font-semibold text-gray-900">Unit Price</th>
+                            <th className="text-right py-2 font-semibold text-gray-900">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedOrder.items?.map((item, index) => (
+                            <tr key={index} className="border-b border-gray-200">
+                              <td className="py-3 text-sm">{item.product_name}</td>
+                              <td className="py-3 text-sm text-center">{item.quantity}</td>
+                              <td className="py-3 text-sm text-right">{formatCurrency(item.price)}</td>
+                              <td className="py-3 text-sm text-right font-medium">{formatCurrency(item.quantity * item.price)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
 
                   {/* Order Summary */}
-                  <div className="border-t pt-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Subtotal</span>
-                        <span className="font-medium">
+                  <div className="border-t pt-4 print-section print:mb-20">
+                    <div className="space-y-2 max-w-md ml-auto">
+                      <div className="flex justify-between text-sm py-1">
+                        <span className="text-gray-600">Subtotal:</span>
+                        <span className="font-medium text-gray-900">
                           {formatCurrency(
                             selectedOrder.subtotal ||
                               selectedOrder.total_amount,
@@ -494,24 +619,24 @@ const Orders = () => {
                         </span>
                       </div>
                       {selectedOrder.shipping_cost > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Shipping</span>
-                          <span className="font-medium">
+                        <div className="flex justify-between text-sm py-1">
+                          <span className="text-gray-600">Shipping:</span>
+                          <span className="font-medium text-gray-900">
                             {formatCurrency(selectedOrder.shipping_cost)}
                           </span>
                         </div>
                       )}
                       {selectedOrder.discount > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Discount</span>
+                        <div className="flex justify-between text-sm py-1">
+                          <span className="text-gray-600">Discount:</span>
                           <span className="font-medium text-green-600">
                             -{formatCurrency(selectedOrder.discount)}
                           </span>
                         </div>
                       )}
-                      <div className="flex justify-between text-base font-semibold border-t pt-2">
-                        <span>Total</span>
-                        <span>
+                      <div className="flex justify-between text-lg font-bold border-t-2 border-gray-900 pt-3 mt-2">
+                        <span className="text-gray-900">Total Amount:</span>
+                        <span className="text-gray-900">
                           {formatCurrency(selectedOrder.total_amount)}
                         </span>
                       </div>
@@ -520,7 +645,7 @@ const Orders = () => {
 
                   {/* Commission Section */}
                   {calculateTotalCommission(selectedOrder) > 0 && (
-                    <div className="border-t pt-4">
+                    <div className="border-t pt-4 print-section print:hidden">
                       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
@@ -540,7 +665,7 @@ const Orders = () => {
                           !selectedOrder.commission_withdrawn && (
                             <Button
                               onClick={handleWithdrawCommission}
-                              className="w-full bg-green-600 hover:bg-green-700 text-white"
+                              className="w-full bg-green-600 hover:bg-green-700 text-white print:hidden"
                             >
                               <Wallet className="w-4 h-4 mr-2" />
                               Send Commission to User's Wallet
@@ -591,7 +716,7 @@ const Orders = () => {
 
                   {/* Payment Info */}
                   {selectedOrder.payment_method && (
-                    <div className="border-t pt-4">
+                    <div className="border-t pt-4 print-section print:hidden">
                       <h4 className="font-medium text-gray-900 mb-3">
                         Payment Information
                       </h4>
@@ -613,12 +738,16 @@ const Orders = () => {
                       </div>
                     </div>
                   )}
-                </>
+                </div>
               )
             )}
           </DialogBody>
 
-          <DialogFooter>
+          <DialogFooter className="print:hidden">
+            <Button variant="outline" onClick={handlePrint}>
+              <Printer className="w-4 h-4 mr-2" />
+              Print
+            </Button>
             <Button variant="outline" onClick={closeDetailModal}>
               Close
             </Button>

@@ -13,12 +13,16 @@ import { useTheme } from "../utils/ThemeContext";
 import { LinearGradient } from "expo-linear-gradient";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchActiveBanners } from "../store/slices/bannersSlice";
+import { getApiBaseUrl } from "../utils/apiConfig";
+import { useLanguage } from "../utils/LanguageContext";
 
 const { width: screenWidth } = Dimensions.get("window");
 const CARD_WIDTH = screenWidth - 40; // Account for container margins
+const API_BASE = getApiBaseUrl();
 
 export default function BannerSlider() {
   const { theme, isDark } = useTheme();
+  const { locale } = useLanguage();
   const dispatch = useDispatch();
   const { banners, loading } = useSelector((state) => state.banners);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -88,27 +92,48 @@ export default function BannerSlider() {
         decelerationRate="fast"
         style={styles.scrollView}
       >
-        {banners.map((banner) => (
-          <Pressable key={banner.id} style={styles.bannerContainer}>
-            <Image
-              source={{ uri: banner.image_url || banner.imageUrl || "" }}
-              style={styles.bannerImage}
-              contentFit="cover"
-              transition={200}
-              cachePolicy="memory-disk"
-            />
-            <LinearGradient
-              colors={["transparent", "rgba(0,0,0,0.7)"]}
-              style={styles.gradient}
-            />
-            <View style={styles.textContainer}>
-              <Text style={styles.bannerTitle}>{banner.title || ""}</Text>
-              {banner.subtitle && (
-                <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
-              )}
-            </View>
-          </Pressable>
-        ))}
+        {banners.map((banner) => {
+          // Construct full image URL
+          const imageUrl = banner.image_url?.startsWith('http') 
+            ? banner.image_url 
+            : `${API_BASE}${banner.image_url || ""}`;
+
+          // Get localized text
+          const getLocalizedText = (field) => {
+            if (locale === 'ar' && banner[`${field}_ar`]) {
+              return banner[`${field}_ar`];
+            }
+            if (locale === 'ku' && banner[`${field}_ku`]) {
+              return banner[`${field}_ku`];
+            }
+            return banner[field] || "";
+          };
+
+          const title = getLocalizedText('title');
+          const subtitle = getLocalizedText('subtitle');
+
+          return (
+            <Pressable key={banner.id} style={styles.bannerContainer}>
+              <Image
+                source={{ uri: imageUrl }}
+                style={styles.bannerImage}
+                contentFit="cover"
+                transition={200}
+                cachePolicy="memory-disk"
+              />
+              <LinearGradient
+                colors={["transparent", "rgba(0,0,0,0.7)"]}
+                style={styles.gradient}
+              />
+              <View style={styles.textContainer}>
+                <Text style={styles.bannerTitle}>{title}</Text>
+                {subtitle && (
+                  <Text style={styles.bannerSubtitle}>{subtitle}</Text>
+                )}
+              </View>
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
       {/* Pagination Dots */}

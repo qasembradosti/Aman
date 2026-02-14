@@ -560,7 +560,7 @@ export default function ProductDetail() {
             }
           >
             <Ionicons
-              name={isRTL ? "arrow-back" : "arrow-forward"}
+              name={isRTL ? "arrow-forward" : "arrow-back"}
               size={24}
               color={theme.colors.text}
             />

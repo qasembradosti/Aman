@@ -155,3 +155,26 @@ export const closeConversation = async (token, conversationId) => {
     throw error;
   }
 };
+
+// Reopen conversation
+export const reopenConversation = async (token, conversationId) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/conversation/${conversationId}/reopen`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const result = await parseJsonResponse(response);
+    
+    if (!response.ok) {
+      throw new Error(result.message || 'Failed to reopen conversation');
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Reopen conversation error:', error);
+    throw error;
+  }
+};

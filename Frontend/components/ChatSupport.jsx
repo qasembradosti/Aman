@@ -19,7 +19,7 @@ import { useLanguage } from "../utils/LanguageContext";
 import { useTheme } from "../utils/ThemeContext";
 import { useSelector, useDispatch } from "react-redux";
 import { setActiveConversation, clearActiveConversation } from "../store/slices/chatSlice";
-import { createOrGetConversation, sendMessage as sendMessageAPI } from "../services/chatService";
+import { createOrGetConversation, sendMessage as sendMessageAPI, reopenConversation, getUserConversations, getConversationMessages } from "../services/chatService";
 import { getApiBaseUrl } from "../utils/apiConfig";
 
 const API_BASE_URL = getApiBaseUrl();
@@ -37,7 +37,7 @@ const Text = ({ style, ...props }) => {
   );
 };
 
-export default function ChatSupport({ visible, onClose, orderId = null }) {
+export default function ChatSupport({ visible, onClose, orderId = null, existingConversationId = null }) {
   const { t, isRTL } = useLanguage();
   const { theme } = useTheme();
   const { user, token } = useSelector((state) => state.auth);
@@ -116,7 +116,12 @@ export default function ChatSupport({ visible, onClose, orderId = null }) {
   // Load conversation when chat opens
   useEffect(() => {
     if (visible && token) {
-      loadConversation();
+      // If existingConversationId is provided, load that specific conversation
+      if (existingConversationId) {
+        loadExistingConversation(existingConversationId);
+      } else {
+        loadConversation();
+      }
       
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -129,7 +134,7 @@ export default function ChatSupport({ visible, onClose, orderId = null }) {
       setConversationStatus("open");
       setMessages([]);
     }
-  }, [visible, orderId, token]);
+  }, [visible, orderId, token, existingConversationId]);
 
   const loadConversation = async () => {
     try {
@@ -139,9 +144,24 @@ export default function ChatSupport({ visible, onClose, orderId = null }) {
         subject: orderId ? `Order #${orderId} Support` : 'General Support',
       };
       
+      console.log('📤 Frontend: Loading conversation with data:', {
+        ...data,
+        orderId_raw: orderId,
+        orderId_type: typeof orderId,
+        orderId_is_null: orderId === null || orderId === undefined
+      });
+      
       const result = await createOrGetConversation(token, data);
       
       if (result.success) {
+        console.log('Conversation loaded:', {
+          id: result.conversation.id,
+          status: result.conversation.status,
+          order_id: result.conversation.order_id,
+          message_count: result.messages?.length || 0,
+          is_existing: result.messages?.length > 0
+        });
+        
         setConversationId(result.conversation.id);
         // Set active conversation in Redux
         dispatch(setActiveConversation(result.conversation.id));
@@ -175,6 +195,58 @@ export default function ChatSupport({ visible, onClose, orderId = null }) {
     } catch (error) {
       console.error('Failed to load conversation:', error);
       Alert.alert(t("error") || "Error", error.message || "Failed to load chat");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadExistingConversation = async (convId) => {
+    try {
+      setLoading(true);
+      
+      console.log('📥 Frontend: Loading existing conversation by ID:', convId);
+      
+      // Get conversation status first
+      const conversationsResult = await getUserConversations(token);
+      const currentConv = conversationsResult.conversations?.find(c => c.id === convId);
+      
+      console.log('📋 Found conversation data:', {
+        id: currentConv?.id,
+        status: currentConv?.status,
+        order_id: currentConv?.order_id,
+        subject: currentConv?.subject
+      });
+      
+      if (!currentConv) {
+        console.log('?? Conversation is missing, loading a new one instead');
+        await loadConversation();
+        return;
+      }
+      
+      // Set the conversation ID
+      setConversationId(convId);
+      dispatch(setActiveConversation(convId));
+      setConversationStatus(currentConv.status || "open");
+      
+      // Load messages for this conversation
+      const result = await getConversationMessages(token, convId);
+      
+      if (result.success) {
+        if (result.messages && result.messages.length > 0) {
+          const formattedMessages = result.messages.map(msg => ({
+            id: msg.id,
+            text: msg.message,
+            sender: msg.sender_type === 'user' ? 'user' : 'support',
+            timestamp: new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          }));
+          setMessages(formattedMessages);
+        }
+        
+        scrollToBottom();
+      }
+    } catch (error) {
+      console.error('Failed to load existing conversation:', error);
+      Alert.alert(t("error") || "Error", error.message || "Failed to load conversation");
     } finally {
       setLoading(false);
     }
@@ -277,6 +349,8 @@ export default function ChatSupport({ visible, onClose, orderId = null }) {
     }
   };
 
+  const shouldShowNewChatButton = !(orderId && conversationStatus === "closed");
+
   return (
     <Modal
       visible={visible}
@@ -326,13 +400,21 @@ export default function ChatSupport({ visible, onClose, orderId = null }) {
           </View>
 
           {/* Messages */}
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.messagesContainer}
-            contentContainerStyle={styles.messagesContent}
-            onContentSizeChange={scrollToBottom}
-          >
-            {messages.map((msg) => (
+          {loading ? (
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={{ marginTop: 12, color: theme.colors.textSecondary }}>
+                {t("loading") || "Loading..."}
+              </Text>
+            </View>
+          ) : (
+            <ScrollView
+              ref={scrollViewRef}
+              style={styles.messagesContainer}
+              contentContainerStyle={styles.messagesContent}
+              onContentSizeChange={scrollToBottom}
+            >
+              {messages.map((msg) => (
               <View
                 key={msg.id}
                 style={[
@@ -384,6 +466,7 @@ export default function ChatSupport({ visible, onClose, orderId = null }) {
               </View>
             ))}
           </ScrollView>
+          )}
 
           {/* Input */}
           {conversationStatus === "closed" ? (
@@ -402,19 +485,27 @@ export default function ChatSupport({ visible, onClose, orderId = null }) {
               <Text style={{ color: theme.colors.textSecondary, fontSize: 14, marginBottom: 12 }}>
                 {t("conversationClosed") || "This conversation has been closed"}
               </Text>
-              <TouchableOpacity
-                style={[
-                  styles.newChatButton,
-                  { backgroundColor: theme.colors.primary },
-                ]}
-                onPress={handleStartNewChat}
-                disabled={loading}
-              >
-                <Ionicons name="add-circle-outline" size={20} color="#fff" />
-                <Text style={styles.newChatButtonText}>
-                  {t("startNewChat") || "Start New Chat"}
-                </Text>
-              </TouchableOpacity>
+              {shouldShowNewChatButton && (
+                <TouchableOpacity
+                  style={[
+                    styles.newChatButton,
+                    { backgroundColor: theme.colors.primary },
+                  ]}
+                  onPress={handleStartNewChat}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="add-circle-outline" size={20} color="#fff" />
+                      <Text style={styles.newChatButtonText}>
+                        {t("startNewChat") || "Start New Chat"}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             <View

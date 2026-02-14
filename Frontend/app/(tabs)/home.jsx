@@ -27,10 +27,12 @@ import InfoDialog from "../../components/InfoDialog";
 import HomeHeader from "../../components/HomeHeader";
 import BannerSlider from "../../components/BannerSlider";
 import DiscountProductSlider from "../../components/DiscountProductSlider";
+import SectionBanner from "../../components/SectionBanner";
 import { useRef } from "react";
 import { Heart, Star } from "lucide-react-native";
 import { toggleFavorite } from "../../services/favoriteService";
 import TrendingProductSlider from "@/components/TrendingProductSlider";
+import { ResizeMode } from "expo-av";
 // Custom Text component with font
 const Text = ({ style, ...props }) => {
   const { fontFamily } = useLanguage();
@@ -128,6 +130,13 @@ export default function Home() {
     const localizedField = `${field}_${lang}`;
     return product[localizedField] || product[field] || "";
   };
+
+  // Helper function to get localized category name
+  const getLocalizedCategoryName = (category) => {
+    const lang = locale || "en";
+    return category[`name_${lang}`] || category.name || "";
+  };
+
   // Dialog state for errors/info
   const [dialog, setDialog] = useState({
     visible: false,
@@ -422,62 +431,17 @@ export default function Home() {
         <DiscountProductSlider />
 
         {/* Categories - 2 Row Layout */}
-        <View style={[styles.section, styles.categoriesSection]}>
+        <SectionBanner type="categories" resizeMode="stretch" style={[styles.section, styles.categoriesSection]} route="/categories">
           <View style={styles.sectionBackdrop}>
             <View style={[styles.decorativeCircle, styles.decorativeCircle1]} />
             <View style={[styles.decorativeCircle, styles.decorativeCircle2]} />
-          </View>
-          <View
-            style={[
-              styles.sectionHeader,
-              { paddingHorizontal: layout.horizontalPadding },
-            ]}
-          >
-            <View style={styles.sectionTitleContainer}>
-              <View style={styles.titleAccent} />
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  {
-                    color: theme.colors.text,
-                    fontSize: layout.sectionTitleSize,
-                  },
-                ]}
-              >
-                {t("categories")}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => router.push("/categories")}
-              style={[
-                styles.seeAllButton,
-                { backgroundColor: theme.colors.primary + "15" },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.seeAll,
-                  {
-                    color: theme.colors.primary,
-                    fontSize: layout.isSmallPhone ? 13 : 14,
-                  },
-                ]}
-              >
-                {t("seeAll")}
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={16}
-                color={theme.colors.primary}
-              />
-            </TouchableOpacity>
           </View>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={[
               styles.categoriesScroll,
-              { paddingLeft: layout.horizontalPadding },
+              { paddingLeft: layout.horizontalPadding ,marginTop:70 },
             ]}
             contentContainerStyle={{ paddingRight: layout.horizontalPadding }}
           >
@@ -579,7 +543,7 @@ export default function Home() {
                             },
                           ]}
                         >
-                          {category.name}
+                          {getLocalizedCategoryName(category)}
                         </Text>
                       </Pressable>
                     ))}
@@ -631,7 +595,7 @@ export default function Home() {
                             },
                           ]}
                         >
-                          {category.name}
+                          {getLocalizedCategoryName(category)}
                         </Text>
                       </Pressable>
                     ))}
@@ -639,65 +603,20 @@ export default function Home() {
               </View>
             ) : null}
           </ScrollView>
-        </View>
+        </SectionBanner>
 
         {/* Brands - 2 Row Layout */}
-        <View style={[styles.section, styles.brandsSection]}>
+        <SectionBanner type="brands" resizeMode="stretch" style={[styles.section, styles.brandsSection]} route="/brands">
           <View style={styles.sectionBackdrop}>
             <View style={[styles.decorativeCircle, styles.decorativeCircle3]} />
             <View style={[styles.decorativeCircle, styles.decorativeCircle4]} />
-          </View>
-          <View
-            style={[
-              styles.sectionHeader,
-              { paddingHorizontal: layout.horizontalPadding },
-            ]}
-          >
-            <View style={styles.sectionTitleContainer}>
-              <View style={styles.titleAccent} />
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  {
-                    color: theme.colors.text,
-                    fontSize: layout.sectionTitleSize,
-                  },
-                ]}
-              >
-                {t("brands")}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => router.push("/brands")}
-              style={[
-                styles.seeAllButton,
-                { backgroundColor: theme.colors.primary + "15" },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.seeAll,
-                  {
-                    color: theme.colors.primary,
-                    fontSize: layout.isSmallPhone ? 13 : 14,
-                  },
-                ]}
-              >
-                {t("seeAll")}
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={16}
-                color={theme.colors.primary}
-              />
-            </TouchableOpacity>
           </View>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={[
               styles.categoriesScroll,
-              { paddingLeft: layout.horizontalPadding },
+              { paddingLeft: layout.horizontalPadding ,marginTop:70},
             ]}
             contentContainerStyle={{ paddingRight: layout.horizontalPadding }}
           >
@@ -859,7 +778,7 @@ export default function Home() {
               </View>
             ) : null}
           </ScrollView>
-        </View>
+        </SectionBanner>
 
         {/* Horizontal Product Slider */}
         <TrendingProductSlider />
@@ -879,35 +798,9 @@ export default function Home() {
             return !isNaN(d) && d >= threeDaysAgo;
           });
           const recentProducts =
-            recentOnly.length > 0 ? recentOnly : sortedByDateDesc.slice(0, 10);
+            recentOnly.length > 0 ? recentOnly : sortedByDateDesc.slice(0, 20);
           return recentProducts.length > 0 ? (
-            <View style={[styles.section, styles.recentSection]}>
-              <View
-                style={[
-                  styles.sectionHeader,
-                  { paddingHorizontal: layout.horizontalPadding },
-                ]}
-              >
-                <View style={styles.sectionTitleContainer}>
-                  <View
-                    style={[styles.titleAccent, { backgroundColor: "#4CAF50" }]}
-                  />
-                  <Text
-                    style={[
-                      styles.sectionTitle,
-                      {
-                        color: theme.colors.text,
-                        fontSize: layout.sectionTitleSize,
-                      },
-                    ]}
-                  >
-                    {t("recentlyAdded")}
-                  </Text>
-                  <View style={styles.newBadge}>
-                    <Text style={styles.newBadgeText}>NEW</Text>
-                  </View>
-                </View>
-              </View>
+            <SectionBanner type="additions" resizeMode="stretch" style={[styles.section, styles.recentSection]} route="/products">
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -915,6 +808,7 @@ export default function Home() {
                 contentContainerStyle={{
                   paddingRight: layout.horizontalPadding,
                   gap: 12,
+                  marginTop: 70,
                 }}
               >
                 {recentProducts.map((product) => (
@@ -1013,68 +907,27 @@ export default function Home() {
                   </Pressable>
                 ))}
               </ScrollView>
-            </View>
+            </SectionBanner>
           ) : null;
         })()}
 
         {/* Featured Products */}
-        <View
+        <SectionBanner
+          type="special"
+          resizeMode="none"
           style={[
             styles.section,
-            { backgroundColor: theme.colors.background, paddingTop: 20 },
+            { backgroundColor: "transparent", paddingVertical: 10 },
           ]}
+          route="/products"
         >
-          <View
-            style={[
-              styles.sectionHeader,
-              { paddingHorizontal: layout.horizontalPadding },
-            ]}
-          >
-            <View style={styles.sectionTitleContainer}>
-              <View style={styles.titleAccent} />
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  {
-                    color: theme.colors.text,
-                    fontSize: layout.sectionTitleSize,
-                  },
-                ]}
-              >
-                {t("featuredProducts")}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => router.push("/products")}
-              style={[
-                styles.seeAllButton,
-                { backgroundColor: theme.colors.primary + "15" },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.seeAll,
-                  {
-                    color: theme.colors.primary,
-                    fontSize: layout.isSmallPhone ? 13 : 14,
-                  },
-                ]}
-              >
-                {t("seeAll")}
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={16}
-                color={theme.colors.primary}
-              />
-            </TouchableOpacity>
-          </View>
           <View
             style={[
               styles.productsGrid,
               {
                 flexDirection: isRTL ? "row-reverse" : "row",
                 paddingHorizontal: layout.horizontalPadding,
+                marginTop:70,
                 gap: layout.cardGap,
               },
             ]}
@@ -1334,7 +1187,7 @@ export default function Home() {
               </Text>
             </View>
           )}
-        </View>
+        </SectionBanner>
         <InfoDialog
           visible={dialog.visible}
           title={dialog.title}
@@ -1436,11 +1289,10 @@ const styles = StyleSheet.create({
     color: "#4a90e2",
   },
   section: {
-    marginBottom: 24,
   },
   categoriesSection: {
-    paddingVertical: 20,
-    paddingBottom: 24,
+    paddingVertical: 10,
+    paddingBottom: 10,
     marginBottom: 0,
     borderRadius: 0,
     backgroundColor: "#FAFAFA",
@@ -1453,8 +1305,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   brandsSection: {
-    paddingVertical: 20,
-    paddingBottom: 24,
+    paddingVertical: 10,
+    paddingBottom: 10,
     marginBottom: 0,
     borderRadius: 0,
     backgroundColor: "#F5F5F5",
@@ -1462,8 +1314,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   recentSection: {
-    paddingVertical: 20,
-    paddingBottom: 24,
+    paddingVertical: 10,
+    paddingBottom: 10,
     marginBottom: 0,
     backgroundColor: "#FFFFFF",
   },
@@ -1789,8 +1641,8 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   recentCard: {
-    width: 160,
-    borderRadius: 20,
+    width: 140,
+    borderRadius: 12,
     overflow: "hidden",
     marginRight: 0,
     backgroundColor: "#fff",
@@ -1799,45 +1651,45 @@ const styles = StyleSheet.create({
   },
   recentImage: {
     width: "100%",
-    height: 140,
+    height: 120,
     backgroundColor: "#f5f5f5",
     position: "relative",
   },
   recentBadge: {
     position: "absolute",
-    top: 8,
-    left: 8,
+    top: 6,
+    left: 6,
     backgroundColor: "#4CAF50",
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
   recentBadgeText: {
     color: "#fff",
-    fontSize: 9,
-    letterSpacing: 0.5,
+    fontSize: 8,
+    letterSpacing: 0.3,
   },
   quickAddButton: {
     position: "absolute",
-    bottom: 8,
-    right: 8,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    bottom: 6,
+    right: 6,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
   },
   recentInfo: {
-    padding: 12,
-    gap: 6,
+    padding: 8,
+    gap: 4,
   },
   recentProductName: {
-    lineHeight: 16,
-    minHeight: 32,
+    lineHeight: 14,
+    minHeight: 28,
   },
   recentPriceRow: {
     flexDirection: "row",
@@ -1845,14 +1697,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 2,
   },
-  recentPrice: {},
+  recentPrice: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
   recentRating: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
+    gap: 2,
   },
   recentRatingText: {
-    fontSize: 11,
+    fontSize: 10,
     color: "#666",
   },
 });

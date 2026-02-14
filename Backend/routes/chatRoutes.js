@@ -6,6 +6,7 @@ import {
   sendMessage,
   getUnreadCount,
   closeConversation,
+  reopenConversation,
   getAdminConversations,
   sendAdminMessage,
 } from '../controllers/chatController.js';
@@ -21,6 +22,7 @@ router.get('/conversation/:conversationId/messages', authenticateToken, getConve
 router.post('/message', authenticateToken, sendMessage);
 router.get('/unread-count', authenticateToken, getUnreadCount);
 router.patch('/conversation/:conversationId/close', authenticateToken, closeConversation);
+router.patch('/conversation/:conversationId/reopen', authenticateToken, reopenConversation);
 
 // Admin routes
 router.get('/admin/conversations', authenticateToken, requireSuperAdmin, getAdminConversations);

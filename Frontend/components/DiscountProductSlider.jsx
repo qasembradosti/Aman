@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -16,21 +16,27 @@ import { fetchProducts } from "../store/slices/productsSlice";
 import { Tag, Star } from "lucide-react-native";
 import { getProductImageUrl } from "../utils/productImages";
 import { Text } from "./ui/Text";
+import SectionBanner from "./SectionBanner";
 
 const { width: screenWidth } = Dimensions.get("window");
-const CARD_WIDTH = screenWidth * 0.65;
+const CARD_WIDTH = screenWidth * 0.38;
 
 export default function DiscountProductSlider() {
   const { theme, isDark } = useTheme();
   const { t } = useLanguage();
   const router = useRouter();
   const dispatch = useDispatch();
+  const [initialLoad, setInitialLoad] = useState(false);
 
   const { items: products, loading } = useSelector((state) => state.products);
 
   useEffect(() => {
+    // Fetch products if we don't have any
     if (products.length === 0 && !loading) {
       dispatch(fetchProducts({ limit: 20, offset: 0 }));
+      setInitialLoad(true);
+    } else if (products.length > 0) {
+      setInitialLoad(true);
     }
   }, [dispatch, products.length, loading]);
 
@@ -49,7 +55,8 @@ export default function DiscountProductSlider() {
     });
   }
 
-  if (loading) {
+  // Show loading only on initial load
+  if (loading && !initialLoad) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -57,27 +64,19 @@ export default function DiscountProductSlider() {
     );
   }
 
-  // Hide section if no discounted products
-  if (discountProducts.length === 0) {
+  // Hide section if no discounted products and we've loaded
+  if (initialLoad && discountProducts.length === 0) {
     return null;
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.titleContainer}>
-          <View style={[styles.accentBar, { backgroundColor: theme.colors.primary }]} />
-          <Text style={[styles.title, { color: theme.colors.text }]}>
-            {t("discountProducts")}
-          </Text>
-        </View>
-      </View>
-
+    <SectionBanner type="discounts" resizeMode="stretch" style={styles.container} route="/products">
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         decelerationRate="fast"
+        style={{ marginTop: 80 }}
         snapToInterval={CARD_WIDTH + 16}
       >
         {discountProducts.map((product, index) => (
@@ -91,7 +90,7 @@ export default function DiscountProductSlider() {
           />
         ))}
       </ScrollView>
-    </View>
+    </SectionBanner>
   );
 }
 
@@ -201,7 +200,8 @@ function DiscountProductCard({ product, onPress, theme, isDark, isLast }) {
 
 const styles = StyleSheet.create({
   container: { 
-    marginBottom: 24,
+    marginBottom: 0,
+    paddingVertical: 10,
   },
   loadingContainer: { padding: 20, alignItems: "center" },
 
@@ -233,30 +233,30 @@ const styles = StyleSheet.create({
 
   card: {
     width: CARD_WIDTH,
-    borderRadius: 20,
+    borderRadius: 12,
     overflow: 'hidden',
   },
 
   discountBadge: {
     position: "absolute",
-    top: 14,
-    left: 14,
+    top: 8,
+    left: 8,
     zIndex: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
     backgroundColor: "#FF3B30",
   },
 
   discountText: {
     color: "#fff",
-    fontSize: 14,
-    letterSpacing: 0.3,
+    fontSize: 11,
+    letterSpacing: 0.2,
   },
 
   imageContainer: {
     width: "100%",
-    height: 200,
+    height: 120,
     backgroundColor: '#F8F9FA',
   },
 
@@ -266,13 +266,13 @@ const styles = StyleSheet.create({
   },
 
   info: {
-    padding: 16,
+    padding: 8,
   },
 
   name: {
-    fontSize: 16,
-    marginBottom: 8,
-    lineHeight: 22,
+    fontSize: 12,
+    marginBottom: 4,
+    lineHeight: 16,
   },
 
   ratingRow: {
@@ -283,23 +283,24 @@ const styles = StyleSheet.create({
   },
 
   rating: {
-    fontSize: 14,
+    fontSize: 12,
   },
 
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
     flexWrap: 'wrap',
   },
 
   price: {
-    fontSize: 18,
+    fontSize: 14,
     letterSpacing: 0.2,
+    fontWeight: '600',
   },
 
   originalPrice: {
-    fontSize: 14,
+    fontSize: 11,
     textDecorationLine: 'line-through',
     opacity: 0.5,
   },

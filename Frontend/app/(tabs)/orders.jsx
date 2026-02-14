@@ -29,7 +29,7 @@ import { getApiBaseUrl } from "../../utils/apiConfig";
 import { Image } from "react-native";
 import InfoDialog from "../../components/InfoDialog";
 import ChatSupport from "../../components/ChatSupport";
-import ChatHeaderButton from "../../components/ChatHeaderButton";
+import { getUserConversations } from "../../services/chatService";
 
 // Use theme.colors.primary instead of direct constant
 
@@ -69,8 +69,10 @@ export default function Orders() {
   const [dialog, setDialog] = useState({ visible: false, title: "", message: "" });
   const [showChat, setShowChat] = useState(false);
   const [chatOrderId, setChatOrderId] = useState(null);
+  const [existingOrderConversation, setExistingOrderConversation] = useState(null);
+  const [orderConversationLoading, setOrderConversationLoading] = useState(false);
 
-  const { isAuthenticated } = useSelector((state) => state.auth);
+  const { isAuthenticated, token } = useSelector((state) => state.auth);
   const {
     items: orders = [],
     loading,
@@ -107,6 +109,54 @@ export default function Orders() {
     await fetchOrders();
     setRefreshing(false);
   }, [fetchOrders]);
+
+  const fetchOrderConversation = useCallback(
+    async (orderId) => {
+      if (!token || !orderId) return null;
+
+      try {
+        const result = await getUserConversations(token);
+        if (!result.success || !Array.isArray(result.conversations)) {
+          return null;
+        }
+
+        const orderMatches = result.conversations.filter(
+          (conv) => Number(conv.order_id) === Number(orderId),
+        );
+
+        if (orderMatches.length === 0) {
+          return null;
+        }
+
+        const openConversation = orderMatches.find((conv) => conv.status === "open");
+        return openConversation || orderMatches[0];
+      } catch (error) {
+        console.error("Failed to fetch order conversation:", error);
+        return null;
+      }
+    },
+    [token],
+  );
+
+  const handleOpenOrderChat = useCallback(
+    async (orderId) => {
+      if (!orderId) return;
+      setChatOrderId(orderId);
+      setExistingOrderConversation(null);
+      setOrderConversationLoading(true);
+
+      let conversation = null;
+
+      try {
+        conversation = await fetchOrderConversation(orderId);
+      } finally {
+        setOrderConversationLoading(false);
+        setExistingOrderConversation(conversation);
+        setShowChat(true);
+      }
+    },
+    [fetchOrderConversation],
+  );
 
   // Fallback mock orders removed; using real Redux orders
 
@@ -705,10 +755,6 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
           </View>
           {isAuthenticated && orders.length > 0 && (
             <>
-              <ChatHeaderButton onPress={() => {
-                setShowChat(true);
-                setChatOrderId(null);
-              }} />
               <TouchableOpacity
               style={{
                 padding: layout.spacing.sm,
@@ -1373,35 +1419,6 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
             ))
           )}
         </ScrollView>
-
-        {/* Floating Chat Button */}
-        {isAuthenticated && (
-          <TouchableOpacity
-            style={{
-              position: "absolute",
-              bottom: layout.spacing.xl,
-              right: isRTL ? undefined : layout.spacing.lg,
-              left: isRTL ? layout.spacing.lg : undefined,
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              backgroundColor: theme.colors.primary,
-              justifyContent: "center",
-              alignItems: "center",
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.3,
-              shadowRadius: 8,
-              elevation: 8,
-            }}
-            onPress={() => {
-              setChatOrderId(null);
-              setShowChat(true);
-            }}
-          >
-            <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
-          </TouchableOpacity>
-        )}
       </View>
 
       {/* Order Details Modal */}
@@ -2126,11 +2143,10 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                     shadowOpacity: 0.2,
                     shadowRadius: 8,
                     elevation: 4,
+                    opacity: orderConversationLoading ? 0.7 : 1,
                   }}
-                  onPress={() => {
-                    setChatOrderId(selectedOrder.id);
-                    setShowChat(true);
-                  }}
+                  disabled={orderConversationLoading}
+                  onPress={() => handleOpenOrderChat(selectedOrder?.id)}
                 >
                   <Ionicons name="chatbubble-ellipses" size={20} color="#fff" />
                   <Text
@@ -2141,6 +2157,9 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                   >
                     {t("contactSupport")}
                   </Text>
+                  {orderConversationLoading && (
+                    <ActivityIndicator size="small" color="#fff" />
+                  )}
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -3099,8 +3118,10 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
         onClose={() => {
           setShowChat(false);
           setChatOrderId(null);
+          setExistingOrderConversation(null);
         }}
         orderId={chatOrderId}
+        existingConversationId={existingOrderConversation?.id}
       />
     </SafeAreaView>
   );

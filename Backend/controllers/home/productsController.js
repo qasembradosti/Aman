@@ -80,11 +80,9 @@ export const listProducts = async (req, res) => {
     // Convert is_trend and is_important to integers if present
     if (req.query.is_trend !== undefined) {
       req.query.is_trend = parseInt(req.query.is_trend);
-      console.log('🔥 Filtering by is_trend:', req.query.is_trend);
     }
     if (req.query.is_important !== undefined) {
       req.query.is_important = parseInt(req.query.is_important);
-      console.log('⭐ Filtering by is_important:', req.query.is_important);
     }
     
     const result = await Product.findAll(req.query);

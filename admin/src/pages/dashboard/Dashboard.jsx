@@ -7,7 +7,6 @@ import {
   ShoppingBag, 
   DollarSign, 
   TrendingUp, 
-  AlertCircle,
   Star,
   BarChart3,
   Tag,

@@ -175,6 +175,7 @@ export default function HelpSupport() {
           {
             backgroundColor: theme.colors.card,
             direction: isRTL ? "rtl" : "ltr",
+            flexDirection: isRTL ? "row-reverse" : "row",
           },
         ]}
       >
@@ -183,7 +184,7 @@ export default function HelpSupport() {
           style={styles.backButton}
         >
           <Ionicons
-            name={isRTL ? "arrow-back" : "arrow-forward"}
+            name={isRTL ? "arrow-forward" : "arrow-back"}
             size={24}
             color={theme.colors.text}
           />

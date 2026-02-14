@@ -26,10 +26,35 @@ export const createOrGetConversation = async (req, res) => {
         status: 'open',
       });
     } else {
-      // Check if conversation already exists
+      // Check if conversation already exists (open status only)
+      console.log('🔍 Checking for existing open conversation:', { 
+        userId, 
+        order_id, 
+        order_id_type: typeof order_id,
+        order_id_is_null: order_id === null || order_id === undefined
+      });
       conversation = await Chat.getConversationByUserAndOrder(userId, order_id || null);
 
+      // Extra safety check: ensure conversation is open
+      if (conversation) {
+        console.log('📋 Found conversation:', { 
+          id: conversation.id, 
+          status: conversation.status,
+          order_id: conversation.order_id,
+          user_id: conversation.user_id
+        });
+        if (conversation.status !== 'open') {
+          console.log('❌ Conversation status is not open:', conversation.status, '- will create new one');
+          conversation = null;
+        } else {
+          console.log('✅ Conversation is open and matches criteria');
+        }
+      } else {
+        console.log('❌ No conversation found with these criteria');
+      }
+
       if (!conversation) {
+        console.log('➕ Creating new conversation with:', { userId, order_id: order_id || null, subject });
         // Create new conversation
         conversation = await Chat.createConversation({
           user_id: userId,
@@ -37,6 +62,9 @@ export const createOrGetConversation = async (req, res) => {
           subject: subject || 'General Support',
           status: 'open',
         });
+        console.log('✅ Created new conversation ID:', conversation.id, 'with order_id:', conversation.order_id);
+      } else {
+        console.log('♻️ Reusing existing open conversation ID:', conversation.id);
       }
     }
 
@@ -225,6 +253,37 @@ export const closeConversation = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to close conversation',
+      error: error.message,
+    });
+  }
+};
+
+// Reopen conversation
+export const reopenConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.userId || req.user.id;
+
+    // Verify user owns this conversation
+    const conversation = await Chat.getConversationById(conversationId);
+    if (!conversation || conversation.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized access to conversation',
+      });
+    }
+
+    await Chat.updateConversation(conversationId, { status: 'open' });
+
+    res.json({
+      success: true,
+      message: 'Conversation reopened successfully',
+    });
+  } catch (error) {
+    console.error('Error reopening conversation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reopen conversation',
       error: error.message,
     });
   }

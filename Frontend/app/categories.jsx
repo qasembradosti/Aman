@@ -1,352 +1,286 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
-  StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
+  StyleSheet,
   ActivityIndicator,
   Dimensions,
+  TextInput,
 } from "react-native";
-import { Image } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { useDispatch, useSelector } from "react-redux";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useLanguage } from "../utils/LanguageContext";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../utils/ThemeContext";
+import { useLanguage } from "../utils/LanguageContext";
+import { useDispatch, useSelector } from "react-redux";
 import { fetchCategories } from "../store/slices/categoriesSlice";
-import Text from "../components/ui/Text";
 import { getApiBaseUrl } from "../utils/apiConfig";
+import Text from "@/components/ui/Text";
 
-const categoryIcons = {
-  electronics: "tv-outline",
-  fashion: "shirt-outline",
-  food: "fast-food-outline",
-  books: "book-outline",
-  sports: "football-outline",
-};
+const { width } = Dimensions.get("window");
+const HORIZONTAL_PADDING = 16;
+const CARD_GAP = 12;
+const COLUMNS = 3;
+const CARD_WIDTH = (width - (HORIZONTAL_PADDING * 2) - (CARD_GAP * (COLUMNS - 1))) / COLUMNS;
 
 export default function CategoriesScreen() {
-  const dispatch = useDispatch();
+  const [filteredCategories, setFilteredCategories] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
-  const { t, isRTL } = useLanguage();
+  const dispatch = useDispatch();
   const { theme } = useTheme();
-
-  const { items: categories, loading } = useSelector((s) => s.categories);
-  const [screenData, setScreenData] = useState(Dimensions.get("window"));
-
-  // Update screen dimensions on orientation change
-  useEffect(() => {
-    const subscription = Dimensions.addEventListener("change", ({ window }) => {
-      setScreenData(window);
-    });
-
-    return () => subscription?.remove();
-  }, []);
-
-  useEffect(() => {
-    dispatch(fetchCategories({})); // Fetch all categories
-  }, [dispatch]);
-
-  // State for selected parent category
-  const [selectedParent, setSelectedParent] = useState(null);
-
-  // Filter parent categories (no parent_id)
-  const parentCategories = categories.filter((cat) => cat.parent_id === null);
-
-  // Get subcategories for selected parent
-  const subCategories = selectedParent
-    ? categories.filter((cat) => cat.parent_id === selectedParent.id)
-    : [];
-
-  // Determine which categories to display
-  const displayCategories = selectedParent ? subCategories : parentCategories;
-
-  // Responsive layout calculations
-  const getResponsiveLayout = () => {
-    const { width, height } = screenData;
-    const isLandscape = width > height;
-    const isTablet = Math.min(width, height) >= 768;
-    const isSmallPhone = width < 375;
-    
-    // Container padding that adapts to screen size
-    let containerPadding;
-    if (isTablet) {
-      containerPadding = isLandscape ? 32 : 24;
-    } else {
-      containerPadding = isSmallPhone ? 12 : 16;
-    }
-    
-    // Gap between cards
-    let cardGap;
-    if (isTablet) {
-      cardGap = 16;
-    } else {
-      cardGap = isSmallPhone ? 8 : 12;
-    }
-    
-    // Number of columns (force 3 columns on phones as requested)
-    let columns;
-    if (isTablet) {
-      // Keep richer layout for tablets
-      columns = isLandscape ? 5 : 4;
-    } else {
-      // Always 3 columns on phones (portrait or landscape)
-      columns = 3;
-    }
-    
-    // Calculate card width
-    const totalGapWidth = cardGap * (columns - 1);
-    const availableWidth = width - (containerPadding * 2) - totalGapWidth;
-    const cardWidth = Math.floor(availableWidth / columns);
-    
-    // Card dimensions and styling
-    const cardHeight = cardWidth * 1.1; // Slightly taller than wide
-    const cardBorderRadius = isTablet ? 16 : 12;
-    const cardPadding = isTablet ? 16 : 12;
-    
-    // Icon styling
-    const iconBoxSize = isTablet ? 56 : isSmallPhone ? 36 : 44;
-    const iconSize = isTablet ? 28 : isSmallPhone ? 18 : 22;
-    
-    // Text styling
-    const titleFontSize = isTablet ? 14 : isSmallPhone ? 11 : 12;
-    
-    return {
-      containerPadding,
-      cardGap,
-      cardWidth,
-      cardHeight,
-      cardBorderRadius,
-      cardPadding,
-      iconBoxSize,
-      iconSize,
-      titleFontSize,
-      columns,
-      isTablet,
-      isLandscape,
-      isSmallPhone,
-    };
-  };
-
-  const layout = getResponsiveLayout();
+  const { t, isRTL, locale } = useLanguage();
   const API_BASE_URL = getApiBaseUrl();
 
-  const renderCategoryCard = (category) => {
-    const isParent = !category.parent_id;
+  const { items: categories, loading } = useSelector((s) => s.categories);
+
+  // Helper function to get localized category name
+  const getLocalizedName = (category) => {
+    const lang = locale || "en";
+    return category[`name_${lang}`] || category.name || "";
+  };
+
+  useEffect(() => {
+    dispatch(fetchCategories({}));
+  }, [dispatch]);
+
+  useEffect(() => {
+    // Filter to parent categories only
+    const parentCategories = categories.filter((cat) => cat.parent_id === null);
     
+    if (searchQuery.trim()) {
+      const filtered = parentCategories.filter((category) => {
+        const localizedName = getLocalizedName(category).toLowerCase();
+        const searchTerm = searchQuery.toLowerCase();
+        return localizedName.includes(searchTerm) || 
+               (category.name && category.name.toLowerCase().includes(searchTerm));
+      });
+      setFilteredCategories(filtered);
+    } else {
+      setFilteredCategories(parentCategories);
+    }
+  }, [searchQuery, categories, locale]);
+
+  const resolveCategoryImageUri = (category) => {
+    const imageUrl = category?.image_url || category?.image;
+    if (imageUrl) {
+      return imageUrl.startsWith("http")
+        ? imageUrl
+        : `${API_BASE_URL}${imageUrl}`;
+    }
+    return null;
+  };
+
+  const handleCategoryPress = (category) => {
+    router.push(`/category/${category.slug ?? category.id}`);
+  };
+
+  const renderCategoryItem = ({ item }) => {
+    const categoryImage = resolveCategoryImageUri(item);
+
     return (
       <TouchableOpacity
-        key={category.id ?? category.slug ?? String(category.name)}
         style={[
           styles.categoryCard,
           {
-            width: layout.cardWidth,
-            height: layout.cardHeight,
             backgroundColor: theme.colors.card,
             borderColor: theme.colors.border,
-            borderRadius: layout.cardBorderRadius,
-            overflow: 'hidden',
-            shadowColor: theme.colors.text,
-            shadowOffset: {
-              width: 0,
-              height: 2,
-            },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-            elevation: 3,
+            width: CARD_WIDTH,
           },
         ]}
-        onPress={() => {
-          if (isParent) {
-            // Check if has subcategories
-            const hasSubs = categories.some(c => c.parent_id === category.id);
-            if (hasSubs) {
-              setSelectedParent(category);
-            } else {
-              router.push(`/category/${category.slug ?? category.id}`);
-            }
-          } else {
-            router.push(`/category/${category.slug ?? category.id}`);
-          }
-        }}
-        activeOpacity={0.8}
+        onPress={() => handleCategoryPress(item)}
+        activeOpacity={0.7}
       >
-        {/* Category Image */}
-        {category.image_url ? (
-          <Image
-            source={{ 
-              uri: category.image_url.startsWith('http') 
-                ? category.image_url 
-                : `${API_BASE_URL}${category.image_url}` 
-            }}
-            style={styles.categoryImage}
-            contentFit="cover"
-            transition={200}
-            cachePolicy="memory-disk"
-          />
-        ) : (
-          <View
-            style={[
-              styles.categoryImagePlaceholder,
-              { backgroundColor: theme.colors.primary + "15" },
-            ]}
-          >
-            <Ionicons
-              name={categoryIcons[category.slug] || "grid-outline"}
-              size={layout.iconSize * 1.5}
-              color={theme.colors.primary}
+        <View
+          style={[
+            styles.categoryLogoContainer,
+            { backgroundColor: theme.colors.primary + "10" },
+          ]}
+        >
+          {categoryImage ? (
+            <Image
+              source={{ uri: categoryImage }}
+              style={styles.categoryLogo}
+              contentFit="cover"
+              transition={200}
+              cachePolicy="memory-disk"
             />
-          </View>
-        )}
-
-        {/* Gradient overlay for better text readability */}
-        <View style={styles.categoryOverlay}>
-          <Text
-            numberOfLines={2}
-            style={[
-              styles.categoryTitle,
-              {
-                fontSize: layout.titleFontSize,
-                color: '#fff',
-                lineHeight: layout.titleFontSize * 1.3,
-                textShadowColor: 'rgba(0, 0, 0, 0.75)',
-                textShadowOffset: { width: 0, height: 1 },
-                textShadowRadius: 3,
-              },
-            ]}
-          >
-            {category.name}
-          </Text>
+          ) : (
+            <Ionicons
+              name="grid-outline"
+              size={35}
+              color={theme.colors.textSecondary}
+            />
+          )}
         </View>
+        
+        <Text
+          style={[styles.categoryName, { color: theme.colors.text }]}
+          numberOfLines={1}
+        >
+          {getLocalizedName(item)}
+        </Text>
       </TouchableOpacity>
     );
   };
 
-  return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      edges={["top", "bottom"]}
-    >
-      {/* Responsive header */}
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: theme.colors.card,
-            borderBottomColor: theme.colors.border,
-            flexDirection: isRTL ? "row-reverse" : "row",
-            height: layout.isTablet ? 64 : 56,
-            paddingHorizontal: layout.containerPadding,
-          },
-        ]}
+  if (loading) {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
-        <TouchableOpacity 
-          onPress={() => selectedParent ? setSelectedParent(null) : (router.canGoBack?.() ? router.back() : router.replace('/(tabs)/home'))} 
-          style={[
-            styles.headerButton,
-            {
-              width: layout.isTablet ? 48 : 40,
-              height: layout.isTablet ? 48 : 40,
-            }
-          ]}
-        >
-          <Ionicons
-            name={isRTL ? "chevron-forward" : "chevron-back"}
-            size={layout.isTablet ? 26 : 22}
-            color={theme.colors.text}
-          />
-        </TouchableOpacity>
-        
-        <Text 
-          style={[
-            styles.headerTitle, 
-            { 
-              color: theme.colors.text,
-              fontSize: layout.isTablet ? 20 : 16,
-            }
-          ]}
-        >
-          {selectedParent ? selectedParent.name : t("categories")}
-        </Text>
-        
-        <View 
-          style={[
-            styles.headerButton,
-            {
-              width: layout.isTablet ? 48 : 40,
-              height: layout.isTablet ? 48 : 40,
-            }
-          ]} 
-        />
-      </View>
-
-      {/* Content area */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator 
-            size="large" 
-            color={theme.colors.primary} 
-          />
-          <Text 
-            style={[
-              styles.loadingText,
-              { 
-                color: theme.colors.textSecondary,
-                fontSize: layout.titleFontSize,
-                marginTop: 12,
-              }
-            ]}
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text
+            style={[styles.loadingText, { color: theme.colors.textSecondary }]}
           >
             {t("loading") || "Loading categories..."}
           </Text>
         </View>
-      ) : (
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { 
-              padding: layout.containerPadding,
-            }
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={["top"]}
+    >
+      {/* Modern Header */}
+      <View style={[styles.header, { backgroundColor: theme.colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={[
+            styles.backButton,
+            { backgroundColor: theme.colors.background + "AA" },
           ]}
-          showsVerticalScrollIndicator={false}
         >
-          {/* Responsive grid container */}
-          <View 
+          <Ionicons
+            name={isRTL ? "arrow-forward" : "arrow-back"}
+            size={22}
+            color={theme.colors.text}
+          />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={[styles.headerTitle, { color: theme.colors.text, textAlign: "center" }]}>
+            {t("categories")}
+          </Text>
+          <Text
             style={[
-              styles.gridContainer,
-              { 
-                gap: layout.cardGap,
-              }
+              styles.headerSubtitle,
+              { color: theme.colors.textSecondary, textAlign: "center" },
             ]}
           >
-            {displayCategories?.length ? (
-              displayCategories.map(renderCategoryCard)
-            ) : (
-              <View style={[styles.emptyState, { width: screenData.width - (layout.containerPadding * 2) }]}>
-                <Ionicons 
-                  name="grid-outline" 
-                  size={layout.isTablet ? 48 : 36} 
-                  color={theme.colors.textSecondary} 
+            {filteredCategories.length} {t("available") || "available"}
+          </Text>
+        </View>
+        <View style={styles.headerRight} />
+      </View>
+
+      {/* Enhanced Search Bar */}
+      <View style={styles.searchSection}>
+        <View
+          style={[
+            styles.searchContainer,
+            { backgroundColor: theme.colors.card, flexDirection: isRTL ? "row-reverse" : "row" },
+          ]}
+        >
+          <View
+            style={[
+              styles.searchIconWrapper,
+              { backgroundColor: theme.colors.primary + "15", marginRight: isRTL ? 0 : 12, marginLeft: isRTL ? 12 : 0 },
+            ]}
+          >
+            <Ionicons name="search" size={18} color={theme.colors.primary} />
+          </View>
+          <TextInput
+            style={[styles.searchInput, { color: theme.colors.text, textAlign: isRTL ? "right" : "left" }]}
+            placeholder={t("searchCategories") || "Search for categories..."}
+            placeholderTextColor={theme.colors.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            selectionColor={theme.colors.primary}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearchQuery("")}
+              style={[styles.clearButton, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]}
+            >
+              <Ionicons
+                name="close-circle"
+                size={22}
+                color={theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* Categories Grid */}
+      <FlatList
+        data={filteredCategories}
+        renderItem={renderCategoryItem}
+        keyExtractor={(item) => item.id.toString()}
+        numColumns={3}
+        columnWrapperStyle={styles.columnWrapper}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <View
+              style={[
+                styles.emptyCircle,
+                { backgroundColor: theme.colors.primary + "10" },
+              ]}
+            >
+              <Ionicons
+                name={searchQuery ? "search-outline" : "grid-outline"}
+                size={64}
+                color={theme.colors.primary}
+              />
+            </View> 
+            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+              {searchQuery
+                ? t("noCategoriesFound")
+                : t("noCategories")}
+            </Text>
+            <Text
+              style={[
+                styles.emptySubtitle,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
+              {searchQuery
+                ? t("tryDifferentSearch") ||
+                  "Try a different search term or browse all categories"
+                : t("checkBackLater") ||
+                  "Check back soon for exciting new categories"}
+            </Text>
+            {searchQuery && (
+              <TouchableOpacity
+                style={[
+                  styles.resetButton,
+                  { backgroundColor: theme.colors.primary, flexDirection: isRTL ? "row-reverse" : "row" },
+                ]}
+                onPress={() => setSearchQuery("")}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="refresh"
+                  size={18}
+                  color="#fff"
+                  style={{ marginRight: isRTL ? 0 : 6, marginLeft: isRTL ? 6 : 0 }}
                 />
-                <Text 
-                  style={[
-                    styles.emptyText,
-                    { 
-                      color: theme.colors.textSecondary,
-                      fontSize: layout.titleFontSize + 2,
-                      marginTop: 12,
-                    }
-                  ]}
-                >
-                  {t("noCategories") || "No categories available"}
+                <Text style={styles.resetButtonText}>
+                  {t("showAll") || "Show All Categories"}
                 </Text>
-              </View>
+              </TouchableOpacity>
             )}
           </View>
-        </ScrollView>
-      )}
+        }
+      />
     </SafeAreaView>
   );
 }
@@ -355,94 +289,164 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
-  },
-  headerTitle: {
+  centerContainer: {
     flex: 1,
-    textAlign: "center",
-    
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 32,
+    alignItems: "center",
   },
   loadingText: {
-    textAlign: "center",
-    
+    marginTop: 16,
+    fontSize: 14,
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 20,
-  },
-  gridContainer: {
+  // Modern Header
+  header: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  headerTitle: {
+    fontSize: 18,
+    letterSpacing: 0.2,
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+  },
+  headerRight: {
+    width: 36,
+  },
+  // Enhanced Search
+  searchSection: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    height: 44,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  searchIconWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  clearButton: {
+    padding: 4,
+  },
+  // Category Cards
+  listContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+  columnWrapper: {
     justifyContent: "flex-start",
+    gap: 12,
+    marginBottom: 12,
   },
   categoryCard: {
-    borderWidth: StyleSheet.hairlineWidth,
-    position: "relative",
-    transform: [{ scale: 1 }],
-  },
-  categoryImage: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
-  },
-  categoryImagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  iconContainer: {
     alignItems: "center",
+    borderRadius: 18,
+    borderWidth: 0,
+    padding: 12,
+    backgroundColor: "#fff",
+  },
+  categoryLogoContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    overflow: "hidden",
+    marginBottom: 8,
     justifyContent: "center",
-    alignSelf: "center",
-  },
-  categoryTitle: {
-    textAlign: "center",
-  },
-  cardIndicator: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-  },
-  emptyState: {
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 48,
+    borderWidth: 3,
+    borderColor: "#fff",
   },
-  emptyText: {
+  categoryLogo: {
+    width: "100%",
+    height: "100%",
+  },
+  categoryName: {
+    fontSize: 12,
     textAlign: "center",
-    
+    width: "100%",
+  },
+  // Empty State
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingTop: 120,
+    paddingHorizontal: 40,
+  },
+  emptyCircle: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    marginBottom: 12,
+    textAlign: "center",
+    letterSpacing: 0.3,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    textAlign: "center",
+    lineHeight: 24,
+    maxWidth: 300,
+  },
+  resetButton: {
+    marginTop: 28,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  resetButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    letterSpacing: 0.3,
   },
 });

@@ -15,9 +15,10 @@ import { TrendingUp, Star } from "lucide-react-native";
 import { getProductImageUrl } from "../utils/productImages";
 import { Text } from "./ui/Text";
 import apiService from "../services/apiService";
+import SectionBanner from "./SectionBanner";
 
 const { width: screenWidth } = Dimensions.get("window");
-const CARD_WIDTH = screenWidth * 0.65;
+const CARD_WIDTH = screenWidth * 0.38;
 
 export default function TrendingProductSlider() {
   const { theme, isDark } = useTheme();
@@ -107,31 +108,13 @@ export default function TrendingProductSlider() {
   console.log("🎉 Rendering", trendingProducts.length, "trending products");
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.titleContainer}>
-          <View
-            style={[
-              styles.accentBar,
-              { backgroundColor: theme.colors.primary },
-            ]}
-          />
-          <TrendingUp
-            size={22}
-            color={theme.colors.primary}
-            style={{ marginRight: 8 }}
-          />
-          <Text style={[styles.title, { color: theme.colors.text }]}>
-            {t("trendingProducts") || "Trending Products"}
-          </Text>
-        </View>
-      </View>
-
+    <SectionBanner type="popular" resizeMode="stretch" style={styles.container} route="/products">
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         decelerationRate="fast"
+        style={{ marginTop: 70 }}
         snapToInterval={CARD_WIDTH + 16}
       >
         {trendingProducts.map((product, index) => (
@@ -145,7 +128,7 @@ export default function TrendingProductSlider() {
           />
         ))}
       </ScrollView>
-    </View>
+    </SectionBanner>
   );
 }
 
@@ -204,17 +187,6 @@ function TrendingProductCard({ product, onPress, theme, isDark, isLast }) {
       ]}
       onPress={onPress}
     >
-      {/* Trending Badge */}
-      <View
-        style={[
-          styles.trendingBadge,
-          { backgroundColor: theme.colors.primary },
-        ]}
-      >
-        <TrendingUp size={14} color="#fff" />
-        <Text style={styles.trendingText}>TRENDING</Text>
-      </View>
-
 
       <View style={styles.imageContainer}>
         <Image
@@ -232,6 +204,28 @@ function TrendingProductCard({ product, onPress, theme, isDark, isLast }) {
         >
           {getLocalizedText("name")}
         </Text>
+
+        {/* Rating */}
+        {product.rating > 0 && (
+          <View style={styles.ratingRow}>
+            <Star size={12} color="#FFA500" fill="#FFA500" />
+            <Text style={[styles.rating, { color: theme.colors.textSecondary }]}>
+              {Number(product.rating).toFixed(1)}
+            </Text>
+          </View>
+        )}
+
+        {/* Price */}
+        <View style={styles.priceRow}>
+          <Text style={[styles.price, { color: theme.colors.primary }]}>
+            {displayPrice.toLocaleString()} {isRTL ? "د" : "IQD"}
+          </Text>
+          {discount > 0 && (
+            <Text style={[styles.originalPrice, { color: theme.colors.textSecondary }]}>
+              {originalPrice.toLocaleString()}
+            </Text>
+          )}
+        </View>
       </View>
     </Pressable>
   );
@@ -244,8 +238,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   container: {
-    marginTop: 20,
-    marginVertical: 10,
+    marginTop: 0,
+    marginVertical: 0,
+    paddingVertical: 10,
   },
   header: {
     paddingHorizontal: 16,
@@ -269,9 +264,8 @@ const styles = StyleSheet.create({
   },
   card: {
     width: CARD_WIDTH,
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: "hidden",
-
   },
   trendingBadge: {
     position: "absolute",
@@ -306,7 +300,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: "100%",
-    height: 200,
+    height: 140,
     backgroundColor: "#f3f4f6",
   },
   image: {
@@ -314,33 +308,34 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   info: {
-    padding: 12,
+    padding: 10,
   },
   name: {
-    fontSize: 15,
-
+    fontSize: 13,
+    fontWeight: '500',
     marginBottom: 6,
   },
   ratingRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   rating: {
-    fontSize: 13,
+    fontSize: 12,
   },
   priceRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginBottom: 4,
+    gap: 6,
+    marginBottom: 6,
   },
   price: {
-    fontSize: 18,
+    fontSize: 14,
+    fontWeight: '600',
   },
   originalPrice: {
-    fontSize: 14,
+    fontSize: 11,
 
     textDecorationLine: "line-through",
   },
@@ -348,6 +343,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   commission: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '500',
   },
 });

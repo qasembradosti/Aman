@@ -23,6 +23,7 @@ import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import ChatSupport from "../../components/ChatSupport";
 import ChatHeaderButton from "../../components/ChatHeaderButton";
 import { History } from "lucide-react-native";
+import { getUserConversations } from "../../services/chatService";
 // Use theme.colors.primary instead of direct constant
 
 // Custom Text component with font
@@ -49,10 +50,13 @@ export default function Profile() {
   const [showBalance, setShowBalance] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [selectedConversationId, setSelectedConversationId] = useState(null);
+  const [conversations, setConversations] = useState([]);
+  const [loadingConversations, setLoadingConversations] = useState(false);
   const API_BASE_URL = getApiBaseUrl();
 
   // Get auth state from Redux
-  const { isAuthenticated, user, loading } = useSelector((state) => state.auth);
+  const { isAuthenticated, user, loading, token } = useSelector((state) => state.auth);
   const { balance: walletBalance, loading: walletLoading } = useSelector((state) => state.wallet);
   const { items: orders } = useSelector((state) => state.orders);
   
@@ -60,8 +64,26 @@ export default function Profile() {
     if (isAuthenticated && user?.id) {
       dispatch(fetchWallet({ user_id: user.id }));
       dispatch(fetchOrders({}));
+      loadConversations();
     }
   }, [isAuthenticated, user?.id, dispatch]);
+
+  const loadConversations = async () => {
+    if (!token) return;
+    try {
+      setLoadingConversations(true);
+      const result = await getUserConversations(token);
+      if (result.success) {
+        // Filter for active (open) conversations
+        const activeChats = result.conversations.filter(conv => conv.status === 'open');
+        setConversations(activeChats);
+      }
+    } catch (error) {
+      console.error('Failed to load conversations:', error);
+    } finally {
+      setLoadingConversations(false);
+    }
+  };
 
   // Calculate statistics from orders
   const totalOrders = orders?.length || 0;
@@ -74,7 +96,8 @@ export default function Profile() {
       if (isAuthenticated && user?.id) {
         await Promise.all([
           dispatch(fetchWallet({ user_id: user.id })),
-          dispatch(fetchOrders({}))
+          dispatch(fetchOrders({})),
+          loadConversations()
         ]);
       }
     } catch (error) {
@@ -179,6 +202,7 @@ export default function Profile() {
               style={[
                 styles.editAvatarButton,
                 { backgroundColor: theme.colors.primary },
+                isRTL ? { left: 0 } : { right: 0 },
               ]}
               onPress={() => router.push("/edit-profile")}
             >
@@ -225,12 +249,35 @@ export default function Profile() {
             <View style={[styles.walletContent, { direction: isRTL ? "rtl" : "ltr" }]}>
               <View style={[styles.walletTop, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.walletLabel, { textAlign: isRTL ? "right" : "left" }]}>
-                    <Ionicons name="wallet-outline" size={11} color="rgba(255,255,255,0.9)" />
-                    {"  "}{t("walletBalance")}
-                  </Text>
-                  <Text style={[styles.walletBalance, { textAlign: isRTL ? "right" : "left" }]}>
-                    {showBalance ? `${(walletBalance ?? 0).toLocaleString()} ${t("currency") || "IQD"}` : "••••••"}
+                  <View
+                    style={{
+                      flexDirection: isRTL ? "row-reverse" : "row",
+                      alignItems: "center",
+                      gap: 6,
+                      marginBottom: 3,
+                    }}
+                  >
+                    <Ionicons
+                      name="wallet-outline"
+                      size={11}
+                      color="rgba(255,255,255,0.9)"
+                    />
+                    <Text style={[styles.walletLabel, { textAlign: isRTL ? "right" : "left" }]}>
+                      {t("walletBalance")}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.walletBalance,
+                      {
+                        textAlign: isRTL ? "right" : "left",
+                        writingDirection: "ltr",
+                      },
+                    ]}
+                  >
+                    {showBalance
+                      ? `${(walletBalance ?? 0).toLocaleString(locale || undefined)} ${t("currency") || "IQD"}`
+                      : "••••••"}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -280,6 +327,83 @@ export default function Profile() {
           </View>
         </View>
 
+        {/* Active Chats Section */}
+        {isAuthenticated && conversations.length > 0 && (
+          <View style={styles.chatsSection}>
+            <View style={[styles.chatsSectionHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              <Ionicons name="chatbubbles-outline" size={18} color={theme.colors.primary} />
+              <Text style={[styles.chatsSectionTitle, { color: theme.colors.text, marginHorizontal: 8 }]}>
+                {t("activeChats") || "Active Chats"}
+              </Text>
+              <View style={[styles.chatBadge, { backgroundColor: theme.colors.primary }]}>
+                <Text style={styles.chatBadgeText}>{conversations.length}</Text>
+              </View>
+            </View>
+            <View style={styles.chatsContainer}>
+              {conversations.slice(0, 3).map((conv) => (
+                <TouchableOpacity
+                  key={conv.id}
+                  style={[
+                    styles.chatItem,
+                    {
+                      backgroundColor: theme.colors.card,
+                      flexDirection: isRTL ? "row-reverse" : "row",
+                    },
+                  ]}
+                  onPress={() => {
+                    console.log('📱 Profile: Opening conversation:', {
+                      id: conv.id,
+                      order_id: conv.order_id,
+                      subject: conv.subject,
+                      status: conv.status
+                    });
+                    setSelectedConversationId(conv.id);
+                    setShowChat(true);
+                  }}
+                >
+                  <View style={[styles.chatIconContainer, { backgroundColor: theme.colors.primary + "15" }]}>
+                    <Ionicons name="chatbubble-ellipses" size={20} color={theme.colors.primary} />
+                  </View>
+                  <View style={[styles.chatInfo, { alignItems: isRTL ? "flex-end" : "flex-start" }]}>
+                    <Text
+                      style={[
+                        styles.chatSubject,
+                        { color: theme.colors.text, textAlign: isRTL ? "right" : "left" },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {conv.subject || t("generalSupport") || "General Support"}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.chatDate,
+                        { color: theme.colors.textSecondary, textAlign: isRTL ? "right" : "left" },
+                      ]}
+                    >
+                      {new Date(conv.updated_at).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name={isRTL ? "chevron-back" : "chevron-forward"}
+                    size={18}
+                    color={theme.colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              ))}
+              {conversations.length > 3 && (
+                <TouchableOpacity
+                  style={[styles.viewAllChatsButton, { flexDirection: isRTL ? "row-reverse" : "row" }]}
+                  onPress={() => setShowChat(true)}
+                >
+                  <Text style={[styles.viewAllChatsText, { color: theme.colors.primary }]}>
+                    {t("viewAllChats") || "View All Chats"} ({conversations.length})
+                  </Text>
+                  <Ionicons name={isRTL ? "chevron-back" : "chevron-forward"} size={16} color={theme.colors.primary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Menu Items */}
         <View style={styles.menuContainer}>
@@ -307,7 +431,10 @@ export default function Profile() {
                   ]}
                 >
                   <Text
-                    style={[styles.menuTitle, { color: theme.colors.text }]}
+                    style={[
+                      styles.menuTitle,
+                      { color: theme.colors.text, textAlign: isRTL ? "right" : "left" },
+                    ]}
                   >
                     {item.title}
                   </Text>
@@ -375,7 +502,12 @@ export default function Profile() {
       
       <ChatSupport
         visible={showChat}
-        onClose={() => setShowChat(false)}
+        onClose={() => {
+          setShowChat(false);
+          setSelectedConversationId(null);
+          loadConversations();
+        }}
+        existingConversationId={selectedConversationId}
       />
     </SafeAreaView>
   );
@@ -427,7 +559,6 @@ const styles = StyleSheet.create({
   walletLabel: {
     fontSize: 10,
     color: "rgba(255,255,255,0.9)",
-    marginBottom: 3,
     letterSpacing: 0.3,
   },
   walletBalance: {
@@ -501,7 +632,6 @@ const styles = StyleSheet.create({
   editAvatarButton: {
     position: "absolute",
     bottom: 0,
-    right: 0,
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -656,5 +786,66 @@ const styles = StyleSheet.create({
     color: "#666",
     fontSize: 14,
     
+  },
+  chatsSection: {
+    marginTop: 8,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  chatsSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  chatsSectionTitle: {
+    fontSize: 15,
+  },
+  chatBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: "center",
+  },
+  chatBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+  },
+  chatsContainer: {
+    gap: 8,
+  },
+  chatItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 12,
+    gap: 12,
+  },
+  chatIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  chatInfo: {
+    flex: 1,
+  },
+  chatSubject: {
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  chatDate: {
+    fontSize: 11,
+  },
+  viewAllChatsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    gap: 4,
+  },
+  viewAllChatsText: {
+    fontSize: 13,
   },
 });

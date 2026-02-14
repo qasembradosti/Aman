@@ -33,14 +33,14 @@ const Chat = {
     
     if (orderId) {
       const [rows] = await db.raw(
-        'SELECT * FROM conversations WHERE user_id = ? AND order_id = ? LIMIT 1',
-        [userId, orderId]
+        'SELECT * FROM conversations WHERE user_id = ? AND order_id = ? AND status = ? ORDER BY updated_at DESC LIMIT 1',
+        [userId, orderId, 'open']
       );
       return rows[0] || null;
     } else {
       const [rows] = await db.raw(
-        'SELECT * FROM conversations WHERE user_id = ? AND order_id IS NULL LIMIT 1',
-        [userId]
+        'SELECT * FROM conversations WHERE user_id = ? AND order_id IS NULL AND status = ? ORDER BY updated_at DESC LIMIT 1',
+        [userId, 'open']
       );
       return rows[0] || null;
     }

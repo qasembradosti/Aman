@@ -32,6 +32,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 
+const API_BASE =
+  import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:3000";
+
 export default function Banners() {
   const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +45,11 @@ export default function Banners() {
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: null });
   const [formData, setFormData] = useState({
     title: "",
+    title_ar: "",
+    title_ku: "",
     subtitle: "",
+    subtitle_ar: "",
+    subtitle_ku: "",
     image_url: "",
     link_url: "",
     is_active: true,
@@ -70,7 +77,11 @@ export default function Banners() {
     try {
       const submitData = new FormData();
       submitData.append("title", formData.title);
+      submitData.append("title_ar", formData.title_ar);
+      submitData.append("title_ku", formData.title_ku);
       submitData.append("subtitle", formData.subtitle);
+      submitData.append("subtitle_ar", formData.subtitle_ar);
+      submitData.append("subtitle_ku", formData.subtitle_ku);
       submitData.append("link_url", formData.link_url);
       submitData.append("is_active", formData.is_active);
       submitData.append("display_order", formData.display_order);
@@ -164,13 +175,23 @@ export default function Banners() {
     setEditingBanner(banner);
     setFormData({
       title: banner.title,
+      title_ar: banner.title_ar || "",
+      title_ku: banner.title_ku || "",
       subtitle: banner.subtitle || "",
+      subtitle_ar: banner.subtitle_ar || "",
+      subtitle_ku: banner.subtitle_ku || "",
       image_url: banner.image_url,
       link_url: banner.link_url || "",
       is_active: banner.is_active,
       display_order: banner.display_order,
     });
-    setImagePreview(banner.image_url ? `${API_BASE}${banner.image_url}` : "");
+    setImagePreview(
+      banner.image_url
+        ? banner.image_url.startsWith('http')
+          ? banner.image_url
+          : `${API_BASE}${banner.image_url}`
+        : ""
+    );
     setShowModal(true);
   };
 
@@ -186,7 +207,11 @@ export default function Banners() {
     setEditingBanner(null);
     setFormData({
       title: "",
+      title_ar: "",
+      title_ku: "",
       subtitle: "",
+      subtitle_ar: "",
+      subtitle_ku: "",
       image_url: "",
       link_url: "",
       is_active: true,
@@ -236,7 +261,7 @@ export default function Banners() {
                 <div className="w-64 h-40 bg-gray-100 dark:bg-gray-700 shrink-0">
                   {banner.image_url ? (
                     <img
-                      src={banner.image_url}
+                      src={banner.image_url.startsWith('http') ? banner.image_url : `${API_BASE}${banner.image_url}`}
                       alt={banner.title}
                       className="w-full h-full object-cover"
                     />
@@ -334,14 +359,14 @@ export default function Banners() {
 
       {/* Modal */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {editingBanner ? "Edit Banner" : "Create New Banner"}
             </DialogTitle>
           </DialogHeader>
 
-          <DialogBody>
+          <DialogBody className="overflow-y-auto max-h-[calc(90vh-180px)]">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -361,6 +386,38 @@ export default function Banners() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Title (Arabic) عربون خاص
+                </label>
+                <Input
+                  type="text"
+                  value={formData.title_ar}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title_ar: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="عروض خاصة"
+                  dir="rtl"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Title (Kurdish) پێشکەشکردنی تایبەت
+                </label>
+                <Input
+                  type="text"
+                  value={formData.title_ku}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title_ku: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="پێشکەشکردنی تایبەت"
+                  dir="rtl"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Subtitle
                 </label>
                 <Input
@@ -371,6 +428,38 @@ export default function Banners() {
                   }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                   placeholder="Discover amazing deals"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Subtitle (Arabic) اكتشف صفقات مذهلة
+                </label>
+                <Input
+                  type="text"
+                  value={formData.subtitle_ar}
+                  onChange={(e) =>
+                    setFormData({ ...formData, subtitle_ar: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="اكتشف صفقات مذهلة"
+                  dir="rtl"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Subtitle (Kurdish) دۆزینەوەی دیلی سەرسوڕهێنەر
+                </label>
+                <Input
+                  type="text"
+                  value={formData.subtitle_ku}
+                  onChange={(e) =>
+                    setFormData({ ...formData, subtitle_ku: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="دۆزینەوەی دیلی سەرسوڕهێنەر"
+                  dir="rtl"
                 />
               </div>
 

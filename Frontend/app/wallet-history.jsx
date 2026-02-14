@@ -43,9 +43,9 @@ export default function WalletHistory() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}> 
-      <View style={[styles.header, { backgroundColor: theme.colors.card }]}> 
+      <View style={[styles.header, { backgroundColor: theme.colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}> 
         <TouchableOpacity onPress={() => router.canGoBack?.() ? router.back() : router.replace('/(tabs)/home')} style={styles.backButton}>
-          <Ionicons name={isRTL ? "arrow-back" : "arrow-forward"} size={24} color={theme.colors.text} />
+          <Ionicons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
           {t("history") || "History"}

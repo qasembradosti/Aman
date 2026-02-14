@@ -23,7 +23,7 @@ import {
 export default function OrderDetails() {
   const router = useRouter();
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
   const { id } = useLocalSearchParams();
   const dispatch = useDispatch();
 
@@ -74,7 +74,7 @@ export default function OrderDetails() {
       <SafeAreaView
         style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <TouchableOpacity
             onPress={() =>
               router.canGoBack?.()
@@ -83,7 +83,7 @@ export default function OrderDetails() {
             }
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            <Ionicons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={theme.colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
             {t("orderDetails")}
@@ -102,7 +102,7 @@ export default function OrderDetails() {
       <SafeAreaView
         style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <TouchableOpacity
             onPress={() =>
               router.canGoBack?.()
@@ -111,7 +111,7 @@ export default function OrderDetails() {
             }
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            <Ionicons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={theme.colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
             {t("orderDetails")}
@@ -131,7 +131,7 @@ export default function OrderDetails() {
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <TouchableOpacity
           onPress={() =>
             router.canGoBack?.()
@@ -140,7 +140,7 @@ export default function OrderDetails() {
           }
           style={styles.backButton}
         >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+          <Ionicons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
           {t("order")} #{order.id}

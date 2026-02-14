@@ -201,7 +201,7 @@ export default function BrandProductsScreen() {
               onPress={() => router.back()}
             >
               <Ionicons
-                name={isRTL ? "arrow-back" : "arrow-forward"}
+                name={isRTL ? "arrow-forward" : "arrow-back"}
                 size={24}
                 color={theme.colors.text}
               />

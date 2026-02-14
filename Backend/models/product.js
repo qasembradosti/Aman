@@ -118,36 +118,80 @@ const Product = {
 
   // Create a new product
   create: async (productData) => {
-    const {
-      name_en,
-      name_ku,  
-      name_ar,
-      category_id,
-      brand_id,
-      store_id,
-      base_price,
-      sell_price,
-      commission_price,
-      in_stock,
-      description_en,
-      description_ku,
-      description_ar,
-      key_features_en,
-      key_features_ku,
-      key_features_ar,
-      discount,
-      discount_type,
-      discount_expires,
-      product_code,
-      size,
-      volume,
-      colors,
-      is_trend,
-      is_important,
-    } = productData;
+    const { name_en, base_price } = productData;
 
-    if (!name_en || !base_price) {
+    if (!name_en || base_price === undefined || base_price === null || base_price === '') {
       throw new Error('name and base_price are required');
+    }
+
+    const allowedFields = [
+      'name_en',
+      'name_ku',
+      'name_ar',
+      'category_id',
+      'brand_id',
+      'store_id',
+      'base_price',
+      'sell_price',
+      'commission_price',
+      'in_stock',
+      'description_en',
+      'description_ku',
+      'description_ar',
+      'key_features',
+      'key_features_en',
+      'key_features_ku',
+      'key_features_ar',
+      'discount',
+      'discount_type',
+      'discount_expires',
+      'product_code',
+      'size',
+      'volume',
+      'colors',
+      'is_trend',
+      'is_important',
+    ];
+
+    const insertData = {};
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(productData, field) && productData[field] !== undefined) {
+        insertData[field] = productData[field];
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(insertData, 'key_features')) {
+      if (insertData.key_features == null || insertData.key_features === '') {
+        insertData.key_features = null;
+      } else if (Array.isArray(insertData.key_features)) {
+        insertData.key_features = JSON.stringify(insertData.key_features);
+      } else if (typeof insertData.key_features !== 'string') {
+        insertData.key_features = JSON.stringify(insertData.key_features);
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(insertData, 'colors')) {
+      if (insertData.colors == null || insertData.colors === '') {
+        insertData.colors = null;
+      } else if (Array.isArray(insertData.colors)) {
+        insertData.colors = JSON.stringify(insertData.colors);
+      } else if (typeof insertData.colors !== 'string') {
+        insertData.colors = JSON.stringify(insertData.colors);
+      }
+    }
+
+    if (!insertData.discount_type) {
+      insertData.discount_type = 'percentage';
+    }
+
+    const inserted = await db('products').insert(insertData);
+    const insertedRaw = Array.isArray(inserted) ? inserted[0] : inserted;
+    const id = typeof insertedRaw === 'object' && insertedRaw !== null
+      ? (insertedRaw.id ?? insertedRaw.insertId)
+      : insertedRaw;
+
+    if (!id) {
+      throw new Error('Failed to create product record');
     }
 
     return await Product.findById(id);

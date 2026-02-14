@@ -127,7 +127,7 @@ export default function About() {
       edges={["top"]}
     >
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.card }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <TouchableOpacity
           onPress={() =>
             router.canGoBack()
@@ -137,7 +137,7 @@ export default function About() {
           style={styles.backButton}
         >
           <Ionicons
-            name={isRTL ? "arrow-back" : "arrow-forward"}
+            name={isRTL ? "arrow-forward" : "arrow-back"}
             size={24}
             color={theme.colors.text}
           />

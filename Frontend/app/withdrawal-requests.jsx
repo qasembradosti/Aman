@@ -106,19 +106,20 @@ export default function WithdrawalRequestsScreen() {
     >
       {/* Header */}
       <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: theme.colors.card,
-          },
-        ]}
-      >
+          style={[
+            styles.header,
+            {
+              backgroundColor: theme.colors.card,
+              flexDirection: isRTL ? "row-reverse" : "row",
+            },
+          ]}
+        >
         <TouchableOpacity
           onPress={() => router.canGoBack?.() ? router.back() : router.replace('/(tabs)/home')}
           style={styles.backButton}
         >
           <Ionicons
-            name={isRTL ? "arrow-back" : "arrow-forward"}
+            name={isRTL ? "arrow-forward" : "arrow-back"}
             size={24}
             color={theme.colors.text}
           />
