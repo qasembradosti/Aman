@@ -26,6 +26,22 @@ export const sendPushNotification = async (pushToken, notification) => {
       data: notification.data || {},
       priority: 'high',
       channelId: 'default',
+      badge: 1,
+      ttl: 3600, // Time to live: 1 hour
+      expiration: Math.floor(Date.now() / 1000) + 3600,
+      // Android specific
+      android: {
+        priority: 'max',
+        sound: 'default',
+        vibrate: [0, 250, 250, 250],
+        channelId: 'important',
+      },
+      // iOS specific
+      ios: {
+        sound: 'default',
+        badge: 1,
+        _displayInForeground: true,
+      },
     };
 
     // Send the notification
@@ -63,6 +79,22 @@ export const sendPushNotificationBatch = async (pushTokens, notification) => {
       data: notification.data || {},
       priority: 'high',
       channelId: 'default',
+      badge: 1,
+      ttl: 3600, // Time to live: 1 hour
+      expiration: Math.floor(Date.now() / 1000) + 3600,
+      // Android specific
+      android: {
+        priority: 'max',
+        sound: 'default',
+        vibrate: [0, 250, 250, 250],
+        channelId: 'important',
+      },
+      // iOS specific
+      ios: {
+        sound: 'default',
+        badge: 1,
+        _displayInForeground: true,
+      },
     }));
 
     // Send notifications in chunks (Expo recommends max 100 per request)

@@ -33,7 +33,8 @@ export const login = createAsyncThunk(
 
       return { token, user };
     } catch (error) {
-      return rejectWithValue(errorMessage);
+      console.error('Login error:', error);
+      return rejectWithValue(error.response?.data?.message || 'Login failed');
     }
   }
 );
@@ -42,10 +43,14 @@ export const register = createAsyncThunk(
   'auth/register',
   async (userData, { rejectWithValue }) => {
     try {
+      console.log('Attempting registration with:', { ...userData, password: '[HIDDEN]' });
       const response = await api.post('/api/auth/register', userData);
+      console.log('Registration successful:', response.data);
       const { user, otpSent } = response.data;
       return { user, otpSent };
     } catch (error) {
+      console.error('Registration error:', error);
+      console.error('Error response:', error.response?.data);
       return rejectWithValue(error.response?.data?.message || 'Registration failed');
     }
   }

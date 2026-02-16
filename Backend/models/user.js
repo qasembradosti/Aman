@@ -3,8 +3,20 @@ import db from '../config/knex.js';
 const User = {
   // Create a new user
   create: async (userData) => {
-    const [id] = await db('users').insert(userData);
-    return { id, ...userData };
+    // Ensure default status if not provided
+    const dataWithDefaults = {
+      status: 'pending',
+      phone_verified: false,
+      ...userData
+    };
+    
+    // Remove null/undefined values to avoid database NOT NULL constraint errors
+    const cleanData = Object.fromEntries(
+      Object.entries(dataWithDefaults).filter(([_, value]) => value !== null && value !== undefined)
+    );
+    
+    const [id] = await db('users').insert(cleanData);
+    return { id, ...cleanData };
   },
 
   // Find user by username

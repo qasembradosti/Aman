@@ -22,6 +22,7 @@ import Input from "../../components/ui/Input";
 import { useTheme } from "../../utils/ThemeContext";
 import { useResponsiveLayout } from "../../utils/useResponsiveLayout";
 import { useLanguage } from "../../utils/LanguageContext";
+import InfoDialog from "../../components/InfoDialog";
 
 // Custom Text component with font like login
 const Text = ({ style, ...props }) => {
@@ -48,6 +49,8 @@ export default function Register() {
   const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState(null);
+  const [errorDialogVisible, setErrorDialogVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -65,7 +68,8 @@ export default function Register() {
   const handleNext = () => {
     // Basic step validation
     if (!firstName || !lastName || !username) {
-      alert(t("fillAllFields") || "Please fill all fields");
+      setErrorMessage(t("fillAllFields") || "Please fill all fields");
+      setErrorDialogVisible(true);
       return;
     }
     // Dismiss keyboard and defer the step change to avoid RN accessibilityState update glitches
@@ -85,25 +89,28 @@ export default function Register() {
     // Defer heavy state changes and navigation until after press interactions finish
     Keyboard.dismiss();
     InteractionManager.runAfterInteractions(async () => {
-      if (!email || !password) {
-        alert(t("fillAllFields") || "Please fill all fields");
+      if (!email || !password || !phone) {
+        setErrorMessage(t("fillAllFields") || "Please fill all fields including phone number");
+        setErrorDialogVisible(true);
         return;
       }
 
       if (password !== confirmPassword) {
-        alert(t("passwordsDoNotMatch") || "Passwords do not match");
+        setErrorMessage(t("passwordsDoNotMatch") || "Passwords do not match");
+        setErrorDialogVisible(true);
         return;
       }
 
-      // Validate phone format if provided (7XX XXXXXXX -> digits must be 7XXXXXXXXX)
+      // Validate phone format (7XX XXXXXXX -> digits must be 7XXXXXXXXX)
       const isValidLocalPhone = (value) => {
-        if (!value) return true; // optional field
+        if (!value) return false; // phone is now required
         const digits = String(value).replace(/\D/g, "");
         return /^7\d{9}$/.test(digits);
       };
 
-      if (phone && !isValidLocalPhone(phone)) {
-        alert(t("invalidPhone") || "Invalid phone format. Use 7XX XXXXXXX");
+      if (!isValidLocalPhone(phone)) {
+        setErrorMessage(t("invalidPhone") || "Invalid phone format. Use 7XX XXXXXXX");
+        setErrorDialogVisible(true);
         return;
       }
 
@@ -115,41 +122,43 @@ export default function Register() {
           password,
           first_name: firstName || null,
           last_name: lastName || null,
-          phone: phone || null,
+          phone: phone, // phone is required
           channel: "whatsapp",
           lang: locale,
           fallback: "no",
         };
 
         const result = await dispatch(registerThunk(body)).unwrap();
-        // If a phone number was provided, always proceed to verification flow
-        if (body.phone) {
-          // Login so we can call protected verify endpoints
-          await dispatch(
-            loginThunk({ username: body.username, password })
-          ).unwrap();
-          // If backend didn't send OTP during register, start it now
-          if (!result?.otpSent) {
-            try {
-              await dispatch(
-                startPhoneVerification({
-                  channel: "whatsapp",
-                  lang: locale,
-                  fallback: "no",
-                })
-              ).unwrap();
-            } catch (e) {
-              console.warn("Failed to auto-start phone verification:", e);
-            }
+        // Phone is required - always proceed to verification flow
+        // Login so we can call protected verify endpoints
+        await dispatch(
+          loginThunk({ username: body.username, password })
+        ).unwrap();
+        // If backend didn't send OTP during register, start it now
+        if (!result?.otpSent) {
+          try {
+            await dispatch(
+              startPhoneVerification({
+                channel: "whatsapp",
+                lang: locale,
+                fallback: "no",
+              })
+            ).unwrap();
+          } catch (e) {
+            console.warn("Failed to auto-start phone verification:", e);
           }
-          router.replace("/(auth)/verify-phone");
-          return;
         }
-        // No phone provided: fall back to login
-        router.replace("/(auth)/login");
+        router.replace("/(auth)/verify-phone");
       } catch (error) {
-        console.error("Register error:", error);
-        // Handle error (show alert, etc.)
+        let errMsg = "Registration failed";
+        if (error?.data?.message) {
+          errMsg = error.data.message;
+        } else if (error?.message) {
+          errMsg = error.message;
+        }
+        // Show error dialog
+        setErrorMessage(errMsg);
+        setErrorDialogVisible(true);
       } finally {
         setLoading(false);
       }
@@ -758,6 +767,14 @@ export default function Register() {
           </View>
         </View>
       </KeyboardAvoidingView>
+      
+      <InfoDialog
+        visible={errorDialogVisible}
+        title={t("error") || "Error"}
+        message={errorMessage}
+        okText={t("ok") || "OK"}
+        onClose={() => setErrorDialogVisible(false)}
+      />
     </SafeAreaView>
   );
 }

@@ -9,15 +9,11 @@ import db from "../../config/knex.js";
 function normalizeIraqPhone(input) {
   if (!input) return null;
   let digits = String(input).replace(/\D/g, ""); // keep digits only
-  // Remove common international prefixes
   if (digits.startsWith("00964")) digits = digits.slice(5);
   else if (digits.startsWith("964")) digits = digits.slice(3);
-  // Remove leading 0 for local format like 07XXXXXXXX
   if (digits.startsWith("07")) digits = digits.slice(1);
-  // At this point we expect 10 digits starting with 7
   if (!/^7\d{9}$/.test(digits)) {
-    // If it doesn't match, return original plus-only format best-effort
-    // but prefer rejecting by returning null so caller can decide
+
     return null;
   }
   return `+964${digits}`;
@@ -26,11 +22,16 @@ function normalizeIraqPhone(input) {
 // Register a new user (SQL/Knex)
 const register = async (req, res) => {
   try {
+    console.log('📝 Registration attempt:', { ...req.body, password: '[HIDDEN]' });
     const { username, email, password, first_name, last_name, phone, channel, lang, fallback } = req.body;
 
     // Validation
     if (!username || !email || !password) {
       return res.status(400).json({ message: "Username, email, and password are required." });
+    }
+    
+    if (!phone) {
+      return res.status(400).json({ message: "Phone number is required." });
     }
 
     // Check if user already exists
@@ -42,14 +43,22 @@ const register = async (req, res) => {
         .json({ message: "Username or email already in use." });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user (store as password)
+    // Normalize and validate phone
     const normalizedPhone = phone ? normalizeIraqPhone(phone) : null;
     if (phone && !normalizedPhone) {
       return res.status(400).json({ message: "Invalid phone format. Use 7XXXXXXXXX or 07XXXXXXXX, saved as +9647XXXXXXXX." });
     }
+    
+    // Check if phone already exists
+    if (normalizedPhone) {
+      const existingPhone = await db('users').where({ phone: normalizedPhone }).first();
+      if (existingPhone) {
+        return res.status(400).json({ message: "Phone number already in use." });
+      }
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
     const user = await User.create({
       username,
       email,
@@ -102,8 +111,12 @@ const register = async (req, res) => {
       otpSent,
     });
   } catch (err) {
+    console.error('❌ Registration error:', err);
+    console.error('Error stack:', err.stack);
     res.status(500).json({
-      message: "Server error.", error: err.message
+      message: "Server error.", 
+      error: err.message,
+      details: process.env.NODE_ENV !== 'production' ? err.stack : undefined
     });
   }
 };

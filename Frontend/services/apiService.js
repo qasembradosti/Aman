@@ -5,13 +5,24 @@ import { router } from 'expo-router';
 import authEvents from '../utils/authEvents';
 import { getApiBaseUrl } from '../utils/apiConfig';
 
+const baseURL = getApiBaseUrl();
+console.log('📡 API Base URL:', baseURL);
+
 const apiService = axios.create({
-  baseURL: getApiBaseUrl(),
+  baseURL,
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
   },
 });
+
+// List of endpoints that don't require authentication
+const PUBLIC_ENDPOINTS = [
+  '/api/auth/register',
+  '/api/auth/login',
+  '/api/auth/request-password-reset',
+  '/api/auth/reset-password'
+];
 
 // Request interceptor to add token from AsyncStorage
 apiService.interceptors.request.use(
@@ -27,11 +38,18 @@ apiService.interceptors.request.use(
     } catch (e) {
       // if connectivity module not available, continue and let network errors surface
     }
+    
+    // Check if this is a public endpoint that doesn't need authentication
+    const isPublicEndpoint = PUBLIC_ENDPOINTS.some(endpoint => 
+      config.url?.includes(endpoint)
+    );
+    
     try {
       const token = await AsyncStorage.getItem('token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-      } else {
+      } else if (!isPublicEndpoint) {
+        // Only warn about missing token for protected endpoints
         console.warn('⚠️ No token found for request:', config.url);
       }
     } catch (error) {

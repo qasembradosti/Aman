@@ -36,6 +36,8 @@ import {
 } from "../../utils/productImages";
 import { Text } from "../../components/ui/Text";
 import VideoSlide from "../../components/VideoSlide";
+import * as FileSystem from "expo-file-system";
+import * as MediaLibrary from "expo-media-library";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -180,14 +182,15 @@ export default function ProductDetail() {
       const sell = Number(dbProduct.sell_price) || 0;
       const discount = Number(dbProduct.discount) || 0;
       let finalPrice = sell;
-      
+
       if (discount > 0) {
         const type = (dbProduct.discount_type || "").toLowerCase();
-        const isPercentage = type === "percentage" || type === "parsentage" || type === "percent";
+        const isPercentage =
+          type === "percentage" || type === "parsentage" || type === "percent";
         const isFixed = type === "fixed";
-        
+
         if (isPercentage) {
-          finalPrice = sell - (sell * discount / 100);
+          finalPrice = sell - (sell * discount) / 100;
         } else if (isFixed) {
           finalPrice = sell - discount;
         }
@@ -361,29 +364,53 @@ export default function ProductDetail() {
     }
   };
 
-  // Open media URL in browser for viewing/downloading
+  // Download media directly to device
   const downloadMedia = async (uri, type) => {
     if (downloading) return;
 
     try {
       setDownloading(true);
 
-      const canOpen = await Linking.canOpenURL(uri);
-      if (canOpen) {
-        await Linking.openURL(uri);
-      } else {
+      // Request permissions
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== "granted") {
         setDialog({
           visible: true,
           title: t("error") || "Error",
-          message: t("cannotOpen") || "Cannot open this URL",
+          message: t("permissionDenied") || "Permission to access media library is required",
+        });
+        return;
+      }
+
+      // Get file extension from URI
+      const fileExtension = uri.split(".").pop().split("?")[0];
+      const fileName = `${type}_${Date.now()}.${fileExtension}`;
+      const fileUri = FileSystem.documentDirectory + fileName;
+
+      // Download the file
+      const downloadResumable = FileSystem.createDownloadResumable(
+        uri,
+        fileUri
+      );
+
+      const result = await downloadResumable.downloadAsync();
+      
+      if (result && result.uri) {
+        // Save to media library
+        const asset = await MediaLibrary.createAssetAsync(result.uri);
+        
+        setDialog({
+          visible: true,
+          title: t("success") || "Success",
+          message: t("downloadSuccess") || "File downloaded successfully",
         });
       }
     } catch (err) {
-      console.error("Open URL error:", err);
+      console.error("Download error:", err);
       setDialog({
         visible: true,
         title: t("error") || "Error",
-        message: t("openFailed") || "Failed to open media",
+        message: t("downloadFailed") || "Failed to download file",
       });
     } finally {
       setDownloading(false);
@@ -454,18 +481,37 @@ export default function ProductDetail() {
     } catch (error) {
       setDialog({
         visible: true,
-        title: "Error",
-        message: "Unable to share product",
+        title: t("error") || "Error",
+        message: t("unableToShareProduct") || "Unable to share product",
       });
       console.error("Share error:", error);
     }
   };
+  
+  const handleCheckout = async () => {
+    try {
+      const userId = user?.id || "unknown";
+      const productId = product?.id || id;
+      const checkoutUrl = `https://checkout.aman-store.com/checkout?userId=${userId}&productId=${productId}&quantity=${quantity}`;
 
-  // For sellers-only app: no cart/checkout; share link instead
-
-  const increaseQuantity = () => setQuantity(quantity + 1);
-  const decreaseQuantity = () => {
-    if (quantity > 1) setQuantity(quantity - 1);
+      const canOpen = await Linking.canOpenURL(checkoutUrl);
+      if (canOpen) {
+        await Linking.openURL(checkoutUrl);
+      } else {
+        setDialog({
+          visible: true,
+          title: t("error") || "Error",
+          message: t("cannotOpenCheckout") || "Cannot open checkout page",
+        });
+      }
+    } catch (error) {
+      console.error("Checkout error:", error);
+      setDialog({
+        visible: true,
+        title: t("error") || "Error",
+        message: t("checkoutError") || "Unable to open checkout",
+      });
+    }
   };
 
   if ((productsLoading && !product) || fetchingProduct) {
@@ -482,7 +528,7 @@ export default function ProductDetail() {
       >
         <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={{ color: theme.colors.text, marginTop: 16 }}>
-          Loading product...
+          {t("loadingProduct") || "Loading product..."}
         </Text>
       </View>
     );
@@ -513,7 +559,7 @@ export default function ProductDetail() {
             fontSize: 18,
           }}
         >
-          Product not found
+          {t("productNotFound") || "Product not found"}
         </Text>
         <TouchableOpacity
           style={{
@@ -529,7 +575,7 @@ export default function ProductDetail() {
               : router.replace("/(tabs)/home")
           }
         >
-          <Text style={{ color: "#fff" }}>Go Back</Text>
+          <Text style={{ color: "#fff" }}>{t("goBack") || "Go Back"}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -907,10 +953,17 @@ export default function ProductDetail() {
                       {isRTL ? "دینار" : "IQD"}
                     </Text>
                   </View>
-                  
+
                   {/* Original Price and Discount Badge */}
                   {product.discount > 0 && (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 8,
+                        marginTop: 8,
+                      }}
+                    >
                       {/* Original Price */}
                       <Text
                         style={{
@@ -919,9 +972,10 @@ export default function ProductDetail() {
                           textDecorationLine: "line-through",
                         }}
                       >
-                        {product.original_sell_price.toLocaleString()} {isRTL ? "دینار" : "IQD"}
+                        {product.original_sell_price.toLocaleString()}{" "}
+                        {isRTL ? "دینار" : "IQD"}
                       </Text>
-                      
+
                       {/* Discount Badge */}
                       <View
                         style={{
@@ -937,8 +991,10 @@ export default function ProductDetail() {
                             fontSize: 13,
                           }}
                         >
-                          {(product.discount_type || "").toLowerCase().includes("percent") 
-                            ? `-${Math.round(product.discount)}%` 
+                          {(product.discount_type || "")
+                            .toLowerCase()
+                            .includes("percent")
+                            ? `-${Math.round(product.discount)}%`
                             : `-${product.discount.toLocaleString()} ${isRTL ? "د" : "IQD"}`}
                         </Text>
                       </View>
@@ -1191,7 +1247,6 @@ export default function ProductDetail() {
               },
             ]}
           >
-
             {/* Specifications */}
             <View style={[styles.subsection, { marginTop: layout.spacing.lg }]}>
               <Text
@@ -2081,6 +2136,31 @@ export default function ProductDetail() {
             {t("shareProduct") || "Share Product"}
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.shareButton,
+            {
+              backgroundColor: "green",
+              borderRadius: layout.borderRadius.lg,
+              paddingVertical: layout.spacing.md,
+              minHeight: layout.touchTargets.lg,
+              flexDirection: rowDirection,
+            },
+          ]}
+          onPress={handleCheckout}
+        >
+          <Ionicons name="cart" size={20} color="#fff" />
+          <Text
+            style={[
+              styles.shareButtonText,
+              {
+                fontSize: layout.typography.lg,
+              },
+            ]}
+          >
+            {t("buyProduct") || "Buy Product"}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <InfoDialog
@@ -2329,25 +2409,20 @@ const styles = StyleSheet.create({
   // Bottom Actions
   bottomActions: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 8,
+    display:"flex",
+    flexDirection:"row",
+    justifyContent:"center",
+    gap:10
   },
   shareButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    width:"50%",
   },
   shareButtonText: {
-    color: "#fff"
+    color: "#fff",
   },
   // Download Button
   downloadButton: {
@@ -2373,7 +2448,7 @@ const styles = StyleSheet.create({
   },
   // Video Placeholder
   videoPlaceholderText: {
-    textAlign: "center"
+    textAlign: "center",
   },
   playButton: {
     flexDirection: "row",

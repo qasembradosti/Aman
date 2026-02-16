@@ -6,7 +6,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Text as RNText,
-  Alert,
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -44,6 +43,8 @@ export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [errorDialogVisible, setErrorDialogVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const usernameRef = useRef(null);
   const passwordRef = useRef(null);
 
@@ -60,17 +61,16 @@ export default function Login() {
 
   useEffect(() => {
     if (error) {
-      Alert.alert(t("error") || "Error", error);
+      setErrorMessage(error);
+      setErrorDialogVisible(true);
       dispatch(clearError());
     }
   }, [error]);
 
   const handleLogin = async () => {
     if (!username || !password) {
-      InfoDialog({
-        title: t("error") || "Error",
-        message: t("enterUsernamePassword") || "Please enter username and password.",
-      });
+      setErrorMessage(t("enterUsernamePassword") || "Please enter username and password.");
+      setErrorDialogVisible(true);
       return;
     }
     try {
@@ -360,6 +360,14 @@ export default function Login() {
           </View>
         </View>
       </KeyboardAvoidingView>
+      
+      <InfoDialog
+        visible={errorDialogVisible}
+        title={t("error") || "Error"}
+        message={errorMessage}
+        okText={t("ok") || "OK"}
+        onClose={() => setErrorDialogVisible(false)}
+      />
     </SafeAreaView>
   );
 }

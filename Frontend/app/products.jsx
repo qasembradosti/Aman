@@ -118,6 +118,7 @@ export default function Products() {
   const [selectedCategory, setSelectedCategory] = useState(
     routeCategory || "all",
   );
+  const [selectedSubcategory, setSelectedSubcategory] = useState("all");
   const [sortBy, setSortBy] = useState("latest");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
@@ -279,6 +280,34 @@ export default function Products() {
     return product[localizedField] || product[field] || "";
   };
 
+  // Get available subcategories based on selected brand
+  const availableSubcategories = useMemo(() => {
+    if (!products || products.length === 0 || !categories || categories.length === 0) return [];
+    
+    // Get unique category_ids from products
+    let relevantProducts = [...products];
+    
+    // If a specific brand is selected, filter products by that brand
+    if (selectedBrand && selectedBrand !== "all") {
+      relevantProducts = relevantProducts.filter(p => String(p.brand_id) === String(selectedBrand));
+    }
+    
+    // Get unique category IDs from relevant products
+    const uniqueCategoryIds = [...new Set(relevantProducts.map(p => p.category_id).filter(Boolean))];
+    
+    // Filter categories that are subcategories (have parent_id) and are in the product list
+    const subcats = categories.filter(cat => 
+      cat.parent_id && uniqueCategoryIds.includes(cat.id)
+    );
+    
+    return subcats;
+  }, [products, categories, selectedBrand]);
+
+  // Reset subcategory when brand changes
+  useEffect(() => {
+    setSelectedSubcategory("all");
+  }, [selectedBrand]);
+
   const getFilteredProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
 
@@ -294,8 +323,15 @@ export default function Products() {
       });
     }
 
+    // Filter by subcategory (client-side)
+    if (selectedSubcategory && selectedSubcategory !== "all") {
+      filtered = filtered.filter((product) => 
+        String(product.category_id) === String(selectedSubcategory)
+      );
+    }
+
     // Note: Brand and category filtering are now handled by the backend API
-    // Only search and sorting are done client-side
+    // Only search, subcategory, and sorting are done client-side
 
     // Sort products (client-side)
     if (sortBy === "price-low") {
@@ -309,7 +345,7 @@ export default function Products() {
     }
 
     return filtered;
-  }, [products, searchQuery, sortBy, language]);
+  }, [products, searchQuery, sortBy, language, selectedSubcategory]);
 
   const renderStars = (rating) => {
     const stars = [];
@@ -403,7 +439,7 @@ export default function Products() {
             styles.searchWrapper,
             {
               paddingHorizontal: layout.horizontalPadding,
-              marginBottom: 16,
+              marginBottom: availableSubcategories.length > 0 ? 8 : 16,
               marginTop: 8,
             },
           ]}
@@ -449,6 +485,90 @@ export default function Products() {
             )}
           </View>
         </View>
+
+        {/* Subcategory Filter Badges */}
+        {availableSubcategories.length > 0 && (
+          <View
+            style={[
+              styles.subcategoryWrapper,
+              {
+                paddingHorizontal: layout.horizontalPadding,
+                marginBottom: 16,
+              },
+            ]}
+          >
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+                gap: 8,
+              }}
+            >
+              {/* All Subcategories Badge */}
+              <TouchableOpacity
+                style={[
+                  styles.subcategoryBadge,
+                  {
+                    backgroundColor:
+                      selectedSubcategory === "all"
+                        ? theme.colors.primary
+                        : theme.colors.card,
+                    borderColor: theme.colors.primary,
+                  },
+                ]}
+                onPress={() => setSelectedSubcategory("all")}
+              >
+                <Text
+                  style={[
+                    styles.subcategoryBadgeText,
+                    {
+                      color:
+                        selectedSubcategory === "all"
+                          ? "#fff"
+                          : theme.colors.text,
+                    },
+                  ]}
+                >
+                  {t("all") || "All"}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Subcategory Badges */}
+              {availableSubcategories.map((subcat) => (
+                <TouchableOpacity
+                  key={subcat.id}
+                  style={[
+                    styles.subcategoryBadge,
+                    {
+                      backgroundColor:
+                        selectedSubcategory === String(subcat.id)
+                          ? theme.colors.primary
+                          : theme.colors.card,
+                      borderColor: theme.colors.primary,
+                    },
+                  ]}
+                  onPress={() => setSelectedSubcategory(String(subcat.id))}
+                >
+                  <Text
+                    style={[
+                      styles.subcategoryBadgeText,
+                      {
+                        color:
+                          selectedSubcategory === String(subcat.id)
+                            ? "#fff"
+                            : theme.colors.text,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {subcat.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Brand Filter */}
         {/* Moved to Modal */}
@@ -1293,5 +1413,20 @@ const styles = StyleSheet.create({
   },
   modalButtonText: {
     fontSize: 16,
+  },
+  subcategoryWrapper: {
+    // Wrapper for subcategory badges
+  },
+  subcategoryBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    minWidth: 60,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  subcategoryBadgeText: {
+    fontSize: 13,
   },
 });

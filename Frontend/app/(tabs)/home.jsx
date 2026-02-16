@@ -1470,7 +1470,7 @@ const styles = StyleSheet.create({
   categoryImageContainer: {
     width: 75,
     height: 75,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: "hidden",
     backgroundColor: "#f5f5f5",
     marginBottom: 8,
@@ -1480,15 +1480,15 @@ const styles = StyleSheet.create({
   categoryCard2Row: {
     alignItems: "center",
     width: 85,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 0,
-    padding: 12,
+    padding: 8,
     backgroundColor: "#fff",
   },
   categoryImageContainer2Row: {
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: 15,
     overflow: "hidden",
     marginBottom: 8,
     justifyContent: "center",
@@ -1509,7 +1509,7 @@ const styles = StyleSheet.create({
   },
   categoryIcon: {
     // width and height handled inline with responsive layout
-    borderRadius: 14,
+    borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
@@ -1699,7 +1699,6 @@ const styles = StyleSheet.create({
   },
   recentPrice: {
     fontSize: 13,
-    fontWeight: "600",
   },
   recentRating: {
     flexDirection: "row",
