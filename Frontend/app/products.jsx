@@ -136,8 +136,11 @@ export default function Products() {
   useEffect(() => {
     const fetchParams = { limit: pageSize, offset: 0 };
 
-    // Include category filter in API request if category is selected
-    if (selectedCategory && selectedCategory !== "all") {
+    // Include subcategory or category filter in API request
+    // Subcategory takes precedence over parent category
+    if (selectedSubcategory && selectedSubcategory !== "all") {
+      fetchParams.category_id = selectedSubcategory;
+    } else if (selectedCategory && selectedCategory !== "all") {
       fetchParams.category_id = selectedCategory;
     }
 
@@ -161,13 +164,16 @@ export default function Products() {
 
     dispatch(fetchBrands({ limit: 100 }));
     dispatch(fetchCategories({ limit: 100 }));
-  }, [dispatch, selectedCategory, selectedBrand]);
+  }, [dispatch, selectedCategory, selectedBrand, selectedSubcategory]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     const fetchParams = { limit: pageSize, offset: 0 };
 
-    if (selectedCategory && selectedCategory !== "all") {
+    // Subcategory takes precedence over parent category
+    if (selectedSubcategory && selectedSubcategory !== "all") {
+      fetchParams.category_id = selectedSubcategory;
+    } else if (selectedCategory && selectedCategory !== "all") {
       fetchParams.category_id = selectedCategory;
     }
 
@@ -188,7 +194,7 @@ export default function Products() {
       .finally(() => {
         setRefreshing(false);
       });
-  }, [dispatch, selectedCategory, selectedBrand]);
+  }, [dispatch, selectedCategory, selectedBrand, selectedSubcategory]);
 
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore || productsLoading) return;
@@ -196,7 +202,10 @@ export default function Products() {
     setLoadingMore(true);
     const fetchParams = { limit: pageSize, offset, append: true };
 
-    if (selectedCategory && selectedCategory !== "all") {
+    // Subcategory takes precedence over parent category
+    if (selectedSubcategory && selectedSubcategory !== "all") {
+      fetchParams.category_id = selectedSubcategory;
+    } else if (selectedCategory && selectedCategory !== "all") {
       fetchParams.category_id = selectedCategory;
     }
 
@@ -229,6 +238,7 @@ export default function Products() {
     offset,
     selectedCategory,
     selectedBrand,
+    selectedSubcategory,
     productsLoading,
   ]);
 
@@ -280,33 +290,50 @@ export default function Products() {
     return product[localizedField] || product[field] || "";
   };
 
-  // Get available subcategories based on selected brand
+  // Get available subcategories based on selected brand and category
   const availableSubcategories = useMemo(() => {
-    if (!products || products.length === 0 || !categories || categories.length === 0) return [];
+    if (!categories || categories.length === 0) return [];
     
-    // Get unique category_ids from products
-    let relevantProducts = [...products];
+    // Filter categories that are subcategories
+    let subcats = [];
     
-    // If a specific brand is selected, filter products by that brand
-    if (selectedBrand && selectedBrand !== "all") {
-      relevantProducts = relevantProducts.filter(p => String(p.brand_id) === String(selectedBrand));
+    if (selectedCategory && selectedCategory !== "all") {
+      // Show all subcategories of the selected parent category
+      // Don't filter by uniqueCategoryIds here because products might be filtered on server side
+      subcats = categories.filter(cat => 
+        cat.parent_id && String(cat.parent_id) === String(selectedCategory)
+      );
+      
+      // If no subcategories found with parent_id match, check if selected is itself a subcategory
+      // In that case, don't show subcategories
+      if (subcats.length === 0) {
+        const selectedCat = categories.find(c => String(c.id) === String(selectedCategory));
+        if (selectedCat && selectedCat.parent_id) {
+          // Selected category is a subcategory, don't show any subcategories
+          subcats = [];
+        }
+      }
+    } else if (selectedBrand && selectedBrand !== "all") {
+      // When a brand is selected but no category, show all subcategories
+      // (products will be filtered by brand on backend)
+      subcats = categories.filter(cat => cat.parent_id);
+    } else {
+      // When both "all" brand and "all" category are selected
+      // Only show subcategories that have products in current view
+      let relevantProducts = products || [];
+      const uniqueCategoryIds = [...new Set(relevantProducts.map(p => p.category_id).filter(Boolean))];
+      subcats = categories.filter(cat => 
+        cat.parent_id && uniqueCategoryIds.includes(cat.id)
+      );
     }
     
-    // Get unique category IDs from relevant products
-    const uniqueCategoryIds = [...new Set(relevantProducts.map(p => p.category_id).filter(Boolean))];
-    
-    // Filter categories that are subcategories (have parent_id) and are in the product list
-    const subcats = categories.filter(cat => 
-      cat.parent_id && uniqueCategoryIds.includes(cat.id)
-    );
-    
     return subcats;
-  }, [products, categories, selectedBrand]);
+  }, [products, categories, selectedBrand, selectedCategory]);
 
-  // Reset subcategory when brand changes
+  // Reset subcategory when brand or category changes
   useEffect(() => {
     setSelectedSubcategory("all");
-  }, [selectedBrand]);
+  }, [selectedBrand, selectedCategory]);
 
   const getFilteredProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
@@ -323,15 +350,8 @@ export default function Products() {
       });
     }
 
-    // Filter by subcategory (client-side)
-    if (selectedSubcategory && selectedSubcategory !== "all") {
-      filtered = filtered.filter((product) => 
-        String(product.category_id) === String(selectedSubcategory)
-      );
-    }
-
-    // Note: Brand and category filtering are now handled by the backend API
-    // Only search, subcategory, and sorting are done client-side
+    // Note: Brand, category, and subcategory filtering are now handled by the backend API
+    // Only search and sorting are done client-side
 
     // Sort products (client-side)
     if (sortBy === "price-low") {
@@ -404,7 +424,7 @@ export default function Products() {
           style={styles.backButton}
         >
           <Ionicons
-            name={isRTL ? "arrow-forward" : "arrow-back"}
+            name={"arrow-back"}
             size={24}
             color={theme.colors.text}
           />
@@ -562,7 +582,7 @@ export default function Products() {
                     ]}
                     numberOfLines={1}
                   >
-                    {subcat.name}
+                    {getLocalizedProductName(subcat,"name") }
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -744,14 +764,6 @@ export default function Products() {
               }}
             >
               {t("loadingMore") || "Loading more products..."}
-            </Text>
-          </View>
-        )}
-
-        {!hasMore && products.length > 0 && (
-          <View style={{ paddingVertical: 20, alignItems: "center" }}>
-            <Text style={{ color: theme.colors.textSecondary, fontSize: 12 }}>
-              {t("noMoreProducts") || "No more products to load"}
             </Text>
           </View>
         )}

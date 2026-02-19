@@ -65,7 +65,6 @@
           "icon": "./assets/images/aman-app.png",
           "color": "#4F46E5",
           "mode": "production",
-          "sounds": ["./assets/sounds/notification.wav"],
           "androidMode": "default",
           "androidCollapsedTitle": "#{unread_notifications} new notifications"
         }

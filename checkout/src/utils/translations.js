@@ -16,13 +16,17 @@ export const translations = {
     deliveryInformation: "Delivery Information",
     quantity: "Quantity",
     city: "City",
+    selectCity: "Select City",
+    district: "District/Area",
     phone: "Phone",
-    address: "Address",
+    address: "Detailed Address",
     locationPoints: "Location Points (Optional)",
-    enterCity: "Enter your city",
+    selectCityPlaceholder: "Choose your city",
+    enterDistrict: "Enter your district or area",
     enterPhone: "Enter your phone number",
-    enterAddress: "Enter your full address",
+    enterAddress: "Enter street, building number, floor, etc.",
     enterLocationPoints: "Enter location coordinates (e.g., 36.1234, 43.5678)",
+    deliveryFeeWillUpdate: "Delivery fee will be updated based on your city",
     
     // Shopping Cart
     shoppingCart: "Shopping Cart",
@@ -57,6 +61,13 @@ export const translations = {
     // Currency
     currency: "IQD",
     
+    // Discount
+    save: "Save",
+    off: "OFF",
+    discount: "Discount",
+    originalPrice: "Original Price",
+    discountedPrice: "Discounted Price",
+    
     // Common
     required: "*",
     loading: "Loading product...",
@@ -80,13 +91,17 @@ export const translations = {
     deliveryInformation: "معلومات التوصيل",
     quantity: "الكمية",
     city: "المدينة",
+    selectCity: "اختر المدينة",
+    district: "الحي/المنطقة",
     phone: "الهاتف",
-    address: "العنوان",
+    address: "العنوان التفصيلي",
     locationPoints: "نقاط الموقع (اختياري)",
-    enterCity: "أدخل مدينتك",
+    selectCityPlaceholder: "اختر مدينتك",
+    enterDistrict: "أدخل الحي أو المنطقة",
     enterPhone: "أدخل رقم هاتفك",
-    enterAddress: "أدخل عنوانك الكامل",
+    enterAddress: "أدخل الشارع، رقم المبنى، الطابق، إلخ.",
     enterLocationPoints: "أدخل إحداثيات الموقع (مثال: 36.1234, 43.5678)",
+    deliveryFeeWillUpdate: "سيتم تحديث رسوم التوصيل بناءً على مدينتك",
     
     // Shopping Cart
     shoppingCart: "سلة التسوق",
@@ -121,6 +136,13 @@ export const translations = {
     // Currency
     currency: "د.ع",
     
+    // Discount
+    save: "وفر",
+    off: "خصم",
+    discount: "الخصم",
+    originalPrice: "السعر الأصلي",
+    discountedPrice: "السعر بعد الخصم",
+    
     // Common
     required: "*",
     loading: "جاري تحميل المنتج...",
@@ -144,13 +166,17 @@ export const translations = {
     deliveryInformation: "زانیاری گەیاندن",
     quantity: "بڕ",
     city: "شار",
+    selectCity: "شار هەڵبژێرە",
+    district: "گەڕەک/ناوچە",
     phone: "تەلەفۆن",
-    address: "ناونیشان",
+    address: "ناونیشانی ورد",
     locationPoints: "خاڵەکانی شوێن (دڵخواز)",
-    enterCity: "شارەکەت بنووسە",
+    selectCityPlaceholder: "شارەکەت هەڵبژێرە",
+    enterDistrict: "گەڕەک یان ناوچەکەت بنووسە",
     enterPhone: "ژمارە تەلەفۆنەکەت بنووسە",
-    enterAddress: "ناونیشانی تەواوت بنووسە",
+    enterAddress: "شەقام، ژمارەی بینا، نهۆم، هتد بنووسە",
     enterLocationPoints: "کۆئۆردیناتی شوێن بنووسە (نموونە: 36.1234, 43.5678)",
+    deliveryFeeWillUpdate: "کرێی گەیاندن بەپێی شارەکەت نوێ دەکرێتەوە",
     
     // Shopping Cart
     shoppingCart: "سەبەتەی کڕین",
@@ -184,6 +210,13 @@ export const translations = {
     
     // Currency
     currency: "د.ع",
+    
+    // Discount
+    save: "پاشەکەوت",
+    off: "داشکاندن",
+    discount: "داشکاندن",
+    originalPrice: "نرخی ڕەسەن",
+    discountedPrice: "نرخی دوای داشکاندن",
     
     // Common
     required: "*",

@@ -606,7 +606,7 @@ export default function ProductDetail() {
             }
           >
             <Ionicons
-              name={isRTL ? "arrow-forward" : "arrow-back"}
+              name={isRTL ? "arrow-back" : "arrow-forward"}
               size={24}
               color={theme.colors.text}
             />
@@ -1097,7 +1097,7 @@ export default function ProductDetail() {
             {/* Colors Section (if available) */}
             {product.colors && product.colors.length > 0 && (
               <View
-                style={[styles.colorsSection, { marginTop: layout.spacing.md }]}
+                style={[styles.colorsSection, { marginTop: layout.spacing.md,direction: !isRTL ? "rtl" : "ltr" }]}
               >
                 <Text
                   style={[
@@ -1115,7 +1115,11 @@ export default function ProductDetail() {
                 <View
                   style={[
                     styles.colorsContainer,
-                    { flexDirection: rowDirection, flexWrap: "wrap" },
+                    { 
+                      flexDirection: rowDirection, 
+                      flexWrap: "wrap",
+                      gap: layout.spacing.sm,
+                    },
                   ]}
                 >
                   {product.colors.map((color, index) => (
@@ -1128,9 +1132,6 @@ export default function ProductDetail() {
                           borderRadius: layout.borderRadius.md,
                           paddingHorizontal: layout.spacing.md,
                           paddingVertical: layout.spacing.xs,
-                          marginRight: isRTL ? 0 : layout.spacing.sm,
-                          marginLeft: isRTL ? layout.spacing.sm : 0,
-                          marginBottom: layout.spacing.sm,
                         },
                       ]}
                     >

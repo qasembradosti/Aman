@@ -101,7 +101,7 @@ export default function CategoryScreen() {
       await Share.share({
         title: itemName,
         message: `Check out this product: ${itemName}`,
-        url: `https://yourapp.com/product/${item.id}`,
+        url: `https://check.com/product/${item.id}`,
       });
     } catch (_e) {
       Alert.alert("Error", "Unable to share product");
@@ -206,7 +206,7 @@ export default function CategoryScreen() {
       <View style={[styles.header, { backgroundColor: theme.colors.card, flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <TouchableOpacity onPress={() => router.canGoBack?.() ? router.back() : router.replace('/(tabs)/home')} style={styles.backBtn}>
           <Ionicons
-            name={isRTL ? "arrow-forward" : "arrow-back"}
+            name={isRTL ? "arrow-back" : "arrow-forward"}
             size={22}
             color={theme.colors.text}
           />

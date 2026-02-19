@@ -7,6 +7,16 @@ import "../styles/plyr-custom.css";
 import { productService } from "../services/productService";
 import { orderService } from "../services/orderService";
 import { translations, getDirection, getAlign } from "../utils/translations";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const ImageSlider = ({ images, video }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -24,15 +34,15 @@ const ImageSlider = ({ images, video }) => {
   }
 
   // Build media array with images and video
-  const mediaList = imageList.map(url => ({ type: 'image', url }));
-  
+  const mediaList = imageList.map((url) => ({ type: "image", url }));
+
   if (video) {
-    mediaList.push({ type: 'video', url: video });
-    console.log('Video added to media list:', video);
+    mediaList.push({ type: "video", url: video });
+    console.log("Video added to media list:", video);
   } else {
-    console.log('No video to add - video prop is:', video);
+    console.log("No video to add - video prop is:", video);
   }
-  console.log('ImageSlider - Final media list:', mediaList);
+  console.log("ImageSlider - Final media list:", mediaList);
 
   if (mediaList.length === 0) {
     // No valid images or video
@@ -70,23 +80,23 @@ const ImageSlider = ({ images, video }) => {
   return (
     <div className="relative group">
       <div className="relative w-full aspect-4/3 overflow-hidden rounded-2xl bg-gray-100">
-        {mediaList[currentIndex].type === 'video' ? (
+        {mediaList[currentIndex].type === "video" ? (
           <div className="w-full h-full flex items-center justify-center bg-black rounded-2xl overflow-hidden">
             <Plyr
               key={mediaList[currentIndex].url}
               source={{
-                type: 'video',
+                type: "video",
                 sources: [
                   {
                     src: mediaList[currentIndex].url,
-                    type: 'video/mp4',
-                  }
-                ]
+                    type: "video/mp4",
+                  },
+                ],
               }}
               options={{
                 quality: { default: 720, options: [360, 720, 1080] },
                 disableContextMenu: false,
-                ratio: '16:9',
+                ratio: "16:9",
                 autoplay: true,
                 hideControls: true,
                 resetOnEnd: true,
@@ -162,8 +172,12 @@ const ImageSlider = ({ images, video }) => {
                       : "bg-white/50 hover:bg-white/75 w-2.5 h-2.5 rounded-full"
                   }`}
                 >
-                  {item.type === 'video' && index === currentIndex && (
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  {item.type === "video" && index === currentIndex && (
+                    <svg
+                      className="w-3 h-3"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
                       <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
                     </svg>
                   )}
@@ -187,9 +201,13 @@ const ImageSlider = ({ images, video }) => {
                   : "border-gray-200 hover:border-primary-300"
               }`}
             >
-              {item.type === 'video' ? (
+              {item.type === "video" ? (
                 <div className="w-full h-full flex items-center justify-center bg-black">
-                  <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <svg
+                    className="w-8 h-8 text-white"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
                     <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
                   </svg>
                 </div>
@@ -206,6 +224,81 @@ const ImageSlider = ({ images, video }) => {
       )}
     </div>
   );
+};
+
+// Iraqi cities with delivery fees (in IQD)
+const iraqiCities = [
+  { name_en: "Baghdad", name_ar: "بغداد", name_ku: "بەغدا", fee: 5000 },
+  { name_en: "Erbil", name_ar: "أربيل", name_ku: "هەولێر", fee: 2500 },
+  { name_en: "Sulaymaniyah", name_ar: "السليمانية", name_ku: "سلێمانی", fee: 3000 },
+  { name_en: "Duhok", name_ar: "دهوك", name_ku: "دهۆک", fee: 3000 },
+  { name_en: "Basra", name_ar: "البصرة", name_ku: "بەسرە", fee: 5000 },
+  { name_en: "Mosul", name_ar: "الموصل", name_ku: "موسڵ", fee: 5000 },
+  { name_en: "Kirkuk", name_ar: "كركوك", name_ku: "کەرکووک", fee: 3000 },
+  { name_en: "Najaf", name_ar: "النجف", name_ku: "نەجەف", fee: 5000 },
+  { name_en: "Karbala", name_ar: "كربلاء", name_ku: "کەربەلا", fee: 5000 },
+  { name_en: "Hillah", name_ar: "الحلة", name_ku: "حیللە", fee: 5000 },
+  { name_en: "Nasiriyah", name_ar: "الناصرية", name_ku: "نەسریە", fee: 5000 },
+  { name_en: "Amarah", name_ar: "العمارة", name_ku: "ئەمارە", fee: 5000 },
+  { name_en: "Diwaniyah", name_ar: "الديوانية", name_ku: "دیوانیە", fee: 5000 },
+  { name_en: "Kut", name_ar: "الكوت", name_ku: "کووت", fee: 5000 },
+  { name_en: "Samawah", name_ar: "السماوة", name_ku: "سەماوە", fee: 5000 },
+  { name_en: "Ramadi", name_ar: "الرمادي", name_ku: "ڕەمادی", fee: 5000 },
+  { name_en: "Fallujah", name_ar: "الفلوجة", name_ku: "فەڵووجە", fee: 5000 },
+  { name_en: "Tikrit", name_ar: "تكريت", name_ku: "تکریت", fee: 5000 },
+  { name_en: "Samarra", name_ar: "سامراء", name_ku: "سامەڕا", fee: 5000 },
+  { name_en: "Baqubah", name_ar: "بعقوبة", name_ku: "بەعقووبە", fee: 5000 },
+  { name_en: "Halabja", name_ar: "حلبجة", name_ku: "هەڵەبجە", fee: 3500 },
+  { name_en: "Zakho", name_ar: "زاخو", name_ku: "زاخۆ", fee: 3500 },
+  { name_en: "Soran", name_ar: "سوران", name_ku: "سۆران", fee: 3500 },
+  { name_en: "Rania", name_ar: "رانية", name_ku: "ڕانیە", fee: 3500 },
+  { name_en: "Khanaqin", name_ar: "خانقين", name_ku: "خانەقین", fee: 5000 },
+];
+
+// Utility function to calculate discount
+const calculateDiscount = (product) => {
+  const basePrice = product.base_price || product.price || 0;
+  const discount = product.discount || 0;
+  const discountType = product.discount_type || 'percentage';
+  
+  if (!discount || discount <= 0) {
+    return {
+      hasDiscount: false,
+      originalPrice: basePrice,
+      discountAmount: 0,
+      finalPrice: product.sell_price || basePrice,
+      discountPercentage: 0
+    };
+  }
+  
+  let discountAmount = 0;
+  let finalPrice = basePrice;
+  
+  if (discountType === 'percentage') {
+    // Percentage discount
+    discountAmount = (basePrice * discount) / 100;
+    finalPrice = basePrice - discountAmount;
+  } else if (discountType === 'fixed') {
+    // Fixed amount discount
+    discountAmount = discount;
+    finalPrice = basePrice - discount;
+  }
+  
+  // Ensure final price doesn't go below zero
+  finalPrice = Math.max(0, finalPrice);
+  
+  // Calculate percentage for display
+  const discountPercentage = basePrice > 0 ? ((discountAmount / basePrice) * 100).toFixed(0) : 0;
+  
+  return {
+    hasDiscount: true,
+    originalPrice: basePrice,
+    discountAmount: Math.round(discountAmount),
+    finalPrice: Math.round(finalPrice),
+    discountPercentage: discountPercentage,
+    discountType: discountType,
+    discount: discount
+  };
 };
 
 const Checkout = () => {
@@ -238,8 +331,9 @@ const Checkout = () => {
   const [formData, setFormData] = useState({
     quantity: 1,
     city: "",
-    phone: "",
     address: "",
+    district: "",
+    phone: "",
     delivery_price: 5000, // Default delivery price
     commission_price: 0,
   });
@@ -280,7 +374,8 @@ const Checkout = () => {
         let errorMessage = "Unable to get location";
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = "Location permission denied. Please enable location access.";
+            errorMessage =
+              "Location permission denied. Please enable location access.";
             break;
           case error.POSITION_UNAVAILABLE:
             errorMessage = "Location information unavailable.";
@@ -297,7 +392,7 @@ const Checkout = () => {
         enableHighAccuracy: true,
         timeout: 10000,
         maximumAge: 0,
-      }
+      },
     );
   };
 
@@ -429,7 +524,10 @@ const Checkout = () => {
       // If product has store_id, fetch products from same store
       const storeId = product?.store_id;
       if (storeId) {
-        const related = await productService.getProductsByStore(storeId, excludeId);
+        const related = await productService.getProductsByStore(
+          storeId,
+          excludeId,
+        );
         setRelatedProducts(related);
       } else {
         const related = await productService.getRelatedProducts(
@@ -450,8 +548,14 @@ const Checkout = () => {
     // Check if cart has items from a different store
     if (cart.length > 0) {
       const firstStoreId = cart[0].store_id;
-      if (firstStoreId && product.store_id && firstStoreId !== product.store_id) {
-        setCartError("You can only order products from one store at a time. Please clear your cart first.");
+      if (
+        firstStoreId &&
+        product.store_id &&
+        firstStoreId !== product.store_id
+      ) {
+        setCartError(
+          "You can only order products from one store at a time. Please clear your cart first.",
+        );
         setTimeout(() => setCartError(null), 3000);
         return;
       }
@@ -509,7 +613,8 @@ const Checkout = () => {
 
   const calculateCartTotal = () => {
     const productsTotal = cart.reduce((sum, item) => {
-      const price = item.sell_price || item.price || 0;
+      const discountInfo = calculateDiscount(item);
+      const price = discountInfo.finalPrice;
       return sum + price * item.quantity;
     }, 0);
     return productsTotal + formData.delivery_price + formData.commission_price;
@@ -528,6 +633,26 @@ const Checkout = () => {
     }));
   };
 
+  const handleCityChange = (e) => {
+    const cityName = e.target.value;
+    const selectedCity = iraqiCities.find(
+      (city) => city.name_en === cityName
+    );
+    
+    if (selectedCity) {
+      setFormData((prev) => ({
+        ...prev,
+        city: cityName,
+        delivery_price: selectedCity.fee,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        city: cityName,
+      }));
+    }
+  };
+
   const calculateTotalPrice = () => {
     if (!product) return 0;
     const productTotal = product.sell_price * formData.quantity;
@@ -538,7 +663,7 @@ const Checkout = () => {
     e.preventDefault();
 
     // Validation
-    if (!formData.city || !formData.phone || !formData.address) {
+    if (!formData.city || !formData.phone || !formData.address || !formData.district) {
       toast.error(t.fillAllFields);
       return;
     }
@@ -558,11 +683,14 @@ const Checkout = () => {
       setSubmitting(true);
 
       // Prepare order items from cart
-      const items = cart.map((item) => ({
-        product_id: item.id,
-        quantity: item.quantity,
-        price: item.sell_price || item.price,
-      }));
+      const items = cart.map((item) => {
+        const discountInfo = calculateDiscount(item);
+        return {
+          product_id: item.id,
+          quantity: item.quantity,
+          price: discountInfo.finalPrice,
+        };
+      });
 
       // Calculate total price
       const totalPrice = calculateCartTotal();
@@ -570,9 +698,13 @@ const Checkout = () => {
       // Prepare shipping address
       const shipping_address = {
         city: formData.city,
+        district: formData.district,
         address: formData.address,
         phone: formData.phone,
-        location_points: location.lat && location.lng ? `${location.lat},${location.lng}` : null,
+        location_points:
+          location.lat && location.lng
+            ? `${location.lat},${location.lng}`
+            : null,
       };
 
       // Create single order with all items
@@ -821,7 +953,10 @@ const Checkout = () => {
               {/* Image Slider */}
               {(product.image || product.images) && (
                 <div className="mb-8">
-                  <ImageSlider images={product.images || product.image} video={productVideo} />
+                  <ImageSlider
+                    images={product.images || product.image}
+                    video={productVideo}
+                  />
                 </div>
               )}
 
@@ -831,16 +966,57 @@ const Checkout = () => {
                   <h3 className="text-3xl font-bold text-gray-900 mb-4">
                     {product.title || product.name}
                   </h3>
-                  <div className="flex items-center mb-4">
-                    <div className="flex items-baseline gap-1 sm:gap-2 bg-primary-50 px-3 sm:px-4 md:px-6 py-2 sm:py-3 rounded-xl">
-                      <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-primary-600">
-                        {product.sell_price?.toLocaleString()}
-                      </span>
-                      <span className="text-lg sm:text-xl md:text-2xl text-primary-700 font-semibold">
-                        {t.currency}
-                      </span>
-                    </div>
-                  </div>
+                  
+                  {(() => {
+                    const discountInfo = calculateDiscount(product);
+                    return (
+                      <div className="mb-4">
+                        {discountInfo.hasDiscount ? (
+                          <div className="space-y-3">
+                            {/* Discount Badge */}
+                            <div className="inline-flex items-center bg-red-500 text-white px-4 py-2 rounded-full font-bold text-lg shadow-lg">
+                              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
+                              </svg>
+                              {discountInfo.discountType === 'percentage' 
+                                ? `${discountInfo.discount}% ${t.off}`
+                                : `${discountInfo.discount.toLocaleString()} ${t.currency} ${t.off}`
+                              }
+                            </div>
+                            
+                            {/* Original Price - Strikethrough */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-500 text-lg line-through">
+                                {discountInfo.originalPrice.toLocaleString()} {t.currency}
+                              </span>
+                              <span className="text-sm text-green-600 font-semibold bg-green-50 px-2 py-1 rounded">
+                                {t.save} {discountInfo.discountAmount.toLocaleString()} {t.currency}
+                              </span>
+                            </div>
+                            
+                            {/* Discounted Price */}
+                            <div className="flex items-baseline gap-2 bg-linear-to-r from-green-50 to-blue-50 px-4 sm:px-6 py-3 rounded-xl border-2 border-green-200">
+                              <span className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-green-600">
+                                {discountInfo.finalPrice.toLocaleString()}
+                              </span>
+                              <span className="text-xl sm:text-2xl text-green-700 font-semibold">
+                                {t.currency}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-baseline gap-2 bg-primary-50 px-4 sm:px-6 py-3 rounded-xl">
+                            <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-primary-600">
+                              {(product.sell_price || product.base_price)?.toLocaleString()}
+                            </span>
+                            <span className="text-lg sm:text-xl md:text-2xl text-primary-700 font-semibold">
+                              {t.currency}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Stock Badge */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6">
@@ -965,15 +1141,11 @@ const Checkout = () => {
               onSubmit={handleCheckout}
               className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6"
             >
- 
-              {/* City */}
-              <div className="transform transition-all hover:scale-[1.01]">
-                <label
-                  htmlFor="city"
-                  className="text-sm font-bold text-gray-800 mb-2 flex items-center flex-wrap"
-                >
+              {/* City Select */}
+              <div className="space-y-2">
+                <Label htmlFor="city" className="flex items-center">
                   <svg
-                    className="w-5 h-5 mr-2 text-primary-600 shrink-0"
+                    className="w-5 h-5 mr-2 text-blue-600"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -985,31 +1157,79 @@ const Checkout = () => {
                       d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
                     />
                   </svg>
-                  <span>
-                    {t.city}{" "}
-                    <span className="text-red-500 ml-1">{t.required}</span>
-                  </span>
-                </label>
+                  {t.selectCity}{" "}
+                  <span className="text-red-500 ml-1">{t.required}</span>
+                </Label>
+                <Select value={formData.city} onValueChange={(value) => {
+                  const selectedCity = iraqiCities.find(city => city.name_en === value);
+                  if (selectedCity) {
+                    setFormData((prev) => ({
+                      ...prev,
+                      city: value,
+                      delivery_price: selectedCity.fee,
+                    }));
+                  }
+                }} required>
+                  <SelectTrigger id="city">
+                    <SelectValue placeholder={t.selectCityPlaceholder} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {iraqiCities.map((city, index) => (
+                      <SelectItem key={index} value={city.name_en}>
+                        {language === 'en' ? city.name_en : language === 'ar' ? city.name_ar : city.name_ku}
+                        {' - '}{city.fee.toLocaleString()} {t.currency}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 flex items-center">
+                  <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {t.deliveryFeeWillUpdate}
+                </p>
+              </div>
+
+              {/* District/Area */}
+              <div className="space-y-2">
+                <Label htmlFor="district" className="flex items-center">
+                  <svg
+                    className="w-5 h-5 mr-2 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  {t.district}{" "}
+                  <span className="text-red-500 ml-1">{t.required}</span>
+                </Label>
                 <Input
-                  type="text"
-                  id="city"
-                  name="city"
-                  value={formData.city}
+                  id="district"
+                  name="district"
+                  value={formData.district}
                   onChange={handleInputChange}
-                  placeholder={t.enterCity}
-                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition-all outline-none hover:border-primary-200 bg-gray-50 hover:bg-white"
+                  placeholder={t.enterDistrict}
                   required
                 />
               </div>
 
               {/* Phone */}
-              <div className="transform transition-all hover:scale-[1.01]">
-                <label
-                  htmlFor="phone"
-                  className="text-sm font-bold text-gray-800 mb-2 flex items-center flex-wrap"
-                >
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="flex items-center">
                   <svg
-                    className="w-5 h-5 mr-2 text-primary-600 shrink-0"
+                    className="w-5 h-5 mr-2 text-blue-600"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -1021,11 +1241,9 @@ const Checkout = () => {
                       d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
                     />
                   </svg>
-                  <span>
-                    {t.phone}{" "}
-                    <span className="text-red-500 ml-1">{t.required}</span>
-                  </span>
-                </label>
+                  {t.phone}{" "}
+                  <span className="text-red-500 ml-1">{t.required}</span>
+                </Label>
                 <Input
                   type="tel"
                   id="phone"
@@ -1033,19 +1251,15 @@ const Checkout = () => {
                   value={formData.phone}
                   onChange={handleInputChange}
                   placeholder={t.enterPhone}
-                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition-all outline-none hover:border-primary-200 bg-gray-50 hover:bg-white"
                   required
                 />
               </div>
 
               {/* Address */}
-              <div className="transform transition-all hover:scale-[1.01]">
-                <label
-                  htmlFor="address"
-                  className="text-sm font-bold text-gray-800 mb-2 flex items-center"
-                >
+              <div className="space-y-2">
+                <Label htmlFor="address" className="flex items-center">
                   <svg
-                    className="w-5 h-5 mr-2 text-primary-600"
+                    className="w-5 h-5 mr-2 text-blue-600"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -1065,15 +1279,14 @@ const Checkout = () => {
                   </svg>
                   {t.address}{" "}
                   <span className="text-red-500 ml-1">{t.required}</span>
-                </label>
-                <textarea
+                </Label>
+                <Textarea
                   id="address"
                   name="address"
                   value={formData.address}
                   onChange={handleInputChange}
                   placeholder={t.enterAddress}
-                  rows="4"
-                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition-all outline-none resize-none hover:border-primary-200 bg-gray-50 hover:bg-white"
+                  rows={4}
                   required
                 />
               </div>
@@ -1180,7 +1393,8 @@ const Checkout = () => {
                           />
                         </svg>
                         <p className="text-sm font-medium">
-                          {t.clickToDetectLocation || "Click below to detect your location"}
+                          {t.clickToDetectLocation ||
+                            "Click below to detect your location"}
                         </p>
                       </div>
                     )}
@@ -1310,12 +1524,35 @@ const Checkout = () => {
                             <h4 className="font-semibold text-sm sm:text-base text-gray-900 line-clamp-2 mb-1">
                               {item.title || item.name || "Product"}
                             </h4>
-                            <p className="text-xs sm:text-sm text-primary-600 font-semibold">
-                              {(
-                                item.sell_price || item.price
-                              )?.toLocaleString()}{" "}
-                              {t.currency}
-                            </p>
+                            {(() => {
+                              const discountInfo = calculateDiscount(item);
+                              return (
+                                <div>
+                                  {discountInfo.hasDiscount ? (
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-gray-400 line-through">
+                                          {discountInfo.originalPrice.toLocaleString()}
+                                        </span>
+                                        <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-semibold">
+                                          {discountInfo.discountType === 'percentage' 
+                                            ? `-${discountInfo.discount}%`
+                                            : `-${discountInfo.discount.toLocaleString()}`
+                                          }
+                                        </span>
+                                      </div>
+                                      <p className="text-sm sm:text-base text-green-600 font-bold">
+                                        {discountInfo.finalPrice.toLocaleString()} {t.currency}
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs sm:text-sm text-primary-600 font-semibold">
+                                      {(item.sell_price || item.price)?.toLocaleString()} {t.currency}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                           <button
                             type="button"
@@ -1379,9 +1616,10 @@ const Checkout = () => {
                     <span className="font-bold text-gray-900 text-sm sm:text-base text-right">
                       {cart
                         .reduce(
-                          (sum, item) =>
-                            sum +
-                            (item.sell_price || item.price) * item.quantity,
+                          (sum, item) => {
+                            const discountInfo = calculateDiscount(item);
+                            return sum + discountInfo.finalPrice * item.quantity;
+                          },
                           0,
                         )
                         .toLocaleString()}{" "}
@@ -1506,16 +1744,45 @@ const Checkout = () => {
                           {relatedProduct.title || relatedProduct.name}
                         </h3>
 
-                        <div className="flex items-baseline space-x-2 mb-4">
-                          <span className="text-2xl font-bold text-primary-600">
-                            {(
-                              relatedProduct.sell_price || relatedProduct.price
-                            )?.toLocaleString()}
-                          </span>
-                          <span className="text-sm text-gray-600 font-medium">
-                            {t.currency}
-                          </span>
-                        </div>
+                        {(() => {
+                          const discountInfo = calculateDiscount(relatedProduct);
+                          return (
+                            <div className="mb-4">
+                              {discountInfo.hasDiscount ? (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm text-gray-400 line-through">
+                                      {discountInfo.originalPrice.toLocaleString()}
+                                    </span>
+                                    <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full font-bold">
+                                      {discountInfo.discountType === 'percentage' 
+                                        ? `-${discountInfo.discount}%`
+                                        : `-${discountInfo.discount.toLocaleString()}`
+                                      }
+                                    </span>
+                                  </div>
+                                  <div className="flex items-baseline space-x-2">
+                                    <span className="text-2xl font-bold text-green-600">
+                                      {discountInfo.finalPrice.toLocaleString()}
+                                    </span>
+                                    <span className="text-sm text-green-700 font-medium">
+                                      {t.currency}
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-baseline space-x-2">
+                                  <span className="text-2xl font-bold text-primary-600">
+                                    {(relatedProduct.sell_price || relatedProduct.price)?.toLocaleString()}
+                                  </span>
+                                  <span className="text-sm text-gray-600 font-medium">
+                                    {t.currency}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         <button
                           onClick={(e) => {
