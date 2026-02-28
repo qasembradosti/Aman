@@ -18,6 +18,19 @@ const ProductImage = {
     await db('product_images').where({ product_id: productId }).update({ is_main: false });
     await db('product_images').where({ id: imageId, product_id: productId }).update({ is_main: true });
     return await db('product_images').where({ id: imageId }).first();
+  },
+  delete: async (imageId, productId = null) => {
+    const query = db('product_images').where({ id: imageId });
+    if (productId) {
+      query.where({ product_id: productId });
+    }
+    const image = await query.first();
+    if (!image) return null;
+    await query.delete();
+    return image;
+  },
+  findById: async (imageId) => {
+    return db('product_images').where({ id: imageId }).first();
   }
 };
 

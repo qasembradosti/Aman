@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import {
@@ -17,7 +17,9 @@ import {
   Wallet,
   DollarSign,
   Printer,
+  Calendar as CalendarIcon,
 } from "lucide-react";
+import { format } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +39,12 @@ import {
 } from "../../components/ui/select";
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
+import { Calendar } from "../../components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../components/ui/popover";
 
 const API_BASE =
   import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:3000";
@@ -57,6 +65,10 @@ const Orders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState(null);
+  const [dateTo, setDateTo] = useState(null);
+  const [sortBy, setSortBy] = useState("date_desc");
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
@@ -175,12 +187,110 @@ const Orders = () => {
     }, 0);
   };
 
-  const filteredOrders = items.filter((order) => {
-    const matchesSearch = order.id?.toString().includes(searchQuery);
-    const matchesStatus =
-      statusFilter === "all" || order.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("all");
+    setPaymentStatusFilter("all");
+    setDateFrom(null);
+    setDateTo(null);
+    setSortBy("date_desc");
+  };
+
+  const filteredOrders = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const fromDate = dateFrom
+      ? new Date(
+          dateFrom.getFullYear(),
+          dateFrom.getMonth(),
+          dateFrom.getDate(),
+          0,
+          0,
+          0,
+          0,
+        )
+      : null;
+    const toDate = dateTo
+      ? new Date(
+          dateTo.getFullYear(),
+          dateTo.getMonth(),
+          dateTo.getDate(),
+          23,
+          59,
+          59,
+          999,
+        )
+      : null;
+
+    const filtered = (Array.isArray(items) ? items : []).filter((order) => {
+      const fullName = `${order.user_first_name || ""} ${order.user_last_name || ""}`
+        .trim()
+        .toLowerCase();
+      const searchableFields = [
+        order.id,
+        order.user_phone,
+        order.user_email,
+        fullName,
+        order.status,
+        order.payment_status,
+      ]
+        .filter(Boolean)
+        .map((value) => String(value).toLowerCase());
+
+      const matchesSearch =
+        !normalizedSearch ||
+        searchableFields.some((value) => value.includes(normalizedSearch));
+      const matchesStatus =
+        statusFilter === "all" || order.status === statusFilter;
+      const matchesPaymentStatus =
+        paymentStatusFilter === "all" ||
+        (order.payment_status || "").toLowerCase() === paymentStatusFilter;
+
+      const createdAt = order.created_at ? new Date(order.created_at) : null;
+      const matchesDateFrom = !fromDate || (createdAt && createdAt >= fromDate);
+      const matchesDateTo = !toDate || (createdAt && createdAt <= toDate);
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesPaymentStatus &&
+        matchesDateFrom &&
+        matchesDateTo
+      );
+    });
+
+    filtered.sort((a, b) => {
+      const aDate = new Date(a.created_at || 0).getTime();
+      const bDate = new Date(b.created_at || 0).getTime();
+      const aTotal = Number(a.total_amount || 0);
+      const bTotal = Number(b.total_amount || 0);
+
+      switch (sortBy) {
+        case "date_asc":
+          return aDate - bDate;
+        case "total_desc":
+          return bTotal - aTotal;
+        case "total_asc":
+          return aTotal - bTotal;
+        case "id_desc":
+          return Number(b.id || 0) - Number(a.id || 0);
+        case "id_asc":
+          return Number(a.id || 0) - Number(b.id || 0);
+        case "date_desc":
+        default:
+          return bDate - aDate;
+      }
+    });
+
+    return filtered;
+  }, [
+    items,
+    searchQuery,
+    statusFilter,
+    paymentStatusFilter,
+    dateFrom,
+    dateTo,
+    sortBy,
+  ]);
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -208,19 +318,19 @@ const Orders = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input
             type="text"
-            placeholder="Search by order ID, customer name or email..."
+            placeholder="Search by order ID, user name, email or phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-48">
+          <SelectTrigger className="w-full">
             <Filter className="w-4 h-4 mr-2" />
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
@@ -233,6 +343,88 @@ const Orders = () => {
             <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
+        <Select
+          value={paymentStatusFilter}
+          onValueChange={setPaymentStatusFilter}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Payment status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Payment Status</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
+            <SelectItem value="refunded">Refunded</SelectItem>
+          </SelectContent>
+        </Select>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full justify-between font-normal"
+            >
+              {dateFrom ? format(dateFrom, "PPP") : "From Date"}
+              <CalendarIcon className="ml-2 h-4 w-4 opacity-60" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={dateFrom}
+              onSelect={setDateFrom}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full justify-between font-normal"
+            >
+              {dateTo ? format(dateTo, "PPP") : "To Date"}
+              <CalendarIcon className="ml-2 h-4 w-4 opacity-60" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={dateTo}
+              onSelect={setDateTo}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="date_desc">Newest First</SelectItem>
+            <SelectItem value="date_asc">Oldest First</SelectItem>
+            <SelectItem value="total_desc">Total High to Low</SelectItem>
+            <SelectItem value="total_asc">Total Low to High</SelectItem>
+            <SelectItem value="id_desc">Order ID Desc</SelectItem>
+            <SelectItem value="id_asc">Order ID Asc</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {(searchQuery ||
+        statusFilter !== "all" ||
+        paymentStatusFilter !== "all" ||
+        dateFrom ||
+        dateTo ||
+        sortBy !== "date_desc") && (
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={handleClearFilters}>
+            <X className="w-4 h-4 mr-2" />
+            Clear Filters
+          </Button>
+        </div>
+      )}
+      <div className="text-sm text-gray-500">
+        Showing {filteredOrders.length} of {Array.isArray(items) ? items.length : 0} orders
       </div>
 
       {/* Orders Table */}
@@ -255,7 +447,7 @@ const Orders = () => {
                     Order ID
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Phone
+                    User
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Date
@@ -283,8 +475,20 @@ const Orders = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-xs text-gray-500">
-                        {order.user_phone }
+                      <div className="text-xs text-gray-700 space-y-0.5">
+                        <div className="font-medium text-gray-900">
+                          {order.user_first_name || order.user_last_name
+                            ? `${order.user_first_name || ""} ${
+                                order.user_last_name || ""
+                              }`.trim()
+                            : "N/A"}
+                        </div>
+                        <div className="text-gray-500">
+                          {order.user_email || "No email"}
+                        </div>
+                        <div className="text-gray-500">
+                          {order.user_phone || "No phone"}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">

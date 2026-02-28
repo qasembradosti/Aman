@@ -6,7 +6,7 @@ import { videoUpload } from "../middleware/videoUploadMiddleware.js";
 import { productValidation } from "../middleware/productValidation.js";
 import { uploadValidation } from "../middleware/uploadValidation.js";
 import { validateRequest } from "../middleware/validateRequest.js";
-import { uploadProductImages, listProductImages } from "../controllers/home/productImagesController.js";
+import { uploadProductImages, listProductImages, deleteProductImage, setMainProductImage } from "../controllers/home/productImagesController.js";
 import { uploadProductVideos, listProductVideos, deleteProductVideo, setMainProductVideo } from "../controllers/home/productVideosController.js";
 
 const router = express.Router();
@@ -29,6 +29,8 @@ router.get("/products/:id/reviews/summary", getReviewSummary);
 // Images upload
 router.post("/products/:id/images", upload.array('images', 10), uploadValidation, validateRequest, uploadProductImages);
 router.get("/products/:id/images", listProductImages);
+router.delete("/products/:id/images/:imageId", deleteProductImage);
+router.patch("/products/:id/images/:imageId/set-main", setMainProductImage);
 
 // Videos upload (single video per product)
 router.post("/products/:id/videos", videoUpload.any(), uploadProductVideos);

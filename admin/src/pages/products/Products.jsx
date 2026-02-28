@@ -68,151 +68,173 @@ import {
 const API_BASE =
   import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:3000";
 
+const isMainImageRecord = (img) =>
+  img?.is_main === true || img?.is_main === 1 || img?.is_main === "1";
+
+const getMainProductImage = (product) => {
+  const images = Array.isArray(product?.images) ? product.images : [];
+  return images.find(isMainImageRecord) || images[0] || null;
+};
+
+const getProductImageSrc = (image) => {
+  if (!image) return null;
+  const value = image.url || image.image_url || image.image || image.filename;
+  if (!value) return null;
+  const raw = String(value);
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const normalized = raw.replace(/^\/+/, "");
+  if (normalized.includes("/")) return `${API_BASE}/${normalized}`;
+  return `${API_BASE}/images/products/${normalized}`;
+};
+
 // Memoized ProductCard to prevent unnecessary re-renders
-const ProductCard = memo(({ product, onView, onEdit, onDelete }) => (
-  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300">
-    {/* Product Image */}
-    <div className="aspect-square bg-gray-100 relative">
-      {product.images?.[0] ? (
-        <img
-          src={`${product.images[0].url}`}
-          alt={product.name}
-          className="w-full h-full object-cover"
-          loading="lazy"
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center">
-          <ImageIcon className="w-12 h-12 text-gray-300" />
-        </div>
-      )}
-      {/* Stock Badge */}
-      <span className="absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
-        {product.commission_price} IQD
-      </span>
-      {/* Discount Badge */}
-      {product.discount > 0 && (
-        <span className="absolute top-2 left-2 px-2 py-1 text-xs font-medium rounded-full bg-red-500 text-white">
-          {product.discount_type === "fixed"
-            ? `${product.discount}IQD OFF`
-            : `${product.discount}% OFF`}
-        </span>
-      )}
-    </div>
-
-    {/* Product Info */}
-    <div className="p-4">
-      <h3 className="text-sm font-medium text-gray-900 truncate">
-        {product.name}
-      </h3>
-      <div className="mt-1 flex items-center gap-2">
-        <span className="text-lg font-semibold text-gray-900">
-          IQD {Number(product.base_price)}
-        </span>
-        {product.sell_price && (
-          <span className="text-sm text-green-600">
-            IQD {Number(product.sell_price)}
-          </span>
-        )}
-      </div>
-      {/* Actions */}
-      <div className="mt-3 flex items-center gap-2">
-        <Button
-          onClick={() => onView(product)}
-          className="flex items-center justify-center gap-1 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
-        >
-          <Eye className="w-3.5 h-3.5" />
-        </Button>
-        <Button
-          onClick={() => onEdit(product)}
-          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-        >
-          <Pencil className="w-3.5 h-3.5" />
-          Edit
-        </Button>
-        <Button
-          onClick={() => onDelete(product.id)}
-          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
-  </div>
-));
-
-ProductCard.displayName = "ProductCard";
-
-// Memoized ProductRow for table view
-const ProductRow = memo(({ product, onView, onEdit, onDelete }) => (
-  <TableRow>
-    <TableCell>
-      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-        {product.images?.[0] ? (
+const ProductCard = memo(({ product, onView, onEdit, onDelete }) => {
+  const mainImageSrc = getProductImageSrc(getMainProductImage(product));
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300">
+      {/* Product Image */}
+      <div className="aspect-square bg-gray-100 relative">
+        {mainImageSrc ? (
           <img
-            src={`${
-              product.images[0].url ||
-              `/images/products/${product.images[0].image_url}`
-            }`}
+            src={mainImageSrc}
             alt={product.name}
             className="w-full h-full object-cover"
             loading="lazy"
           />
         ) : (
-          <ImageIcon className="w-4 h-4 text-gray-400" />
+          <div className="w-full h-full flex items-center justify-center">
+            <ImageIcon className="w-12 h-12 text-gray-300" />
+          </div>
+        )}
+        {/* Stock Badge */}
+        <span className="absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
+          {product.commission_price} IQD
+        </span>
+        {/* Discount Badge */}
+        {product.discount > 0 && (
+          <span className="absolute top-2 left-2 px-2 py-1 text-xs font-medium rounded-full bg-red-500 text-white">
+            {product.discount_type === "fixed"
+              ? `${product.discount}IQD OFF`
+              : `${product.discount}% OFF`}
+          </span>
         )}
       </div>
-    </TableCell>
-    <TableCell className="font-medium">{product.name}</TableCell>
-    <TableCell> {Number(product.base_price)} IQD</TableCell>
-    <TableCell>
-      {product.sell_price ? `${Number(product.sell_price)} IQD` : "-"}
-    </TableCell>
-    <TableCell>
-      {product.discount > 0 ? (
-        <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
-          {product.discount_type === "fixed"
-            ? `$${product.discount}`
-            : `${product.discount}%`}
-        </span>
-      ) : (
-        "-"
-      )}
-    </TableCell>
-    <TableCell>
-      <span
-        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-          product.in_stock
-            ? "bg-green-50 text-green-700"
-            : "bg-red-50 text-red-700"
-        }`}
-      >
-        {product.in_stock > 0 ? "In Stock" : "Out of Stock"}
-      </span>
-    </TableCell>
-    <TableCell className="text-right">
-      <div className="flex items-center justify-end gap-1">
-        <Button
-          onClick={() => onView(product)}
-          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-        >
-          <Eye className="w-4 h-4" />
-        </Button>
-        <Button
-          onClick={() => onEdit(product)}
-          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-        >
-          <Pencil className="w-4 h-4" />
-        </Button>
-        <Button
-          onClick={() => onDelete(product.id)}
-          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
+
+      {/* Product Info */}
+      <div className="p-4">
+        <h3 className="text-sm font-medium text-gray-900 truncate">
+          {product.name}
+        </h3>
+        <div className="mt-1 flex items-center gap-2">
+          <span className="text-lg font-semibold text-gray-900">
+            IQD {Number(product.base_price)}
+          </span>
+          {product.sell_price && (
+            <span className="text-sm text-green-600">
+              IQD {Number(product.sell_price)}
+            </span>
+          )}
+        </div>
+        {/* Actions */}
+        <div className="mt-3 flex items-center gap-2">
+          <Button
+            onClick={() => onView(product)}
+            className="flex items-center justify-center gap-1 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
+          >
+            <Eye className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            onClick={() => onEdit(product)}
+            className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            Edit
+          </Button>
+          <Button
+            onClick={() => onDelete(product.id)}
+            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
-    </TableCell>
-  </TableRow>
-));
+    </div>
+  );
+});
+
+ProductCard.displayName = "ProductCard";
+
+// Memoized ProductRow for table view
+const ProductRow = memo(({ product, onView, onEdit, onDelete }) => {
+  const mainImageSrc = getProductImageSrc(getMainProductImage(product));
+  return (
+    <TableRow>
+      <TableCell>
+        <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+          {mainImageSrc ? (
+            <img
+              src={mainImageSrc}
+              alt={product.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <ImageIcon className="w-4 h-4 text-gray-400" />
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="font-medium">{product.name}</TableCell>
+      <TableCell> {Number(product.base_price)} IQD</TableCell>
+      <TableCell>
+        {product.sell_price ? `${Number(product.sell_price)} IQD` : "-"}
+      </TableCell>
+      <TableCell>
+        {product.discount > 0 ? (
+          <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
+            {product.discount_type === "fixed"
+              ? `$${product.discount}`
+              : `${product.discount}%`}
+          </span>
+        ) : (
+          "-"
+        )}
+      </TableCell>
+      <TableCell>
+        <span
+          className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+            product.in_stock
+              ? "bg-green-50 text-green-700"
+              : "bg-red-50 text-red-700"
+          }`}
+        >
+          {product.in_stock > 0 ? "In Stock" : "Out of Stock"}
+        </span>
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            onClick={() => onView(product)}
+            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+          >
+            <Eye className="w-4 h-4" />
+          </Button>
+          <Button
+            onClick={() => onEdit(product)}
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button
+            onClick={() => onDelete(product.id)}
+            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+});
 
 ProductRow.displayName = "ProductRow";
 
@@ -234,11 +256,14 @@ const Products = () => {
   const [viewProduct, setViewProduct] = useState(null);
   const [imageFiles, setImageFiles] = useState([]);
   const [videoFiles, setVideoFiles] = useState([]);
+  const [existingImages, setExistingImages] = useState([]); // Track existing server images with IDs
+  const [existingVideos, setExistingVideos] = useState([]); // Track existing server videos with IDs
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: null });
   const [viewMode, setViewMode] = useState("grid"); // "grid" or "table"
   const [imagePreviews, setImagePreviews] = useState([]);
   const [videoPreviews, setVideoPreviews] = useState([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [mainImageIndex, setMainImageIndex] = useState(0);
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
   const [brands, setBrands] = useState([]);
   const [stores, setStores] = useState([]);
@@ -395,8 +420,11 @@ const Products = () => {
     setImageFiles([]);
     setVideoFiles([]);
     setImagePreviews([]);
+    setExistingImages([]);
     setVideoPreviews([]);
+    setExistingVideos([]);
     setActiveImageIndex(0);
+    setMainImageIndex(0);
     setActiveVideoIndex(0);
     setActiveLanguage("en");
   };
@@ -439,13 +467,26 @@ const Products = () => {
       is_important: product.is_important || false,
     });
     if (product.images && product.images.length > 0) {
+      const initialMainIndex = Math.max(
+        0,
+        product.images.findIndex(isMainImageRecord),
+      );
+      // Store existing images with their IDs  
+      setExistingImages(product.images);
       setImagePreviews(
         product.images.map(
           (img) => img.url || `${API_BASE}/images/products/${img.image_url}`,
         ),
       );
+      setMainImageIndex(initialMainIndex);
+      setActiveImageIndex(initialMainIndex);
+    } else {
+      setExistingImages([]);
+      setMainImageIndex(0);
+      setActiveImageIndex(0);
     }
     if (product.videos && product.videos.length > 0) {
+      setExistingVideos(product.videos);
       setVideoPreviews(
         product.videos.map(
           (vid) => vid.video_url || vid.url || `${API_BASE}/videos/products/${vid.filename || vid.video_url}`,
@@ -454,7 +495,10 @@ const Products = () => {
     } else if (product.video) {
       // Handle single video object
       const videoUrl = product.video.video_url || product.video.url || `${API_BASE}/videos/products/${product.video.filename || product.video.video_url}`;
+      setExistingVideos([product.video]);
       setVideoPreviews([videoUrl]);
+    } else {
+      setExistingVideos([]);
     }
     setShowModal(true);
   }, []);
@@ -473,31 +517,159 @@ const Products = () => {
   }, []);
 
   const handleImageSelect = useCallback(
-    (e) => {
+    async (e) => {
       const files = Array.from(e.target.files);
       if (files.length === 0) return;
-      const newFiles = [...imageFiles, ...files];
-      setImageFiles(newFiles);
-      const newPreviews = files.map((file) => URL.createObjectURL(file));
-      setImagePreviews((prev) => [...prev, ...newPreviews]);
+      
+      // If editing, upload images immediately
+      if (editingProduct) {
+        const formData = new FormData();
+        files.forEach((file) => formData.append("images", file));
+        
+        try {
+          const response = await api.post(
+            `/products/${editingProduct.id}/images`,
+            formData,
+            {
+              headers: { "Content-Type": "multipart/form-data" },
+            },
+          );
+          
+          toast.success("Images uploaded successfully");
+          
+          // Add new images to existing images
+          const newImages = response.data.images || [];
+          const mergedImages = [...existingImages, ...newImages];
+          setExistingImages(mergedImages);
+          
+          // Add previews
+          const newPreviews = newImages.map((img) => img.url || img.image_url);
+          setImagePreviews((prev) => [...prev, ...newPreviews]);
+
+          const nextMainIndex = mergedImages.findIndex(isMainImageRecord);
+          if (nextMainIndex >= 0) {
+            setMainImageIndex(nextMainIndex);
+          }
+        } catch (error) {
+          toast.error("Failed to upload images");
+          console.error("Error uploading images:", error);
+        }
+      } else {
+        // Creating new product, just add to local state
+        const newFiles = [...imageFiles, ...files];
+        setImageFiles(newFiles);
+        const newPreviews = files.map((file) => URL.createObjectURL(file));
+        setImagePreviews((prev) => [...prev, ...newPreviews]);
+        if (imageFiles.length === 0) {
+          setMainImageIndex(0);
+        }
+      }
     },
-    [imageFiles],
+    [imageFiles, editingProduct, existingImages],
+  );
+
+  const setMainImage = useCallback(
+    async (index) => {
+      if (index < 0 || index >= imagePreviews.length) return;
+
+      if (editingProduct) {
+        const imageToSetMain = existingImages[index];
+        if (!imageToSetMain?.id) {
+          toast.error("Image is not ready yet");
+          return;
+        }
+
+        try {
+          await api.patch(
+            `/products/${editingProduct.id}/images/${imageToSetMain.id}/set-main`,
+          );
+          setExistingImages((prev) =>
+            prev.map((img, i) => ({
+              ...img,
+              is_main: i === index,
+            })),
+          );
+          setMainImageIndex(index);
+          toast.success("Main image updated");
+        } catch (error) {
+          toast.error("Failed to set main image");
+          console.error("Error setting main image:", error);
+        }
+        return;
+      }
+
+      setMainImageIndex(index);
+      toast.success("Main image selected");
+    },
+    [editingProduct, existingImages, imagePreviews.length],
   );
 
   const removeImage = useCallback(
-    (index) => {
-      const newFiles = imageFiles.filter((_, i) => i !== index);
+    async (index) => {
+      // Check if this is an existing server image
+      if (editingProduct && existingImages[index]) {
+        const imageToDelete = existingImages[index];
+        let newExistingImages = existingImages.filter((_, i) => i !== index);
+        try {
+          await api.delete(`/products/${editingProduct.id}/images/${imageToDelete.id}`);
+          toast.success("Image deleted successfully");
+
+          // Keep one main image selected if any image remains
+          if (
+            newExistingImages.length > 0 &&
+            !newExistingImages.some(isMainImageRecord)
+          ) {
+            try {
+              await api.patch(
+                `/products/${editingProduct.id}/images/${newExistingImages[0].id}/set-main`,
+              );
+              newExistingImages = newExistingImages.map((img, i) => ({
+                ...img,
+                is_main: i === 0,
+              }));
+            } catch (error) {
+              console.error("Error setting fallback main image:", error);
+            }
+          }
+
+          setExistingImages(newExistingImages);
+          const nextMainIndex = newExistingImages.findIndex(isMainImageRecord);
+          setMainImageIndex(nextMainIndex >= 0 ? nextMainIndex : 0);
+        } catch (error) {
+          toast.error("Failed to delete image");
+          console.error("Error deleting image:", error);
+          return; // Don't proceed if API call failed
+        }
+      } else {
+        // It's a new file, just remove from local state
+        const newFiles = imageFiles.filter((_, i) => i !== index);
+        setImageFiles(newFiles);
+
+        if (index === mainImageIndex) {
+          setMainImageIndex(0);
+        } else if (index < mainImageIndex) {
+          setMainImageIndex((prev) => Math.max(0, prev - 1));
+        }
+      }
+      
+      // Remove preview
       const newPreviews = imagePreviews.filter((_, i) => i !== index);
       if (imagePreviews[index]?.startsWith("blob:")) {
         URL.revokeObjectURL(imagePreviews[index]);
       }
-      setImageFiles(newFiles);
       setImagePreviews(newPreviews);
       if (activeImageIndex >= newPreviews.length) {
         setActiveImageIndex(Math.max(0, newPreviews.length - 1));
       }
     },
-    [imageFiles, imagePreviews, activeImageIndex],
+    [
+      imageFiles,
+      imagePreviews,
+      activeImageIndex,
+      editingProduct,
+      existingImages,
+      mainImageIndex,
+    ],
   );
 
   const handleVideoSelect = useCallback(
@@ -513,19 +685,43 @@ const Products = () => {
   );
 
   const removeVideo = useCallback(
-    (index) => {
-      const newFiles = videoFiles.filter((_, i) => i !== index);
+    async (index) => {
+      // Existing server video in edit mode
+      if (editingProduct && index < existingVideos.length) {
+        const videoToDelete = existingVideos[index];
+        if (!videoToDelete?.id) {
+          toast.error("Video ID not found");
+          return;
+        }
+
+        try {
+          await api.delete(
+            `/products/${editingProduct.id}/videos/${videoToDelete.id}`,
+          );
+          toast.success("Video deleted successfully");
+          setExistingVideos((prev) => prev.filter((_, i) => i !== index));
+        } catch (error) {
+          toast.error("Failed to delete video");
+          console.error("Error deleting video:", error);
+          return;
+        }
+      } else {
+        // Local new video file
+        const fileIndex = Math.max(0, index - existingVideos.length);
+        const newFiles = videoFiles.filter((_, i) => i !== fileIndex);
+        setVideoFiles(newFiles);
+      }
+
       const newPreviews = videoPreviews.filter((_, i) => i !== index);
       if (videoPreviews[index]?.startsWith("blob:")) {
         URL.revokeObjectURL(videoPreviews[index]);
       }
-      setVideoFiles(newFiles);
       setVideoPreviews(newPreviews);
       if (activeVideoIndex >= newPreviews.length) {
         setActiveVideoIndex(Math.max(0, newPreviews.length - 1));
       }
     },
-    [videoFiles, videoPreviews, activeVideoIndex],
+    [videoFiles, videoPreviews, activeVideoIndex, editingProduct, existingVideos],
   );
 
   const handleFormChange = useCallback((field, value) => {
@@ -688,7 +884,15 @@ const Products = () => {
       if (formData.colors) fd.append("colors", formData.colors);
       fd.append("is_trend", formData.is_trend ? 1 : 0);
       fd.append("is_important", formData.is_important ? 1 : 0);
-      imageFiles.forEach((file) => fd.append("images", file));
+      const orderedImageFiles = [...imageFiles];
+      if (
+        mainImageIndex > 0 &&
+        mainImageIndex < orderedImageFiles.length
+      ) {
+        const [mainFile] = orderedImageFiles.splice(mainImageIndex, 1);
+        orderedImageFiles.unshift(mainFile);
+      }
+      orderedImageFiles.forEach((file) => fd.append("images", file));
       const result = await dispatch(createProduct(fd));
       // Upload videos if any and product was created
       if (videoFiles.length > 0 && result.payload?.id) {
@@ -1083,7 +1287,7 @@ const Products = () => {
         </AlertDialogContent>
       </AlertDialog>
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="w-[50vw]! max-w-7xl!">
           <DialogHeader>
             <DialogTitle>
               {editingProduct ? "Edit Product" : "New Product"}
@@ -1104,6 +1308,11 @@ const Products = () => {
                         alt=""
                         className="w-full h-full object-contain"
                       />
+                      {activeImageIndex === mainImageIndex && (
+                        <span className="absolute top-2 left-2 px-2 py-1 text-xs font-medium rounded bg-green-600 text-white">
+                          Main Image
+                        </span>
+                      )}
                       {imagePreviews.length > 1 && (
                         <>
                           <Button
@@ -1129,6 +1338,16 @@ const Products = () => {
                       >
                         <X className="w-3 h-3" />
                       </Button>
+                      <Button
+                        type="button"
+                        onClick={() => setMainImage(activeImageIndex)}
+                        disabled={activeImageIndex === mainImageIndex}
+                        className="absolute bottom-2 right-2 px-2 py-1 text-xs font-medium bg-white/90 text-gray-900 rounded shadow hover:bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {activeImageIndex === mainImageIndex
+                          ? "Main Selected"
+                          : "Set As Main"}
+                      </Button>
                     </div>
                     <div className="flex gap-2 flex-wrap">
                       {imagePreviews.map((preview, index) => (
@@ -1136,7 +1355,7 @@ const Products = () => {
                           key={index}
                           type="button"
                           onClick={() => setActiveImageIndex(index)}
-                          className={`w-16 h-16 rounded-lg overflow-hidden border-2 ${
+                          className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 ${
                             index === activeImageIndex
                               ? "border-gray-900"
                               : "border-transparent"
@@ -1147,6 +1366,11 @@ const Products = () => {
                             alt=""
                             className="w-full h-full object-cover"
                           />
+                          {index === mainImageIndex && (
+                            <span className="absolute top-0 right-0 px-1 py-0.5 text-[10px] font-medium rounded-bl bg-green-600 text-white">
+                              Main
+                            </span>
+                          )}
                         </Button>
                       ))}
                       <Button
