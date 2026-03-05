@@ -14,10 +14,7 @@ export default function BrandsList({ brands = [] }) {
   const router = useRouter();
 
   const handleBrandPress = (brand) => {
-    router.push({
-      pathname: "/brand/[id]",
-      params: { id: brand.id, name: brand.name },
-    });
+    router.push(`/products?brand=${brand.id}`);
   };
 
   const handleSeeAll = () => {

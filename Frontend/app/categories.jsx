@@ -74,7 +74,7 @@ export default function CategoriesScreen() {
   };
 
   const handleCategoryPress = (category) => {
-    router.push(`/category/${category.slug ?? category.id}`);
+    router.push(`/products?category=${category.id}`);
   };
 
   const renderCategoryItem = ({ item }) => {

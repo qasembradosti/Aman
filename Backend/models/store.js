@@ -129,6 +129,66 @@ const Store = {
     return count > 0;
   },
 
+  // Get orders that include products from a specific store
+  getOrders: async (storeId, filters = {}) => {
+    const { start_date, end_date, status } = filters;
+
+    const query = db('orders')
+      .join('order_items', 'orders.id', 'order_items.order_id')
+      .join('products', 'order_items.product_id', 'products.id')
+      .leftJoin('users', 'orders.user_id', 'users.id')
+      .where('products.store_id', storeId)
+      .select(
+        'orders.id',
+        'orders.status',
+        'orders.created_at',
+        'users.first_name as user_first_name',
+        'users.last_name as user_last_name',
+        'users.phone as user_phone',
+        'users.email as user_email',
+        db.raw('SUM(order_items.quantity) as store_items_count'),
+        db.raw('SUM(order_items.quantity * order_items.price) as store_total_amount')
+      )
+      .groupBy(
+        'orders.id',
+        'orders.status',
+        'orders.created_at',
+        'users.first_name',
+        'users.last_name',
+        'users.phone',
+        'users.email'
+      )
+      .orderBy('orders.created_at', 'desc');
+
+    if (start_date) {
+      query.whereRaw('DATE(orders.created_at) >= ?', [start_date]);
+    }
+
+    if (end_date) {
+      query.whereRaw('DATE(orders.created_at) <= ?', [end_date]);
+    }
+
+    if (status && status !== 'all') {
+      query.where('orders.status', status);
+    }
+
+    const orders = await query;
+
+    const summary = orders.reduce(
+      (acc, order) => {
+        acc.total_orders += 1;
+        acc.total_amount += Number(order.store_total_amount || 0);
+        return acc;
+      },
+      { total_orders: 0, total_amount: 0 }
+    );
+
+    return {
+      orders,
+      summary,
+    };
+  },
+
   // Get stores count
   count: async () => {
     const result = await db('stores').count({ total: '*' }).first();

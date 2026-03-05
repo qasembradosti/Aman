@@ -72,7 +72,7 @@ export default function Notifications() {
     console.log('📖 Marking notification as read:', id);
     try {
       const result = await dispatch(markAsRead(id)).unwrap();
-      console.log('✅ Mark as read result:', result);
+      console.log(' Mark as read result:', result);
     } catch (error) {
       console.error('❌ Mark as read failed:', error);
     }

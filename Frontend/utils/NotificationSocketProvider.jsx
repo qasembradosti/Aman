@@ -222,11 +222,11 @@ export function NotificationSocketProvider({ children }) {
     });
 
     socket.on('connect', () => {
-      console.log('✅ Global Socket connected!');
+      console.log(' Global Socket connected!');
     });
 
     socket.on('connected', (data) => {
-      console.log('✅ Connected to notification service:', data);
+      console.log('Connected to notification service:', data);
     });
 
     // New notification event
@@ -304,7 +304,6 @@ export function NotificationSocketProvider({ children }) {
 
     return () => {
       if (socketRef.current) {
-        console.log('🔌 Cleaning up socket connection...');
         socketRef.current.disconnect();
         socketRef.current = null;
       }

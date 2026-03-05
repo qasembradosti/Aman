@@ -22,7 +22,7 @@ export const registerPushToken = async (req, res) => {
         updated_at: db.fn.now()
       });
 
-    console.log(`✅ Push token registered for user ${userId}`);
+    console.log(` Push token registered for user ${userId}`);
 
     res.json({ 
       message: 'Push token registered successfully',
@@ -53,7 +53,7 @@ export const removePushToken = async (req, res) => {
         updated_at: db.fn.now()
       });
 
-    console.log(`✅ Push token removed for user ${userId}`);
+    console.log(` Push token removed for user ${userId}`);
 
     res.json({ message: 'Push token removed successfully' });
   } catch (error) {

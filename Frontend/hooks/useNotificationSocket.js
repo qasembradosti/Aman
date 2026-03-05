@@ -46,11 +46,11 @@ export const useNotificationSocket = () => {
 
     // Connection events
     socket.on('connect', () => {
-      console.log('✅ Socket connected!');
+      console.log(' Socket connected!');
     });
 
     socket.on('connected', (data) => {
-      console.log('✅ Connected to notification service:', data);
+      console.log('Connected to notification service:', data);
     });
 
     // New notification event

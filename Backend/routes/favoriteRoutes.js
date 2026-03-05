@@ -2,7 +2,7 @@ import express from 'express';
 import * as favoriteController from '../controllers/favoriteController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
-console.log('✅ Favorites routes loading...');
+console.log(' Favorites routes loading...');
 
 const router = express.Router();
 
@@ -24,6 +24,6 @@ router.post('/favorites', authenticateToken, favoriteController.addFavorite);
 // Remove from favorites
 router.delete('/favorites/:productId', authenticateToken, favoriteController.removeFavorite);
 
-console.log('✅ Favorites routes registered');
+console.log(' Favorites routes registered');
 
 export default router;

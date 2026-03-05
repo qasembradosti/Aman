@@ -24,6 +24,7 @@ import { fetchCategories } from "../../store/slices/categoriesSlice";
 import { fetchBrands } from "../../store/slices/brandsSlice";
 import Input from "../../components/ui/Input";
 import { getProductImageUrl } from "../../utils/productImages";
+import { getApiBaseUrl } from "../../utils/apiConfig";
 
 const STORAGE_KEY = 'recent_searches';
 const MAX_RECENT_SEARCHES = 10;
@@ -47,6 +48,7 @@ export default function Search() {
   const dispatch = useDispatch();
   const { t, isRTL, locale } = useLanguage();
   const { theme } = useTheme();
+  const API_BASE_URL = getApiBaseUrl();
   const [searchQuery, setSearchQuery] = useState("");
   const [recentSearches, setRecentSearches] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
@@ -100,6 +102,16 @@ export default function Search() {
     } else {
       return nameEn || defaultName || nameAr || nameKu || "Category";
     }
+  };
+
+  const resolveBrandImageUri = (brand) => {
+    const imageUrl = brand?.logo_url || brand?.logo || brand?.image;
+    if (imageUrl) {
+      if (imageUrl.startsWith("http")) return imageUrl;
+      const cleanUrl = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+      return `${API_BASE_URL}${cleanUrl}`;
+    }
+    return null;
   };
 
   // Popular searches from actual categories (filter parent categories only)
@@ -253,13 +265,22 @@ export default function Search() {
   };
 
   const handlePopularSearchClick = (slug, name) => {
-    // Navigate to category page to show products from that category
+    // Prefer fast filtered products route when category id can be resolved.
+    const matchedCategory = categories.find(
+      (category) => String(category.slug) === String(slug),
+    );
+
+    if (matchedCategory?.id) {
+      router.push(`/products?category=${matchedCategory.id}`);
+      return;
+    }
+
+    // Fallback for unresolved slugs.
     router.push(`/category/${slug}`);
   };
 
-  const handleBrandClick = (brandId, brandName) => {
-    // Navigate to brand page to show products from that brand
-    router.push(`/brand/${brandId}`);
+  const handleBrandClick = (brandId, _brandName) => {
+    router.push(`/products?brand=${brandId}`);
   };
 
   // Get random 20 products
@@ -601,46 +622,53 @@ export default function Search() {
                 showsHorizontalScrollIndicator={false}
                 style={styles.brandsScroll}
               >
-                {brands.slice(0, 10).map((brand) => (
-                  <Pressable
-                    key={brand.id}
-                    style={({ pressed }) => [
-                      styles.brandCard,
-                      pressed && { transform: [{ scale: 0.95 }] },
-                    ]}
-                    onPress={() => handleBrandClick(brand.id, brand.name)}
-                  >
-                    <View
-                      style={[
-                        styles.brandImageContainer,
-                        {
-                          borderColor: theme.colors.border,
-                          backgroundColor: theme.colors.background,
-                        },
+                {brands.slice(0, 10).map((brand) => {
+                  const brandImage = resolveBrandImageUri(brand);
+                  return (
+                    <Pressable
+                      key={brand.id}
+                      style={({ pressed }) => [
+                        styles.brandCard,
+                        pressed && { transform: [{ scale: 0.95 }] },
                       ]}
+                      onPress={() => handleBrandClick(brand.id, brand.name)}
                     >
-                      {brand.logo_url ? (
-                        <Image
-                          source={{ uri: brand.logo_url }}
-                          style={styles.brandImage}
-                          contentFit="cover"
-                          transition={200}
-                          cachePolicy="memory-disk"
-                        />
-                      ) : (
-                        <View style={styles.brandPlaceholder}>
-                          <Ionicons name="business-outline" size={32} color={theme.colors.textSecondary} />
-                        </View>
-                      )}
-                    </View>
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.brandText, { color: theme.colors.text }]}
-                    >
-                      {brand.name}
-                    </Text>
-                  </Pressable>
-                ))}
+                      <View
+                        style={[
+                          styles.brandImageContainer,
+                          {
+                            borderColor: theme.colors.border,
+                            backgroundColor: theme.colors.background,
+                          },
+                        ]}
+                      >
+                        {brandImage ? (
+                          <Image
+                            source={{ uri: brandImage }}
+                            style={styles.brandImage}
+                            contentFit="cover"
+                            transition={200}
+                            cachePolicy="memory-disk"
+                          />
+                        ) : (
+                          <View style={styles.brandPlaceholder}>
+                            <Ionicons
+                              name="business-outline"
+                              size={32}
+                              color={theme.colors.textSecondary}
+                            />
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        numberOfLines={1}
+                        style={[styles.brandText, { color: theme.colors.text }]}
+                      >
+                        {brand.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </ScrollView>
             </View>
           )}

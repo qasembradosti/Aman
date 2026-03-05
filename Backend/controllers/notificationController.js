@@ -64,7 +64,7 @@ export const markAsRead = async (req, res) => {
       return res.status(404).json({ message: 'Notification not found' });
     }
 
-    console.log(`✅ Notification ${id} marked as read`);
+    console.log(` Notification ${id} marked as read`);
     res.json(notification);
   } catch (error) {
     console.error('Mark as read error:', error);

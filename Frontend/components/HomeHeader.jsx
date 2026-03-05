@@ -53,7 +53,7 @@ export default function HomeHeader({ onToggleTheme }) {
               ]}
               numberOfLines={2}
             >
-              Aman
+              Amanly
             </Text>
             <View style={styles.subtitleRow}>
               <Shield

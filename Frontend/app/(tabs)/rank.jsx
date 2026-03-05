@@ -25,6 +25,11 @@ const computeRanked = (list) =>
     .sort((a, b) => Number(b.balance) - Number(a.balance))
     .map((item, idx) => ({ ...item, rank: idx + 1 }));
 
+const getDisplayName = (user) => {
+  const firstName = user?.first_name || user?.firstName;
+  return firstName?.trim() || user?.username || "";
+};
+
 function SegmentedControl({ options, value, onChange, theme }) {
   return (
     <View
@@ -122,10 +127,10 @@ function Podium({ top3, theme }) {
           style={[styles.podiumName, { color: theme.colors.text }]}
           numberOfLines={1}
         >
-          {user.username}
+          {getDisplayName(user)}
         </Text>
         <Text style={[styles.balance, { color: theme.colors.primary }]}>
-          ${Number(user.balance).toFixed(2)}
+          {Number(user.balance)}
         </Text>
       </View>
       <View style={[styles.podiumBase, rank === 1 && styles.podiumBaseFirst]}>
@@ -207,15 +212,12 @@ function RankItem({ item, highlight, theme }) {
           style={[styles.username, { color: theme.colors.text }]}
           numberOfLines={1}
         >
-          {item.username}
-        </Text>
-        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-          ID: {item.id}
+          {getDisplayName(item)}
         </Text>
       </View>
       <View style={styles.balanceWrap}>
         <Text style={[styles.balance, { color: theme.colors.primary }]}>
-          ${Number(item.balance).toFixed(2)}
+          {Number(item.balance)}
         </Text>
       </View>
     </View>
@@ -254,6 +256,7 @@ export default function Rank() {
           .map((r) => ({
             id: r.id,
             username: r.username,
+            first_name: r.first_name || null,
             balance: r.balance,
             rank: r.rank,
             netChange: r.netChange,
@@ -261,10 +264,6 @@ export default function Rank() {
           }));
         setData(normalized);
       } catch (e) {
-        console.warn(
-          "Failed to fetch leaderboard",
-          e.message,
-        );
         setError(e.message || "Failed to load leaderboard");
         setData([]);
       } finally {
@@ -293,11 +292,6 @@ export default function Rank() {
     { value: "yearly", label: t?.("yearly") || "Yearly" },
     { value: "allTime", label: t?.("allTime") || "All-time" },
   ];
-  const scopeOptions = [
-    { value: "global", label: t?.("global") || "Global" },
-    { value: "friends", label: t?.("friends") || "Friends" },
-  ];
-
   return (
     <SafeAreaView
       style={[
@@ -320,12 +314,6 @@ export default function Rank() {
           options={periodOptions}
           value={period}
           onChange={setPeriod}
-          theme={theme}
-        />
-        <SegmentedControl
-          options={scopeOptions}
-          value={scope}
-          onChange={setScope}
           theme={theme}
         />
       </View>
@@ -413,7 +401,7 @@ export default function Rank() {
               </View>
               <View style={styles.balanceWrap}>
                 <Text style={[styles.balance, { color: theme.colors.primary }]}>
-                  ${Number(data.find(u => u.id === currentUser?.id)?.balance || 0).toFixed(2)}
+                  {Number(data.find(u => u.id === currentUser?.id)?.balance || 0)}
                 </Text>
               </View>
             </View>

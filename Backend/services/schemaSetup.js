@@ -28,7 +28,7 @@ export async function ensureChatTables() {
         table.index('updated_at');
         table.index(['user_id', 'order_id']);
       });
-      console.log('✅ Conversations table created');
+      console.log(' Conversations table created');
     }
 
 
@@ -56,7 +56,7 @@ export async function ensureChatTables() {
         table.index('is_read');
         table.index(['conversation_id', 'is_read']);
       });
-      console.log('✅ Chat messages table created');
+      console.log(' Chat messages table created');
     }
   } catch (error) {
     console.error('Error creating chat tables:', error);

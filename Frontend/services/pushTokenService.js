@@ -9,7 +9,7 @@ export const registerPushToken = async (pushToken) => {
     const response = await api.post('/push-token/register', {
       push_token: pushToken,
     });
-    console.log('✅ Push token registered with backend:', pushToken);
+    console.log(' Push token registered with backend:', pushToken);
     return response.data;
   } catch (error) {
     console.error('❌ Failed to register push token:', error);
@@ -23,7 +23,7 @@ export const registerPushToken = async (pushToken) => {
 export const removePushToken = async () => {
   try {
     const response = await api.delete('/push-token/remove');
-    console.log('✅ Push token removed from backend');
+    console.log(' Push token removed from backend');
     return response.data;
   } catch (error) {
     console.error('❌ Failed to remove push token:', error);

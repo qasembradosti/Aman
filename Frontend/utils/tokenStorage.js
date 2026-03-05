@@ -12,7 +12,7 @@ export const tokenStorage = {
   saveToken: async (token) => {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, token);
-      console.log('✅ Token saved to storage');
+      console.log(' Token saved to storage');
       return true;
     } catch (error) {
       console.error('❌ Error saving token:', error);
@@ -25,7 +25,7 @@ export const tokenStorage = {
     try {
       const token = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
       if (token) {
-        console.log('✅ Token retrieved from storage');
+        console.log(' Token retrieved from storage');
       } else {
         console.log('ℹ️ No token found in storage');
       }
@@ -40,7 +40,7 @@ export const tokenStorage = {
   removeToken: async () => {
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN);
-      console.log('✅ Token removed from storage');
+      console.log(' Token removed from storage');
       return true;
     } catch (error) {
       console.error('❌ Error removing token:', error);
@@ -52,7 +52,7 @@ export const tokenStorage = {
   saveUser: async (user) => {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-      console.log('✅ User data saved to storage');
+      console.log(' User data saved to storage');
       return true;
     } catch (error) {
       console.error('❌ Error saving user:', error);
@@ -66,7 +66,7 @@ export const tokenStorage = {
       const userJson = await AsyncStorage.getItem(STORAGE_KEYS.USER);
       if (userJson) {
         const user = JSON.parse(userJson);
-        console.log('✅ User data retrieved from storage');
+        console.log(' User data retrieved from storage');
         return user;
       }
       console.log('ℹ️ No user data found in storage');
@@ -81,7 +81,7 @@ export const tokenStorage = {
   removeUser: async () => {
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.USER);
-      console.log('✅ User data removed from storage');
+      console.log(' User data removed from storage');
       return true;
     } catch (error) {
       console.error('❌ Error removing user:', error);
@@ -93,7 +93,7 @@ export const tokenStorage = {
   clearAll: async () => {
     try {
       await AsyncStorage.multiRemove([STORAGE_KEYS.TOKEN, STORAGE_KEYS.USER]);
-      console.log('✅ All auth data cleared from storage');
+      console.log(' All auth data cleared from storage');
       return true;
     } catch (error) {
       console.error('❌ Error clearing auth data:', error);

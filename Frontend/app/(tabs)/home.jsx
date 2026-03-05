@@ -32,7 +32,6 @@ import { useRef } from "react";
 import { Heart, Star } from "lucide-react-native";
 import { toggleFavorite } from "../../services/favoriteService";
 import TrendingProductSlider from "@/components/TrendingProductSlider";
-import { ResizeMode } from "expo-av";
 // Custom Text component with font
 const Text = ({ style, ...props }) => {
   const { fontFamily } = useLanguage();
@@ -327,6 +326,20 @@ export default function Home() {
     return "https://via.placeholder.com/400";
   };
 
+  const navigateToFilteredProducts = useCallback(
+    (filterKey, filterValue) => {
+      if (navigationInProgress.current) return;
+
+      navigationInProgress.current = true;
+      router.push(`/products?${filterKey}=${filterValue}`);
+
+      setTimeout(() => {
+        navigationInProgress.current = false;
+      }, 350);
+    },
+    [router],
+  );
+
   const handleShareProduct = async (id, name) => {
     try {
       const userId = user?.id;
@@ -458,15 +471,6 @@ export default function Home() {
                           },
                         ]}
                       />
-                      <View
-                        style={{
-                          width: 50,
-                          height: 8,
-                          backgroundColor: theme.colors.border,
-                          borderRadius: 4,
-                          marginTop: 6,
-                        }}
-                      />
                     </View>
                   ))}
                 </View>
@@ -480,15 +484,6 @@ export default function Home() {
                             backgroundColor: theme.colors.border,
                           },
                         ]}
-                      />
-                      <View
-                        style={{
-                          width: 50,
-                          height: 8,
-                          backgroundColor: theme.colors.border,
-                          borderRadius: 4,
-                          marginTop: 6,
-                        }}
                       />
                     </View>
                   ))}
@@ -515,7 +510,7 @@ export default function Home() {
                           },
                         ]}
                         onPress={() => {
-                          router.push(`/products?category=${category.id}`);
+                          navigateToFilteredProducts("category", category.id);
                         }}
                       >
                         <View
@@ -534,17 +529,6 @@ export default function Home() {
                             cachePolicy="memory-disk"
                           />
                         </View>
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.categoryText2Row,
-                            {
-                              color: theme.colors.text,
-                            },
-                          ]}
-                        >
-                          {getLocalizedCategoryName(category)}
-                        </Text>
                       </Pressable>
                     ))}
                 </View>
@@ -567,7 +551,7 @@ export default function Home() {
                           },
                         ]}
                         onPress={() => {
-                          router.push(`/products?category=${category.id}`);
+                          navigateToFilteredProducts("category", category.id);
                         }}
                       >
                         <View
@@ -586,17 +570,6 @@ export default function Home() {
                             cachePolicy="memory-disk"
                           />
                         </View>
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.categoryText2Row,
-                            {
-                              color: theme.colors.text,
-                            },
-                          ]}
-                        >
-                          {getLocalizedCategoryName(category)}
-                        </Text>
                       </Pressable>
                     ))}
                 </View>
@@ -633,15 +606,6 @@ export default function Home() {
                           },
                         ]}
                       />
-                      <View
-                        style={{
-                          width: 50,
-                          height: 8,
-                          backgroundColor: theme.colors.border,
-                          borderRadius: 4,
-                          marginTop: 6,
-                        }}
-                      />
                     </View>
                   ))}
                 </View>
@@ -655,15 +619,6 @@ export default function Home() {
                             backgroundColor: theme.colors.border,
                           },
                         ]}
-                      />
-                      <View
-                        style={{
-                          width: 50,
-                          height: 8,
-                          backgroundColor: theme.colors.border,
-                          borderRadius: 4,
-                          marginTop: 6,
-                        }}
                       />
                     </View>
                   ))}
@@ -690,7 +645,7 @@ export default function Home() {
                           },
                         ]}
                         onPress={() => {
-                          router.push(`/products?brand=${brand.id}`);
+                          navigateToFilteredProducts("brand", brand.id);
                         }}
                       >
                         <View
@@ -709,17 +664,6 @@ export default function Home() {
                             cachePolicy="memory-disk"
                           />
                         </View>
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.categoryText2Row,
-                            {
-                              color: theme.colors.text,
-                            },
-                          ]}
-                        >
-                          {brand.name}
-                        </Text>
                       </Pressable>
                     ))}
                 </View>
@@ -742,7 +686,7 @@ export default function Home() {
                           },
                         ]}
                         onPress={() => {
-                          router.push(`/products?brand=${brand.id}`);
+                          navigateToFilteredProducts("brand", brand.id);
                         }}
                       >
                         <View
@@ -761,17 +705,6 @@ export default function Home() {
                             cachePolicy="memory-disk"
                           />
                         </View>
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.categoryText2Row,
-                            {
-                              color: theme.colors.text,
-                            },
-                          ]}
-                        >
-                          {brand.name}
-                        </Text>
                       </Pressable>
                     ))}
                 </View>
@@ -1473,24 +1406,17 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: "hidden",
     backgroundColor: "#f5f5f5",
-    marginBottom: 8,
-    borderWidth: 0.4,
-    borderColor: "transparent",
   },
   categoryCard2Row: {
     alignItems: "center",
-    width: 85,
-    borderRadius: 20,
-    borderWidth: 0,
-    padding: 8,
+    borderRadius:15,
     backgroundColor: "#fff",
   },
   categoryImageContainer2Row: {
-    width: 60,
-    height: 60,
+    width: 80,
+    height: 80,
     borderRadius: 15,
     overflow: "hidden",
-    marginBottom: 8,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#f0f4f8",

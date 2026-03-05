@@ -29,7 +29,7 @@ const db = knex({
 
 // Test connection on module load
 db.raw('SELECT 1')
-  .then(() => console.log('✅ Knex with mysql2 initialized successfully'))
+  .then(() => console.log(' Knex with mysql2 initialized successfully'))
   .catch((err) => console.error('❌ Knex initialization failed:', err.message));
 
 export default db;

@@ -37,7 +37,7 @@ const PORT = process.env.PORT || 3000;
 // Ensure required tables/columns BEFORE handling any requests (prevents early 500s)
 try {
     await runStartupSchemaSetup();
-    console.log('✅ Pre-start schema setup completed');
+    console.log(' Pre-start schema setup completed');
 } catch (e) {
     console.warn('⚠️ Pre-start schema setup failed:', e.message);
 }
@@ -114,6 +114,6 @@ global.io = io;
 httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server is running on http://0.0.0.0:${PORT}`);
     db.raw('SELECT 1')
-        .then(() => console.log('✅ Database connected successfully'))
+        .then(() => console.log(' Database connected successfully'))
         .catch((err) => console.error('❌ Database connection failed:', err.message));
 });

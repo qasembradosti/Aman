@@ -94,15 +94,22 @@ export const leaderboard = async (req, res) => {
     let rows;
     if (period === 'all' || period === 'alltime') {
       rows = await Wallet.topBalances(limit, offset);
-      // shape: { id, username, balance }
-      rows = rows.map((r) => ({ id: r.id, username: r.username, balance: Number(r.balance), netChange: null }));
+      // shape: { id, username, first_name, balance }
+      rows = rows.map((r) => ({
+        id: r.id,
+        username: r.username,
+        first_name: r.first_name || null,
+        balance: Number(r.balance),
+        netChange: null,
+      }));
     } else {
       const apiPeriod = ['weekly', 'monthly', 'yearly'].includes(period) ? period : 'weekly';
       const periodRows = await Wallet.periodTopBalances(apiPeriod, limit, offset);
-      // shape: { id, username, net_change, balance }
+      // shape: { id, username, first_name, net_change, balance }
       rows = periodRows.map((r) => ({
         id: r.id,
         username: r.username,
+        first_name: r.first_name || null,
         balance: Number(r.balance),
         netChange: Number(r.net_change),
       }));

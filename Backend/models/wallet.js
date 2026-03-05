@@ -75,7 +75,7 @@ const Wallet = {
     return db('wallets')
       .join('users', 'users.id', 'wallets.user_id')
       .where('users.role', '!=', 'superadmin')
-      .select('users.id as id', 'users.username', 'wallets.balance')
+      .select('users.id as id', 'users.username', 'users.first_name', 'wallets.balance')
       .orderBy('wallets.balance', 'desc')
       .limit(limit)
       .offset(offset);
@@ -101,10 +101,11 @@ const Wallet = {
       .join('users', 'users.id', 'w.user_id')
       .where(whereRaw)
       .where('users.role', '!=', 'superadmin')
-      .groupBy('users.id', 'users.username')
+      .groupBy('users.id', 'users.username', 'users.first_name')
       .select(
         'users.id as id',
         'users.username',
+        'users.first_name',
         db.raw('SUM(CASE WHEN wt.type = "credit" THEN wt.amount ELSE -wt.amount END) as net_change'),
         db.raw('MAX(w.balance) as balance')
       )

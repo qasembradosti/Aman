@@ -138,7 +138,7 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     const updated = await Order.updateStatus(id, status);
-    console.log('✅ Update result:', updated);
+    console.log(' Update result:', updated);
 
     if (!updated) {
       console.log('❌ Order update failed:', id);

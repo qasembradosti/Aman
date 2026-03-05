@@ -47,7 +47,7 @@ export const createOrGetConversation = async (req, res) => {
           console.log('❌ Conversation status is not open:', conversation.status, '- will create new one');
           conversation = null;
         } else {
-          console.log('✅ Conversation is open and matches criteria');
+          console.log(' Conversation is open and matches criteria');
         }
       } else {
         console.log('❌ No conversation found with these criteria');
@@ -62,7 +62,7 @@ export const createOrGetConversation = async (req, res) => {
           subject: subject || 'General Support',
           status: 'open',
         });
-        console.log('✅ Created new conversation ID:', conversation.id, 'with order_id:', conversation.order_id);
+        console.log(' Created new conversation ID:', conversation.id, 'with order_id:', conversation.order_id);
       } else {
         console.log('♻️ Reusing existing open conversation ID:', conversation.id);
       }

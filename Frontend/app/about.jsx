@@ -171,7 +171,7 @@ export default function About() {
             </View>
             <View style={styles.logoPulse} />
           </View>
-          <Text style={styles.appName}>Aman Store</Text>
+          <Text style={styles.appName}>Amanly</Text>
           <Text style={styles.tagline}>
             {t("appTagline") || "Your Trusted Shopping Partner"}
           </Text>
@@ -255,7 +255,7 @@ export default function About() {
               ]}
             >
               {t("aboutAppText") ||
-                "Aman Store is your one-stop destination for quality products at great prices. We connect you with trusted sellers and ensure a seamless shopping experience from browsing to delivery."}
+                "Amanly Store is your one-stop destination for quality products at great prices. We connect you with trusted sellers and ensure a seamless shopping experience from browsing to delivery."}
             </Text>
           </View>
         </View>

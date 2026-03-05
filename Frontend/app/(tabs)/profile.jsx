@@ -198,16 +198,6 @@ export default function Profile() {
                 <Ionicons name="person" size={32} color={theme.colors.primary} />
               )}
             </View>
-            <TouchableOpacity
-              style={[
-                styles.editAvatarButton,
-                { backgroundColor: theme.colors.primary },
-                isRTL ? { left: 0 } : { right: 0 },
-              ]}
-              onPress={() => router.push("/edit-profile")}
-            >
-              <Ionicons name="camera" size={14} color="#fff" />
-            </TouchableOpacity>
           </View>
           <Text style={[styles.userName, { color: theme.colors.text }]}>
             {isAuthenticated && user

@@ -37,7 +37,7 @@ export function setupSocketIO(httpServer) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
       socket.userId = decoded.userId;
       socket.username = decoded.username;
-      console.log('✅ Socket authenticated:', decoded.username, '(userId:', decoded.userId, ')');
+      console.log(' Socket authenticated:', decoded.username, '(userId:', decoded.userId, ')');
       next();
     } catch (error) {
       console.log('❌ Invalid token:', error.message);
@@ -47,7 +47,7 @@ export function setupSocketIO(httpServer) {
 
   // Connection handler
   io.on('connection', (socket) => {
-    console.log(`✅ User ${socket.userId} connected with socket ${socket.id}`);
+    console.log(` User ${socket.userId} connected with socket ${socket.id}`);
 
     // Track user connection
     if (!userConnections.has(socket.userId)) {
@@ -77,7 +77,7 @@ export function setupSocketIO(httpServer) {
         }
 
         socket.join(`conversation_${conversationId}`);
-        console.log(`✅ User ${socket.userId} joined conversation ${conversationId}`);
+        console.log(` User ${socket.userId} joined conversation ${conversationId}`);
         
         callback({ success: true });
       } catch (error) {
@@ -109,7 +109,7 @@ export function setupSocketIO(httpServer) {
     // Admin joins all active conversations
     socket.on('join_admin_chat', (callback) => {
       socket.join('admin_chat');
-      console.log(`✅ Admin ${socket.userId} joined admin chat room`);
+      console.log(` Admin ${socket.userId} joined admin chat room`);
       callback({ success: true });
     });
 

@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -34,6 +34,7 @@ import {
   getProductVideoUrl,
   resolveVideoUrl,
 } from "../../utils/productImages";
+import { getApiBaseUrl } from "../../utils/apiConfig";
 import { Text } from "../../components/ui/Text";
 import VideoSlide from "../../components/VideoSlide";
 import * as FileSystem from "expo-file-system";
@@ -46,6 +47,7 @@ export default function ProductDetail() {
   const dispatch = useDispatch();
   const layout = useResponsiveLayout();
   const { t, isRTL, locale } = useLanguage();
+  const API_BASE_URL = getApiBaseUrl();
   const rowDirection = isRTL ? "row-reverse" : "row";
   const textAlign = isRTL ? "right" : "left";
   const navigationInProgress = useRef(false);
@@ -119,6 +121,11 @@ export default function ProductDetail() {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [relatedLoading, setRelatedLoading] = useState(false);
+  const [relatedLoadingMore, setRelatedLoadingMore] = useState(false);
+  const [relatedOffset, setRelatedOffset] = useState(0);
+  const [relatedHasMore, setRelatedHasMore] = useState(true);
   const [fetchedProduct, setFetchedProduct] = useState(null);
   const [fetchingProduct, setFetchingProduct] = useState(false);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -171,12 +178,6 @@ export default function ProductDetail() {
       if (dbProduct.volume) {
         specs.push({ label: "Volume", value: dbProduct.volume });
       }
-
-      // Add default specs
-      specs.push(
-        { label: "Weight", value: "500g" },
-        { label: "Dimensions", value: "15x10x5 cm" },
-      );
 
       // Calculate final price with discount logic
       const sell = Number(dbProduct.sell_price) || 0;
@@ -417,27 +418,206 @@ export default function ProductDetail() {
     }
   };
 
-  // Related products from the same category
-  const relatedProducts = useMemo(() => {
-    if (!dbProduct) return [];
-    return products
-      .filter(
-        (p) =>
-          p.category_id === dbProduct.category_id &&
-          String(p.id) !== String(id),
-      )
-      .slice(0, 5)
-      .map((p) => ({
-        id: p.id,
-        name: p.title || p.name,
-        name_en: p.name_en,
-        name_ku: p.name_ku,
-        name_ar: p.name_ar,
-        sell_price: p.sell_price,
-        rating: p.rating || 4.0,
-        image: getProductImageUrl(p, "https://via.placeholder.com/400"),
-      }));
-  }, [products, dbProduct, id]);
+  const currentProductId = dbProduct?.id;
+  const currentStoreId = dbProduct?.store_id;
+  const RELATED_PAGE_SIZE = 12;
+
+  const mapRelatedProduct = useCallback((p) => {
+    const ratingValue = Number(p?.rating);
+    return {
+      id: p.id,
+      name: p.title || p.name,
+      name_en: p.name_en,
+      name_ku: p.name_ku,
+      name_ar: p.name_ar,
+      sell_price: p.sell_price,
+      rating: Number.isFinite(ratingValue) ? ratingValue : 4.0,
+      image: getProductImageUrl(p, "https://via.placeholder.com/400"),
+    };
+  }, []);
+
+  const getFallbackRelated = useCallback(() => {
+    if (!currentProductId || !currentStoreId) return [];
+    const fallbackPool = products.filter(
+      (p) => String(p.store_id) === String(currentStoreId),
+    );
+
+    return fallbackPool
+      .filter((p) => String(p.id) !== String(currentProductId))
+      .slice(0, RELATED_PAGE_SIZE)
+      .map(mapRelatedProduct);
+  }, [currentProductId, currentStoreId, products, mapRelatedProduct]);
+
+  const loadRelatedProducts = useCallback(
+    async (append = false) => {
+      if (!currentProductId || !currentStoreId) {
+        if (!append) {
+          setRelatedProducts([]);
+          setRelatedOffset(0);
+          setRelatedHasMore(false);
+        }
+        return;
+      }
+
+      if (append) {
+        if (relatedLoading || relatedLoadingMore || !relatedHasMore) return;
+        setRelatedLoadingMore(true);
+      } else {
+        setRelatedLoading(true);
+        setRelatedOffset(0);
+        setRelatedHasMore(true);
+      }
+
+      const requestOffset = append ? relatedOffset : 0;
+
+      try {
+        const params = {
+          limit: RELATED_PAGE_SIZE,
+          offset: requestOffset,
+          store_id: currentStoreId,
+        };
+
+        const response = await api.get("/api/products", { params });
+        const rawProducts = response?.data?.data || response?.data || [];
+        const fromApi = rawProducts
+          .filter(
+            (p) =>
+              String(p.id) !== String(currentProductId) &&
+              String(p.store_id) === String(currentStoreId),
+          )
+          .map(mapRelatedProduct);
+
+        if (append) {
+          setRelatedProducts((prev) => {
+            const existingIds = new Set(prev.map((item) => String(item.id)));
+            const nextItems = fromApi.filter(
+              (item) => !existingIds.has(String(item.id)),
+            );
+            return nextItems.length > 0 ? [...prev, ...nextItems] : prev;
+          });
+        } else if (fromApi.length > 0) {
+          setRelatedProducts(fromApi);
+        } else {
+          setRelatedProducts(getFallbackRelated());
+          setRelatedHasMore(false);
+        }
+
+        setRelatedOffset(requestOffset + rawProducts.length);
+        setRelatedHasMore(rawProducts.length >= RELATED_PAGE_SIZE);
+      } catch (error) {
+        console.error("Error loading related products:", error);
+        if (!append) {
+          setRelatedProducts(getFallbackRelated());
+          setRelatedOffset(0);
+          setRelatedHasMore(false);
+        }
+      } finally {
+        if (append) {
+          setRelatedLoadingMore(false);
+        } else {
+          setRelatedLoading(false);
+        }
+      }
+    },
+    [
+      currentProductId,
+      currentStoreId,
+      relatedLoading,
+      relatedLoadingMore,
+      relatedHasMore,
+      relatedOffset,
+      getFallbackRelated,
+      mapRelatedProduct,
+    ],
+  );
+
+  // Related products from the same store only
+  useEffect(() => {
+    loadRelatedProducts(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProductId, currentStoreId, products]);
+
+  const relatedSectionTitle = t("moreFromStore") || "More from this Store";
+
+  const resolveBrandLogoUri = (brand) => {
+    const imageUrl = brand?.logo_url || brand?.logo || brand?.image;
+    if (!imageUrl) return null;
+
+    if (imageUrl.startsWith("http")) {
+      return imageUrl;
+    }
+
+    const cleanUrl = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+    return `${API_BASE_URL}${cleanUrl}`;
+  };
+
+  const brandCardSize = layout.isSmallPhone ? 68 : 76;
+
+  const renderBrandCard = (brand) => {
+    const brandLogo = resolveBrandLogoUri(brand);
+
+    return (
+      <Pressable
+        key={brand.id}
+        style={({ pressed }) => [
+          {
+            width: brandCardSize,
+            height: brandCardSize,
+            borderRadius: 14,
+            backgroundColor: theme.colors.background,
+            alignItems: "center",
+            justifyContent: "center",
+            borderColor: theme.colors.border,
+          },
+          pressed && {
+            transform: [{ scale: 0.95 }],
+            borderColor: theme.colors.primary,
+          },
+        ]}
+        onPress={() => {
+          if (!navigationInProgress.current) {
+            navigationInProgress.current = true;
+            router.push(`/products?brand=${brand.id}`);
+            setTimeout(() => {
+              navigationInProgress.current = false;
+            }, 500);
+          }
+        }}
+      >
+        {brandLogo ? (
+          <Image
+            source={{ uri: brandLogo }}
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: 12,
+            }}
+            resizeMode="contain"
+          />
+        ) : (
+          <View
+            style={{
+              width: "100%",
+              height: "100%",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text
+              style={{
+                color: theme.colors.text,
+                fontSize: 11,
+                textAlign: "center",
+              }}
+              numberOfLines={2}
+            >
+              {brand.name}
+            </Text>
+          </View>
+        )}
+      </Pressable>
+    );
+  };
 
   const toggleFavorite = async () => {
     if (!product?.id) return;
@@ -799,39 +979,6 @@ export default function ProductDetail() {
                 },
               ]}
             >
-              {/* Rating Badge */}
-              <View
-                style={[
-                  styles.ratingBadge,
-                  {
-                    backgroundColor: "#FFB800",
-                    flexDirection: rowDirection,
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 20,
-                    elevation: 3,
-                    shadowColor: "#FFB800",
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 4,
-                  },
-                ]}
-              >
-                <Ionicons name="star" size={16} color="#fff" />
-                <Text
-                  style={[
-                    styles.ratingValue,
-                    {
-                      color: "#fff",
-                      fontSize: layout.typography.md,
-                      marginLeft: 4,
-                    },
-                  ]}
-                >
-                  {displayedRating}
-                </Text>
-              </View>
-
               {/* Stock Badge */}
               <View
                 style={[
@@ -1671,7 +1818,7 @@ export default function ProductDetail() {
           </View>
 
           {/* 5. Related Products */}
-          {productsLoading && products.length === 0 ? (
+          {relatedLoading ? (
             <View
               style={[
                 styles.section,
@@ -1703,7 +1850,7 @@ export default function ProductDetail() {
                     },
                   ]}
                 >
-                  {t("relatedProducts") || "Related Products"}
+                  {relatedSectionTitle}
                 </Text>
               </View>
               <ScrollView
@@ -1802,18 +1949,20 @@ export default function ProductDetail() {
                     },
                   ]}
                 >
-                  {t("relatedProducts") || "Related Products"}
+                  {relatedSectionTitle}
                 </Text>
               </View>
-              <ScrollView
+              <FlatList
+                data={relatedProducts}
                 horizontal
+                keyExtractor={(item) => String(item.id)}
                 showsHorizontalScrollIndicator={false}
                 style={{ marginTop: layout.spacing.md }}
                 contentContainerStyle={{ paddingRight: layout.spacing.md }}
-              >
-                {relatedProducts.map((item) => (
+                onEndReachedThreshold={0.35}
+                onEndReached={() => loadRelatedProducts(true)}
+                renderItem={({ item }) => (
                   <Pressable
-                    key={item.id}
                     style={({ pressed }) => [
                       styles.relatedProductCard,
                       {
@@ -1912,8 +2061,24 @@ export default function ProductDetail() {
                       </View>
                     </View>
                   </Pressable>
-                ))}
-              </ScrollView>
+                )}
+                ListFooterComponent={
+                  relatedLoadingMore ? (
+                    <View
+                      style={{
+                        justifyContent: "center",
+                        alignItems: "center",
+                        paddingHorizontal: 12,
+                      }}
+                    >
+                      <ActivityIndicator
+                        size="small"
+                        color={theme.colors.primary}
+                      />
+                    </View>
+                  ) : null
+                }
+              />
             </View>
           ) : null}
 
@@ -1961,28 +2126,54 @@ export default function ProductDetail() {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={{ marginTop: layout.spacing.md }}
-                contentContainerStyle={{ gap: 12 }}
+                contentContainerStyle={{ paddingRight: 4 }}
               >
-                {[1, 2, 3, 4].map((i) => (
-                  <View
-                    key={i}
-                    style={{
-                      width: 100,
-                      height: 100,
-                      borderRadius: 12,
-                      backgroundColor: theme.colors.border + "40",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderWidth: StyleSheet.hairlineWidth,
-                      borderColor: theme.colors.border,
-                    }}
-                  >
-                    <ActivityIndicator
-                      size="small"
-                      color={theme.colors.primary}
-                    />
+                <View style={{ flexDirection: "column", gap: 10 }}>
+                  <View style={{ flexDirection: rowDirection, gap: 10 }}>
+                    {[1, 2, 3, 4].map((i) => (
+                      <View
+                        key={`brand-loader-top-${i}`}
+                        style={{
+                          width: brandCardSize,
+                          height: brandCardSize,
+                          borderRadius: 14,
+                          backgroundColor: theme.colors.border + "40",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderWidth: StyleSheet.hairlineWidth,
+                          borderColor: theme.colors.border,
+                        }}
+                      >
+                        <ActivityIndicator
+                          size="small"
+                          color={theme.colors.primary}
+                        />
+                      </View>
+                    ))}
                   </View>
-                ))}
+                  <View style={{ flexDirection: rowDirection, gap: 10 }}>
+                    {[5, 6, 7, 8].map((i) => (
+                      <View
+                        key={`brand-loader-bottom-${i}`}
+                        style={{
+                          width: brandCardSize,
+                          height: brandCardSize,
+                          borderRadius: 14,
+                          backgroundColor: theme.colors.border + "40",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderWidth: StyleSheet.hairlineWidth,
+                          borderColor: theme.colors.border,
+                        }}
+                      >
+                        <ActivityIndicator
+                          size="small"
+                          color={theme.colors.primary}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                </View>
               </ScrollView>
             </View>
           ) : brands.length > 0 ? (
@@ -2028,73 +2219,20 @@ export default function ProductDetail() {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={{ marginTop: layout.spacing.md }}
-                contentContainerStyle={{ gap: 12 }}
+                contentContainerStyle={{ paddingRight: 4 }}
               >
-                {brands.map((brand) => (
-                  <Pressable
-                    key={brand.id}
-                    style={({ pressed }) => [
-                      {
-                        width: 100,
-                        height: 100,
-                        borderRadius: 12,
-                        backgroundColor: theme.colors.background,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderWidth: StyleSheet.hairlineWidth,
-                        borderColor: theme.colors.border,
-                        padding: 8,
-                      },
-                      pressed && {
-                        transform: [{ scale: 0.95 }],
-                        borderColor: theme.colors.primary,
-                      },
-                    ]}
-                    onPress={() => {
-                      if (!navigationInProgress.current) {
-                        navigationInProgress.current = true;
-                        router.push(`/brand/${brand.id}`);
-                        setTimeout(() => {
-                          navigationInProgress.current = false;
-                        }, 500);
-                      }
-                    }}
-                  >
-                    {brand.logo_url ? (
-                      <Image
-                        source={{ uri: brand.logo_url }}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          borderRadius: 8,
-                        }}
-                        contentFit="contain"
-                        transition={200}
-                      />
-                    ) : (
-                      <View
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color: theme.colors.text,
-                            fontSize: 12,
-
-                            textAlign: "center",
-                          }}
-                          numberOfLines={2}
-                        >
-                          {brand.name}
-                        </Text>
-                      </View>
-                    )}
-                  </Pressable>
-                ))}
+                <View style={{ flexDirection: "column", gap: 10 }}>
+                  <View style={{ flexDirection: rowDirection, gap: 10 }}>
+                    {brands
+                      .filter((_, idx) => idx % 2 === 0)
+                      .map((brand) => renderBrandCard(brand))}
+                  </View>
+                  <View style={{ flexDirection: rowDirection, gap: 10 }}>
+                    {brands
+                      .filter((_, idx) => idx % 2 === 1)
+                      .map((brand) => renderBrandCard(brand))}
+                  </View>
+                </View>
               </ScrollView>
             </View>
           ) : null}

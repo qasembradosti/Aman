@@ -7,7 +7,8 @@ import {
     getStore,
     createStore,
     updateStore,
-    deleteStore
+    deleteStore,
+    listStoreOrders
 } from '../controllers/home/storesController.js';
 
 const router = express.Router();
@@ -15,6 +16,7 @@ const router = express.Router();
 // Public routes
 router.get('/stores', listStores);
 router.get('/stores/:id', getStore);
+router.get('/stores/:id/orders', authenticateToken, listStoreOrders);
 
 // Admin routes (with authentication and validation)
 router.post('/stores', authenticateToken, storeValidation, validateRequest, createStore);

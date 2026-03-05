@@ -136,15 +136,6 @@ const Brands = () => {
     }
   };
 
-  const sendEMail = (mail) => {
-    if (mail) {
-      console.log("Please check your email");
-      nodemailer.send("code :",13012026)
-    } else {
-      console.log("Email Empty");
-    }
-  };
-
   const handleRemoveImage = () => {
     setImageFile(null);
     setImagePreview(null);

@@ -14,7 +14,7 @@ async function addBannerTranslationColumns() {
         table.text('subtitle_ar').nullable().after('subtitle');
         table.text('subtitle_ku').nullable().after('subtitle_ar');
       });
-      console.log('✅ Added translation columns: title_ar, title_ku, subtitle_ar, subtitle_ku');
+      console.log(' Added translation columns: title_ar, title_ku, subtitle_ar, subtitle_ku');
     } else {
       console.log('ℹ️  Translation columns already exist');
     }

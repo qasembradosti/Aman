@@ -27,7 +27,7 @@ async function fixVideoUrls() {
           .where({ id: video.id })
           .update({ video_url: newUrl });
         
-        console.log(`✅ Fixed video ${video.id}:`);
+        console.log(` Fixed video ${video.id}:`);
         console.log(`   Old: ${currentUrl}`);
         console.log(`   New: ${newUrl}`);
         
@@ -41,7 +41,7 @@ async function fixVideoUrls() {
     console.log(`   Total videos: ${videos.length}`);
     console.log(`   Fixed: ${fixedCount}`);
     console.log(`   Already correct: ${alreadyCorrectCount}`);
-    console.log('\n✅ Video URL fix completed!');
+    console.log('\n Video URL fix completed!');
     
     process.exit(0);
   } catch (error) {

@@ -92,9 +92,29 @@ const useResponsiveLayout = () => {
   };
 };
 
+const normalizeFilterValue = (value) => {
+  const normalized = Array.isArray(value) ? value[0] : value;
+  return normalized ? String(normalized) : "all";
+};
+
+const normalizeBooleanParam = (value) => {
+  const normalized = Array.isArray(value) ? value[0] : value;
+  if (normalized === undefined || normalized === null || normalized === "") {
+    return false;
+  }
+
+  const lowered = String(normalized).toLowerCase();
+  return lowered === "1" || lowered === "true" || lowered === "yes";
+};
+
 export default function Products() {
   const router = useRouter();
-  const { category: routeCategory, brand: routeBrand } = useLocalSearchParams();
+  const {
+    category: routeCategory,
+    brand: routeBrand,
+    is_trend: routeIsTrend,
+    trending: routeTrending,
+  } = useLocalSearchParams();
   const dispatch = useDispatch();
   const { t, isRTL, language, locale } = useLanguage();
   const { theme } = useTheme();
@@ -114,13 +134,17 @@ export default function Products() {
   const [hasMore, setHasMore] = useState(true);
   const pageSize = 20;
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBrand, setSelectedBrand] = useState(routeBrand || "all");
-  const [selectedCategory, setSelectedCategory] = useState(
-    routeCategory || "all",
+  const [selectedBrand, setSelectedBrand] = useState(() =>
+    normalizeFilterValue(routeBrand),
+  );
+  const [selectedCategory, setSelectedCategory] = useState(() =>
+    normalizeFilterValue(routeCategory),
   );
   const [selectedSubcategory, setSelectedSubcategory] = useState("all");
   const [sortBy, setSortBy] = useState("latest");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const trendingOnly =
+    normalizeBooleanParam(routeIsTrend) || normalizeBooleanParam(routeTrending);
 
   const { items: products, loading: productsLoading } = useSelector(
     (state) => state.products,
@@ -134,20 +158,62 @@ export default function Products() {
   const { user } = useSelector((state) => state.auth);
 
   useEffect(() => {
-    const fetchParams = { limit: pageSize, offset: 0 };
+    const nextBrand = normalizeFilterValue(routeBrand);
+    const nextCategory = normalizeFilterValue(routeCategory);
 
-    // Include subcategory or category filter in API request
-    // Subcategory takes precedence over parent category
-    if (selectedSubcategory && selectedSubcategory !== "all") {
-      fetchParams.category_id = selectedSubcategory;
-    } else if (selectedCategory && selectedCategory !== "all") {
-      fetchParams.category_id = selectedCategory;
+    setSelectedBrand((prev) => (prev === nextBrand ? prev : nextBrand));
+    setSelectedCategory((prev) =>
+      prev === nextCategory ? prev : nextCategory,
+    );
+    setSelectedSubcategory("all");
+  }, [routeBrand, routeCategory]);
+
+  const buildFetchParams = useCallback(
+    ({ limit = pageSize, offset: currentOffset = 0, append = false } = {}) => {
+      const fetchParams = { limit, offset: currentOffset };
+
+      if (append) {
+        fetchParams.append = true;
+      }
+
+      // Subcategory takes precedence over parent category
+      if (selectedSubcategory && selectedSubcategory !== "all") {
+        fetchParams.category_id = selectedSubcategory;
+      } else if (selectedCategory && selectedCategory !== "all") {
+        fetchParams.category_id = selectedCategory;
+      }
+
+      if (selectedBrand && selectedBrand !== "all") {
+        fetchParams.brand_id = selectedBrand;
+      }
+
+      if (trendingOnly) {
+        fetchParams.is_trend = 1;
+      }
+
+      return fetchParams;
+    },
+    [
+      pageSize,
+      selectedSubcategory,
+      selectedCategory,
+      selectedBrand,
+      trendingOnly,
+    ],
+  );
+
+  useEffect(() => {
+    if (!brands?.length) {
+      dispatch(fetchBrands({ limit: 100 }));
     }
 
-    // Include brand filter in API request if brand is selected
-    if (selectedBrand && selectedBrand !== "all") {
-      fetchParams.brand_id = selectedBrand;
+    if (!categories?.length) {
+      dispatch(fetchCategories({ limit: 100 }));
     }
+  }, [dispatch, brands?.length, categories?.length]);
+
+  useEffect(() => {
+    const fetchParams = buildFetchParams({ limit: pageSize, offset: 0 });
 
     dispatch(fetchProducts(fetchParams))
       .unwrap()
@@ -161,25 +227,11 @@ export default function Products() {
         setOffset(pageSize);
         setHasMore(false);
       });
-
-    dispatch(fetchBrands({ limit: 100 }));
-    dispatch(fetchCategories({ limit: 100 }));
-  }, [dispatch, selectedCategory, selectedBrand, selectedSubcategory]);
+  }, [dispatch, buildFetchParams, pageSize]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    const fetchParams = { limit: pageSize, offset: 0 };
-
-    // Subcategory takes precedence over parent category
-    if (selectedSubcategory && selectedSubcategory !== "all") {
-      fetchParams.category_id = selectedSubcategory;
-    } else if (selectedCategory && selectedCategory !== "all") {
-      fetchParams.category_id = selectedCategory;
-    }
-
-    if (selectedBrand && selectedBrand !== "all") {
-      fetchParams.brand_id = selectedBrand;
-    }
+    const fetchParams = buildFetchParams({ limit: pageSize, offset: 0 });
 
     dispatch(fetchProducts(fetchParams))
       .unwrap()
@@ -194,24 +246,17 @@ export default function Products() {
       .finally(() => {
         setRefreshing(false);
       });
-  }, [dispatch, selectedCategory, selectedBrand, selectedSubcategory]);
+  }, [dispatch, buildFetchParams, pageSize]);
 
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore || productsLoading) return;
 
     setLoadingMore(true);
-    const fetchParams = { limit: pageSize, offset, append: true };
-
-    // Subcategory takes precedence over parent category
-    if (selectedSubcategory && selectedSubcategory !== "all") {
-      fetchParams.category_id = selectedSubcategory;
-    } else if (selectedCategory && selectedCategory !== "all") {
-      fetchParams.category_id = selectedCategory;
-    }
-
-    if (selectedBrand && selectedBrand !== "all") {
-      fetchParams.brand_id = selectedBrand;
-    }
+    const fetchParams = buildFetchParams({
+      limit: pageSize,
+      offset,
+      append: true,
+    });
 
     console.log("Loading more products with params:", fetchParams);
 
@@ -236,15 +281,15 @@ export default function Products() {
     loadingMore,
     hasMore,
     offset,
-    selectedCategory,
-    selectedBrand,
-    selectedSubcategory,
     productsLoading,
+    buildFetchParams,
+    pageSize,
   ]);
 
   const handleScroll = (event) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    const paddingToBottom = 20;
+    if (contentSize.height <= layoutMeasurement.height) return;
+    const paddingToBottom = 220;
     const isCloseToBottom =
       layoutMeasurement.height + contentOffset.y >=
       contentSize.height - paddingToBottom;
@@ -435,7 +480,9 @@ export default function Products() {
             { color: theme.colors.text, textAlign: "center" },
           ]}
         >
-          {t("allProducts") || "All Products"}
+          {trendingOnly
+            ? t("trendingProducts") || "Trending Products"
+            : t("allProducts") || "All Products"}
         </Text>
         <TouchableOpacity
           onPress={() => setFilterModalVisible(true)}
@@ -451,7 +498,7 @@ export default function Products() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         onScroll={handleScroll}
-        scrollEventThrottle={400}
+        scrollEventThrottle={16}
       >
         {/* Search Input */}
         <View
@@ -777,21 +824,25 @@ export default function Products() {
       />
 
       {/* Filter Modal */}
-      <Modal
-        visible={filterModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setFilterModalVisible(false)}
-      >
-        <View
-          style={[styles.modalOverlay, { backgroundColor: "rgba(0,0,0,0.5)" }]}
+      {filterModalVisible ? (
+        <Modal
+          visible
+          transparent
+          animationType="slide"
+          onRequestClose={() => setFilterModalVisible(false)}
         >
           <View
             style={[
-              styles.modalContent,
-              { backgroundColor: theme.colors.background },
+              styles.modalOverlay,
+              { backgroundColor: "rgba(0,0,0,0.5)" },
             ]}
           >
+            <View
+              style={[
+                styles.modalContent,
+                { backgroundColor: theme.colors.background },
+              ]}
+            >
             {/* Modal Header */}
             <View style={[styles.modalHeader]}>
               <View
@@ -804,6 +855,7 @@ export default function Products() {
                   const activeFilters =
                     (selectedBrand !== "all" ? 1 : 0) +
                     (selectedCategory !== "all" ? 1 : 0) +
+                    (trendingOnly ? 1 : 0) +
                     (sortBy !== "latest" ? 1 : 0) +
                     (searchQuery.trim() !== "" ? 1 : 0);
                   return activeFilters > 0 ? (
@@ -1121,9 +1173,10 @@ export default function Products() {
                 </Text>
               </TouchableOpacity>
             </View>
+            </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      ) : null}
     </SafeAreaView>
   );
 }

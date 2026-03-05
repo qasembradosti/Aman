@@ -18,7 +18,7 @@ export const login = createAsyncThunk(
           const { token, user } = staticResult;
           await AsyncStorage.setItem('token', token);
           await AsyncStorage.setItem('user', JSON.stringify(user));
-          console.log('✅ Static auth: token and user saved to AsyncStorage');
+          console.log(' Static auth: token and user saved to AsyncStorage');
           return { token, user };
         }
       }
@@ -100,7 +100,7 @@ export const updateProfile = createAsyncThunk(
       
       // Update user in AsyncStorage
       await AsyncStorage.setItem('user', JSON.stringify(user));
-      console.log('✅ Updated user saved to AsyncStorage');
+      console.log(' Updated user saved to AsyncStorage');
       
       return { user };
     } catch (error) {
@@ -195,7 +195,6 @@ export const logout = createAsyncThunk('auth/logout', async () => {
   
   // Remove token and user from AsyncStorage
   await AsyncStorage.multiRemove(['token', 'user']);
-  console.log('✅ Token and user removed from AsyncStorage');
   return null;
 });
 
@@ -209,7 +208,6 @@ export const loadTokenFromStorage = createAsyncThunk(
       if (token && userJson) {
         try {
           const user = JSON.parse(userJson);
-          console.log('✅ Token and user loaded from storage:', { username: user.username });
           return { token, user };
         } catch (parseError) {
           console.error('❌ Failed to parse user JSON:', parseError);
@@ -293,7 +291,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = action.payload.user;
         state.error = null;
-        console.log('✅ Profile updated in Redux state');
+        console.log(' Profile updated in Redux state');
       })
       .addCase(updateProfile.rejected, (state, action) => {
         state.loading = false;
@@ -307,7 +305,7 @@ const authSlice = createSlice({
       .addCase(changePassword.fulfilled, (state) => {
         state.loading = false;
         state.error = null;
-        console.log('✅ Password changed successfully');
+        console.log(' Password changed successfully');
       })
       .addCase(changePassword.rejected, (state, action) => {
         state.loading = false;
@@ -384,7 +382,7 @@ const authSlice = createSlice({
         state.token = action.payload.token;
         state.user = action.payload.user;
         state.isAuthenticated = true;
-        console.log('✅ Auth state restored from storage');
+        console.log(' Auth state restored from storage');
       })
       .addCase(loadTokenFromStorage.rejected, (state) => {
         state.isAuthenticated = false;

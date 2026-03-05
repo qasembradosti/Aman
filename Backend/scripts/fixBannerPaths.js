@@ -15,7 +15,7 @@ async function fixBannerPaths() {
         table.text('subtitle_ar').nullable().after('subtitle');
         table.text('subtitle_ku').nullable().after('subtitle_ar');
       });
-      console.log('✅ Added translation columns: title_ar, title_ku, subtitle_ar, subtitle_ku\n');
+      console.log(' Added translation columns: title_ar, title_ku, subtitle_ar, subtitle_ku\n');
     } else {
       console.log('ℹ️  Translation columns already exist\n');
     }
@@ -28,7 +28,7 @@ async function fixBannerPaths() {
         image_url: db.raw("REPLACE(image_url, '/images/products/', '/images/')")
       });
     
-    console.log(`✅ Fixed ${result} banner image path(s)\n`);
+    console.log(` Fixed ${result} banner image path(s)\n`);
     
     // 3. Update existing banners with sample translations
     console.log('Step 3: Adding sample translations to existing banners...');
@@ -51,7 +51,7 @@ async function fixBannerPaths() {
         
         if (Object.keys(updates).length > 0) {
           await db('banners').where('id', banner.id).update(updates);
-          console.log(`✅ Updated translations for banner: ${banner.title}`);
+          console.log(` Updated translations for banner: ${banner.title}`);
         }
       }
     }
@@ -61,7 +61,7 @@ async function fixBannerPaths() {
     const finalBanners = await db('banners').select('id', 'title', 'title_ar', 'title_ku', 'subtitle', 'subtitle_ar', 'subtitle_ku', 'image_url');
     console.table(finalBanners);
     
-    console.log('\n✅ All fixes completed successfully!');
+    console.log('\n All fixes completed successfully!');
     process.exit(0);
   } catch (error) {
     console.error('❌ Error fixing banner paths:', error);

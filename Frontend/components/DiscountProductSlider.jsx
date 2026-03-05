@@ -1,62 +1,120 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   StyleSheet,
-  ScrollView,
+  FlatList,
   Pressable,
   Dimensions,
   ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useDispatch, useSelector } from "react-redux";
 import { useTheme } from "../utils/ThemeContext";
 import { useLanguage } from "../utils/LanguageContext";
-import { fetchProducts } from "../store/slices/productsSlice";
-import { Tag, Star } from "lucide-react-native";
+import { Star } from "lucide-react-native";
 import { getProductImageUrl } from "../utils/productImages";
 import { Text } from "./ui/Text";
 import SectionBanner from "./SectionBanner";
+import api from "../services/apiService";
 
 const { width: screenWidth } = Dimensions.get("window");
 const CARD_WIDTH = screenWidth * 0.38;
+const PAGE_SIZE = 12;
 
 export default function DiscountProductSlider() {
-  const { theme, isDark } = useTheme();
-  const { t } = useLanguage();
+  const { theme } = useTheme();
   const router = useRouter();
-  const dispatch = useDispatch();
-  const [initialLoad, setInitialLoad] = useState(false);
+  const [discountProducts, setDiscountProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [supportsDiscountFilter, setSupportsDiscountFilter] = useState(true);
+  const didInitialLoad = useRef(false);
 
-  const { items: products, loading } = useSelector((state) => state.products);
+  const getDiscountedProducts = (items = []) =>
+    items.filter((product) => (Number(product?.discount) || 0) > 0);
+
+  const loadDiscountProducts = useCallback(async (append = false) => {
+    if (append) {
+      if (loading || loadingMore || !hasMore || !supportsDiscountFilter) return;
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+      setOffset(0);
+      setHasMore(true);
+      setSupportsDiscountFilter(true);
+    }
+
+    const requestOffset = append ? offset : 0;
+
+    try {
+      // Preferred: backend-filtered discounted products
+      const response = await api.get("/api/products", {
+        params: {
+          has_discount: 1,
+          in_stock: true,
+          limit: PAGE_SIZE,
+          offset: requestOffset,
+        },
+      });
+
+      const rawProducts = response?.data?.data || response?.data || [];
+      const discounted = getDiscountedProducts(rawProducts);
+
+      if (append) {
+        setDiscountProducts((prev) => {
+          const existingIds = new Set(prev.map((item) => String(item.id)));
+          const nextItems = discounted.filter(
+            (item) => !existingIds.has(String(item.id)),
+          );
+          return nextItems.length > 0 ? [...prev, ...nextItems] : prev;
+        });
+      } else {
+        setDiscountProducts(discounted);
+      }
+
+      setOffset(requestOffset + rawProducts.length);
+      setHasMore(rawProducts.length >= PAGE_SIZE);
+      setSupportsDiscountFilter(true);
+    } catch (_error) {
+      if (append) {
+        setHasMore(false);
+        return;
+      }
+
+      // Fallback: old backend without has_discount support
+      try {
+        const fallbackResponse = await api.get("/api/products", {
+          params: { in_stock: true, limit: 100, offset: 0 },
+        });
+        const fallbackRaw =
+          fallbackResponse?.data?.data || fallbackResponse?.data || [];
+        const discounted = getDiscountedProducts(fallbackRaw);
+        setDiscountProducts(discounted);
+        setOffset(discounted.length);
+        setHasMore(false);
+        setSupportsDiscountFilter(false);
+      } catch {
+        setDiscountProducts([]);
+        setHasMore(false);
+      }
+    } finally {
+      if (append) {
+        setLoadingMore(false);
+      } else {
+        setLoading(false);
+      }
+    }
+  }, [loading, loadingMore, hasMore, supportsDiscountFilter, offset]);
 
   useEffect(() => {
-    // Fetch products if we don't have any
-    if (products.length === 0 && !loading) {
-      dispatch(fetchProducts({ limit: 20, offset: 0 }));
-      setInitialLoad(true);
-    } else if (products.length > 0) {
-      setInitialLoad(true);
-    }
-  }, [dispatch, products.length, loading]);
+    if (didInitialLoad.current) return;
+    didInitialLoad.current = true;
+    loadDiscountProducts(false);
+  }, [loadDiscountProducts]);
 
-  const discountProducts = products.filter((p) => {
-    const discountValue = Number(p?.discount) || 0;
-    return discountValue > 0;
-  });
-
-  if (products.length > 0 && discountProducts.length === 0) {
-    console.log('Sample product (checking discount field):', {
-      id: products[0]?.id,
-      name: products[0]?.name,
-      discount: products[0]?.discount,
-      discount_type: products[0]?.discount_type,
-      sell_price: products[0]?.sell_price,
-    });
-  }
-
-  // Show loading only on initial load
-  if (loading && !initialLoad) {
+  if (loading && discountProducts.length === 0) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -64,37 +122,44 @@ export default function DiscountProductSlider() {
     );
   }
 
-  // Hide section if no discounted products and we've loaded
-  if (initialLoad && discountProducts.length === 0) {
+  if (!loading && discountProducts.length === 0) {
     return null;
   }
 
   return (
     <SectionBanner type="discounts" resizeMode="stretch" style={styles.container} route="/products">
-      <ScrollView
+      <FlatList
+        data={discountProducts}
         horizontal
+        keyExtractor={(item) => String(item.id)}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         decelerationRate="fast"
         style={{ marginTop: 80 }}
         snapToInterval={CARD_WIDTH + 16}
-      >
-        {discountProducts.map((product, index) => (
+        renderItem={({ item, index }) => (
           <DiscountProductCard
-            key={product.id}
-            product={product}
+            product={item}
             theme={theme}
-            isDark={isDark}
             isLast={index === discountProducts.length - 1}
-            onPress={() => router.push(`/product/${product.id}`)}
+            onPress={() => router.push(`/product/${item.id}`)}
           />
-        ))}
-      </ScrollView>
+        )}
+        onEndReachedThreshold={0.35}
+        onEndReached={() => loadDiscountProducts(true)}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.listFooter}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            </View>
+          ) : null
+        }
+      />
     </SectionBanner>
   );
 }
 
-function DiscountProductCard({ product, onPress, theme, isDark, isLast }) {
+function DiscountProductCard({ product, onPress, theme, isLast }) {
   const { isRTL, locale } = useLanguage();
 
   const getLocalizedText = (field) => {
@@ -229,6 +294,11 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingHorizontal: 16,
+  },
+  listFooter: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 12,
   },
 
   card: {

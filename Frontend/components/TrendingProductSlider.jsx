@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   StyleSheet,
-  ScrollView,
+  FlatList,
   Pressable,
   Dimensions,
   ActivityIndicator,
@@ -11,7 +11,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useTheme } from "../utils/ThemeContext";
 import { useLanguage } from "../utils/LanguageContext";
-import { TrendingUp, Star } from "lucide-react-native";
+import { Star } from "lucide-react-native";
 import { getProductImageUrl } from "../utils/productImages";
 import { Text } from "./ui/Text";
 import apiService from "../services/apiService";
@@ -19,52 +19,82 @@ import SectionBanner from "./SectionBanner";
 
 const { width: screenWidth } = Dimensions.get("window");
 const CARD_WIDTH = screenWidth * 0.38;
+const PAGE_SIZE = 12;
 
 export default function TrendingProductSlider() {
-  const { theme, isDark } = useTheme();
-  const { t } = useLanguage();
+  const { theme } = useTheme();
   const router = useRouter();
 
   const [trendingProducts, setTrendingProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState(null);
+  const didInitialLoad = useRef(false);
 
-  useEffect(() => {
-    fetchTrendingProducts();
-  }, []);
-
-  const fetchTrendingProducts = async () => {
-    try {
+  const fetchTrendingProducts = useCallback(async (append = false) => {
+    if (append) {
+      if (loading || loadingMore || !hasMore) return;
+      setLoadingMore(true);
+    } else {
       setLoading(true);
-      console.log("🔥 Fetching trending products...");
+      setError(null);
+      setOffset(0);
+      setHasMore(true);
+    }
+
+    const requestOffset = append ? offset : 0;
+    try {
       const response = await apiService.get("/api/products", {
         params: {
           is_trend: 1,
-          limit: 20,
-          offset: 0,
+          limit: PAGE_SIZE,
+          offset: requestOffset,
         },
       });
-      console.log("📦 Full API Response:", response.data);
-      const products = response.data?.data || response.data || [];
-      console.log("✅ API returned products:", products.length);
+      const rawProducts = response.data?.data || response.data || [];
 
       // Filter to ensure only trending products (is_trend === 1)
-      const trendingOnly = products.filter(
+      const trendingOnly = rawProducts.filter(
         (p) => p.is_trend === 1 || p.is_trend === true,
       );
-      console.log("📋 Filtered trending products:", trendingOnly.length);
 
-      setTrendingProducts(trendingOnly);
+      if (append) {
+        setTrendingProducts((prev) => {
+          const existingIds = new Set(prev.map((item) => String(item.id)));
+          const nextItems = trendingOnly.filter(
+            (item) => !existingIds.has(String(item.id)),
+          );
+          return nextItems.length > 0 ? [...prev, ...nextItems] : prev;
+        });
+      } else {
+        setTrendingProducts(trendingOnly);
+      }
+      setOffset(requestOffset + rawProducts.length);
+      setHasMore(rawProducts.length >= PAGE_SIZE);
       setError(null);
     } catch (error) {
-      console.error("❌ Error fetching trending products:", error);
       console.error("Error details:", error.response?.data || error.message);
       setError(error.message || "Failed to load trending products");
-      setTrendingProducts([]);
+      if (!append) {
+        setTrendingProducts([]);
+        setHasMore(false);
+      }
     } finally {
-      setLoading(false);
+      if (append) {
+        setLoadingMore(false);
+      } else {
+        setLoading(false);
+      }
     }
-  };
+  }, [loading, loadingMore, hasMore, offset]);
+
+  useEffect(() => {
+    if (didInitialLoad.current) return;
+    didInitialLoad.current = true;
+    fetchTrendingProducts(false);
+  }, [fetchTrendingProducts]);
 
   if (loading) {
     return (
@@ -83,7 +113,7 @@ export default function TrendingProductSlider() {
           ⚠️ {error}
         </Text>
         <Pressable
-          onPress={fetchTrendingProducts}
+          onPress={() => fetchTrendingProducts(false)}
           style={{
             marginTop: 12,
             paddingHorizontal: 16,
@@ -101,38 +131,48 @@ export default function TrendingProductSlider() {
   //
   // Hide section if no trending products
   if (trendingProducts.length === 0) {
-    console.log("⚠️ No trending products to display");
     return null;
   }
 
-  console.log("🎉 Rendering", trendingProducts.length, "trending products");
-
   return (
-    <SectionBanner type="popular" resizeMode="stretch" style={styles.container} route="/products">
-      <ScrollView
+    <SectionBanner
+      type="popular"
+      resizeMode="stretch"
+      style={styles.container}
+      route="/products?is_trend=1"
+    >
+      <FlatList
+        data={trendingProducts}
         horizontal
+        keyExtractor={(item) => String(item.id)}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         decelerationRate="fast"
         style={{ marginTop: 70 }}
         snapToInterval={CARD_WIDTH + 16}
-      >
-        {trendingProducts.map((product, index) => (
+        renderItem={({ item, index }) => (
           <TrendingProductCard
-            key={product.id}
-            product={product}
+            product={item}
             theme={theme}
-            isDark={isDark}
             isLast={index === trendingProducts.length - 1}
-            onPress={() => router.push(`/product/${product.id}`)}
+            onPress={() => router.push(`/product/${item.id}`)}
           />
-        ))}
-      </ScrollView>
+        )}
+        onEndReachedThreshold={0.35}
+        onEndReached={() => fetchTrendingProducts(true)}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.listFooter}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            </View>
+          ) : null
+        }
+      />
     </SectionBanner>
   );
 }
 
-function TrendingProductCard({ product, onPress, theme, isDark, isLast }) {
+function TrendingProductCard({ product, onPress, theme, isLast }) {
   const { isRTL, locale } = useLanguage();
 
   const getLocalizedText = (field) => {
@@ -148,11 +188,7 @@ function TrendingProductCard({ product, onPress, theme, isDark, isLast }) {
   // Price calculation
   const sell = Number(product?.sell_price) || 0;
   const discount = Number(product?.discount) || 0;
-  const commission = Number(product?.commission_price) || 0;
-
   let finalPrice = sell;
-  let badgeText = "";
-  let hasBadge = false;
 
   const type = (product?.discount_type || "").toLowerCase();
   const isPercentage =
@@ -160,14 +196,11 @@ function TrendingProductCard({ product, onPress, theme, isDark, isLast }) {
   const isFixed = type === "fixed";
 
   if (discount > 0) {
-    hasBadge = true;
     if (isPercentage) {
       const savedAmount = (sell * discount) / 100;
       finalPrice = sell - savedAmount;
-      badgeText = `-${Math.round(discount)}%`;
     } else if (isFixed) {
       finalPrice = sell - discount;
-      badgeText = `-${discount.toLocaleString()} ${isRTL ? "د" : "IQD"}`;
     }
   }
 
@@ -187,7 +220,6 @@ function TrendingProductCard({ product, onPress, theme, isDark, isLast }) {
       ]}
       onPress={onPress}
     >
-
       <View style={styles.imageContainer}>
         <Image
           source={{ uri: imageUrl }}
@@ -209,7 +241,9 @@ function TrendingProductCard({ product, onPress, theme, isDark, isLast }) {
         {product.rating > 0 && (
           <View style={styles.ratingRow}>
             <Star size={12} color="#FFA500" fill="#FFA500" />
-            <Text style={[styles.rating, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[styles.rating, { color: theme.colors.textSecondary }]}
+            >
               {Number(product.rating).toFixed(1)}
             </Text>
           </View>
@@ -218,10 +252,15 @@ function TrendingProductCard({ product, onPress, theme, isDark, isLast }) {
         {/* Price */}
         <View style={styles.priceRow}>
           <Text style={[styles.price, { color: theme.colors.primary }]}>
-            {displayPrice.toLocaleString()} {isRTL ? "د" : "IQD"}
+            {displayPrice.toLocaleString()} {isRTL ? "دینار" : "IQD"}
           </Text>
           {discount > 0 && (
-            <Text style={[styles.originalPrice, { color: theme.colors.textSecondary }]}>
+            <Text
+              style={[
+                styles.originalPrice,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
               {originalPrice.toLocaleString()}
             </Text>
           )}
@@ -261,6 +300,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
+  },
+  listFooter: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 12,
   },
   card: {
     width: CARD_WIDTH,
@@ -312,7 +356,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: 6,
   },
   ratingRow: {
@@ -332,7 +376,7 @@ const styles = StyleSheet.create({
   },
   price: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   originalPrice: {
     fontSize: 11,
@@ -344,6 +388,6 @@ const styles = StyleSheet.create({
   },
   commission: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });

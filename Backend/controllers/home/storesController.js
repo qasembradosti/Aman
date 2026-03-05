@@ -75,3 +75,38 @@ export const deleteStore = async (req, res) => {
     res.status(500).json({ message: 'Failed to delete store', error: err.message });
   }
 };
+
+const isValidDate = (value) =>
+  typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+export const listStoreOrders = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { start_date, end_date, status } = req.query;
+
+    const store = await Store.findById(id);
+    if (!store) {
+      return res.status(404).json({ message: 'Store not found' });
+    }
+
+    if (start_date && !isValidDate(start_date)) {
+      return res.status(400).json({ message: 'Invalid start_date format. Use YYYY-MM-DD' });
+    }
+
+    if (end_date && !isValidDate(end_date)) {
+      return res.status(400).json({ message: 'Invalid end_date format. Use YYYY-MM-DD' });
+    }
+
+    const result = await Store.getOrders(id, { start_date, end_date, status });
+
+    return res.json({
+      store: {
+        id: store.id,
+        name: store.name,
+      },
+      ...result,
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Failed to list store orders', error: err.message });
+  }
+};

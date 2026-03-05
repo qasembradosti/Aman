@@ -400,6 +400,20 @@ const Checkout = () => {
     setLanguage(lang);
   };
 
+  const getProductDisplayName = (item) => {
+    if (!item) return "Product";
+
+    const nameEn = item?.name_en?.trim();
+    const nameAr = item?.name_ar?.trim();
+    const nameKu = item?.name_ku?.trim();
+    const legacyName =
+      item?.title?.trim() || item?.name?.trim() || item?.product_name?.trim();
+
+    if (language === "ar") return nameAr || legacyName || nameEn || nameKu || "Product";
+    if (language === "ku") return nameKu || legacyName || nameEn || nameAr || "Product";
+    return nameEn || legacyName || nameAr || nameKu || "Product";
+  };
+
   // Calculate pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -964,7 +978,7 @@ const Checkout = () => {
               <div className="space-y-6">
                 <div className="border-b border-gray-200 pb-6">
                   <h3 className="text-3xl font-bold text-gray-900 mb-4">
-                    {product.title || product.name}
+                    {getProductDisplayName(product)}
                   </h3>
                   
                   {(() => {
@@ -1516,13 +1530,13 @@ const Checkout = () => {
                               src={
                                 item.images[0].url || item.images[0].image_url
                               }
-                              alt={item.title || item.name || "Product"}
+                              alt={getProductDisplayName(item)}
                               className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg shrink-0"
                             />
                           )}
                           <div className="flex-1 min-w-0">
                             <h4 className="font-semibold text-sm sm:text-base text-gray-900 line-clamp-2 mb-1">
-                              {item.title || item.name || "Product"}
+                              {getProductDisplayName(item)}
                             </h4>
                             {(() => {
                               const discountInfo = calculateDiscount(item);
@@ -1733,7 +1747,7 @@ const Checkout = () => {
                               relatedProduct.images[0].url ||
                               relatedProduct.images[0].image_url
                             }
-                            alt={relatedProduct.name}
+                            alt={getProductDisplayName(relatedProduct)}
                             className="w-full h-full object-contain hover:scale-110 transition-transform duration-300"
                           />
                         </div>
@@ -1741,7 +1755,7 @@ const Checkout = () => {
 
                       <div className="p-5 flex flex-col grow">
                         <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-2">
-                          {relatedProduct.title || relatedProduct.name}
+                          {getProductDisplayName(relatedProduct)}
                         </h3>
 
                         {(() => {

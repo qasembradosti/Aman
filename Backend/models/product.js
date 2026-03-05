@@ -7,9 +7,11 @@ const Product = {
       q,
       category_id,
       brand_id,
+      store_id,
       in_stock,
       is_trend,
       is_important,
+      has_discount,
       min_price,
       max_price,
       sort = 'created_at',
@@ -52,6 +54,11 @@ const Product = {
       query.where('products.brand_id', brand_id);
     }
 
+    // Store filter
+    if (store_id) {
+      query.where('products.store_id', store_id);
+    }
+
     // In stock filter
     if (in_stock !== undefined) {
       query.where('products.in_stock', in_stock);
@@ -65,6 +72,27 @@ const Product = {
     // Important filter
     if (is_important !== undefined) {
       query.where('products.is_important', is_important);
+    }
+
+    // Discount filter
+    if (has_discount !== undefined) {
+      const normalized = String(has_discount).toLowerCase();
+      const wantsDiscounted =
+        normalized === '1' ||
+        normalized === 'true' ||
+        normalized === 'yes';
+      const wantsNonDiscounted =
+        normalized === '0' ||
+        normalized === 'false' ||
+        normalized === 'no';
+
+      if (wantsDiscounted) {
+        query.where('products.discount', '>', 0);
+      } else if (wantsNonDiscounted) {
+        query.where(function () {
+          this.whereNull('products.discount').orWhere('products.discount', '<=', 0);
+        });
+      }
     }
 
     // Price range filters

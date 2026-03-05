@@ -87,7 +87,7 @@ export const listProducts = async (req, res) => {
     
     const result = await Product.findAll(req.query);
     const products = result.data || result;
-    console.log(`✅ Found ${products.length} products`);
+    console.log(` Found ${products.length} products`);
     
     // Log first product for debugging
     if (products.length > 0) {

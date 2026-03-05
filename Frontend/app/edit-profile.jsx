@@ -33,6 +33,29 @@ const Text = ({ style, ...props }) => {
   );
 };
 
+const toLocalIraqPhoneDigits = (value = "") => {
+  let digits = String(value ?? "").replace(/\D/g, "");
+
+  if (digits.startsWith("00964")) {
+    digits = digits.slice(5);
+  } else if (digits.startsWith("964")) {
+    digits = digits.slice(3);
+  }
+
+  if (digits.startsWith("07")) {
+    digits = digits.slice(1);
+  }
+
+  return digits;
+};
+
+const formatLocalPhone = (digits = "") => {
+  if (!digits) return "";
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+  return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 10)}`;
+};
+
 export default function EditProfile() {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -58,7 +81,7 @@ export default function EditProfile() {
         first_name: user.first_name || "",
         last_name: user.last_name || "",
         email: user.email || "",
-        phone: user.phone || "",
+        phone: formatLocalPhone(toLocalIraqPhoneDigits(user.phone || "")),
       });
     }
   }, [user]);
@@ -66,11 +89,14 @@ export default function EditProfile() {
   // Track changes
   useEffect(() => {
     if (user) {
+      const formPhoneDigits = toLocalIraqPhoneDigits(formData.phone || "");
+      const userPhoneDigits = toLocalIraqPhoneDigits(user.phone || "");
+
       const changed =
         formData.first_name !== (user.first_name || "") ||
         formData.last_name !== (user.last_name || "") ||
         formData.email !== (user.email || "") ||
-        formData.phone !== (user.phone || "");
+        formPhoneDigits !== userPhoneDigits;
       setHasChanges(changed);
     }
   }, [formData, user]);
@@ -83,22 +109,24 @@ export default function EditProfile() {
   }, [dispatch]);
 
   const handleInputChange = (field, value) => {
-    if (field === 'phone') {
-      let digits = String(value).replace(/\D/g, '');
-      // Enforce starting with 7 when not empty
-      if (digits.length > 0 && digits[0] !== '7') {
-        return; // reject change
+    if (field === "phone") {
+      let digits = toLocalIraqPhoneDigits(value);
+
+      if (!digits) {
+        setFormData({ ...formData, phone: "" });
+        return;
       }
-      // Limit to 10 digits
+
+      // Only Iraqi mobile local format: 7XXXXXXXXX
+      if (digits[0] !== "7") {
+        return;
+      }
+
       if (digits.length > 10) {
         digits = digits.slice(0, 10);
       }
-      // Format 7XX XXX XXXX
-      let formatted = digits;
-      if (digits.length > 3) {
-        formatted = `${digits.slice(0,3)} ${digits.slice(3,6)}${digits.length > 6 ? ' ' + digits.slice(6) : ''}`.trim();
-      }
-      setFormData({ ...formData, phone: formatted });
+
+      setFormData({ ...formData, phone: formatLocalPhone(digits) });
       return;
     }
     setFormData({ ...formData, [field]: value });
@@ -125,10 +153,13 @@ export default function EditProfile() {
       errors.push(t("invalidEmail") || "Invalid email format");
     }
 
-    if (formData.phone) {
-      const digits = String(formData.phone).replace(/\D/g, '');
+    if (formData.phone?.trim()) {
+      const digits = toLocalIraqPhoneDigits(formData.phone);
       if (!/^7\d{9}$/.test(digits)) {
-        errors.push(t('invalidPhone') || 'Invalid phone format. Use 7XX XXX XXXX');
+        errors.push(
+          t("invalidPhone") ||
+            "Invalid phone format. Use 7XX XXX XXXX (or +9647XXXXXXXX)",
+        );
       }
     }
 
@@ -155,7 +186,16 @@ export default function EditProfile() {
     }
 
     try {
-      await dispatch(updateProfile(formData)).unwrap();
+      const phoneDigits = toLocalIraqPhoneDigits(formData.phone);
+      const payload = {
+        ...formData,
+        first_name: formData.first_name.trim(),
+        last_name: formData.last_name.trim(),
+        email: formData.email.trim(),
+        phone: phoneDigits ? phoneDigits : "",
+      };
+
+      await dispatch(updateProfile(payload)).unwrap();
       Alert.alert(
         t("success") || "Success",
         t("profileUpdated") || "Profile updated successfully",
