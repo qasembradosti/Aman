@@ -21,7 +21,8 @@ const PUBLIC_ENDPOINTS = [
   '/api/auth/register',
   '/api/auth/login',
   '/api/auth/request-password-reset',
-  '/api/auth/reset-password'
+  '/api/auth/reset-password',
+  '/api/content/about-screen'
 ];
 
 // Request interceptor to add token from AsyncStorage

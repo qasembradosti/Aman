@@ -1365,7 +1365,7 @@ export const translations = {
     noProductsFound: "هیچ کاڵایەک نەدۆزرایەوە",
 
     // Profile
-    editProfile: "دەستکاریکردنی پرۆفایل",
+    editProfile: "پرۆفایل",
     updatePersonalInfo: "نوێکردنەوەی زانیاری کەسی",
     addresses: "ناونیشانەکان",
     manageAddresses: "بەڕێوەبردنی ناونیشانی گەیاندن",
@@ -1389,7 +1389,7 @@ export const translations = {
     lastName: "ناوی کۆتایی",
     phone: "ژمارەی تەلەفۆن",
     username: "ناوی بەکارهێنەر",
-    save: "پاشەکەوتکردن",
+    save: "گۆڕین",
     changePhoto: "گۆڕینی وێنە",
     enterFirstName: "ناوی یەکەم بنووسە",
     enterLastName: "ناوی کۆتایی بنووسە",

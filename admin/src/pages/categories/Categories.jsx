@@ -59,7 +59,7 @@ import {
 } from "../../components/ui/alert-dialog";
 
 const API_BASE =
-  import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:3000";
+  import.meta.env.VITE_API_URL?.replace("/api", "") ;
 
 const Categories = () => {
   const dispatch = useDispatch();

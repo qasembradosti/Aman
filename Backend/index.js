@@ -25,6 +25,7 @@ import storeRoutes from './routes/storeRoutes.js';
 import withdrawalRoutes from './routes/withdrawalRoutes.js';
 import favoriteRoutes from './routes/favoriteRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
+import contentRoutes from './routes/contentRoutes.js';
 import db from './config/knex.js';
 import { runStartupSchemaSetup } from './services/schemaSetup.js';
 import setupSocketIO from './utils/socketIO.js';
@@ -94,7 +95,8 @@ const routes = [
     storeRoutes,
     withdrawalRoutes,
     favoriteRoutes,
-    chatRoutes
+    chatRoutes,
+    contentRoutes
 ];
 
 routes.forEach((route) => {

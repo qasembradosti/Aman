@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -16,24 +16,79 @@ import { Text } from "../components/ui/Text";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import {
+  getAboutScreenContent,
+  getLocalizedValue,
+} from "../services/contentService";
 
 const { width } = Dimensions.get("window");
 
 export default function About() {
   const { theme } = useTheme();
-  const { t, isRTL } = useLanguage();
+  const { t, isRTL, locale } = useLanguage();
   const router = useRouter();
+  const [aboutContent, setAboutContent] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadAboutContent = async () => {
+      try {
+        const data = await getAboutScreenContent();
+        if (mounted && data?.about) {
+          setAboutContent(data.about);
+        }
+      } catch (error) {
+        console.error("Failed to load about content:", error?.message || error);
+      }
+    };
+
+    loadAboutContent();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const normalizeWebsiteUrl = (value) => {
+    if (!value) return "https://aman-store.com";
+    return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+  };
+
+  const contactInfo = {
+    email: aboutContent?.support_email || "support@aman-store.com",
+    phone: aboutContent?.support_phone || "+9647501234567",
+    whatsapp: aboutContent?.support_whatsapp || "+9647501234567",
+    website: normalizeWebsiteUrl(aboutContent?.website_url),
+  };
+
+  const appName = getLocalizedValue(aboutContent, "app_name", locale, "Amanly");
+  const appTagline = getLocalizedValue(
+    aboutContent,
+    "tagline",
+    locale,
+    t("appTagline") || "Your Trusted Shopping Partner",
+    { preferFallbackForNonEnglish: true }
+  );
+  const aboutText = getLocalizedValue(
+    aboutContent,
+    "about_text",
+    locale,
+    t("aboutAppText") ||
+      "Amanly Store is your one-stop destination for quality products at great prices. We connect you with trusted sellers and ensure a seamless shopping experience from browsing to delivery.",
+    { preferFallbackForNonEnglish: true }
+  );
 
   const openEmail = () => {
-    Linking.openURL("mailto:support@aman-store.com");
+    Linking.openURL(`mailto:${contactInfo.email}`);
   };
 
   const openPhone = () => {
-    Linking.openURL("tel:+9647501234567");
+    Linking.openURL(`tel:${contactInfo.phone}`);
   };
 
   const openWebsite = () => {
-    Linking.openURL("https://aman-store.com");
+    Linking.openURL(contactInfo.website);
   };
 
   const stats = [
@@ -112,7 +167,7 @@ export default function About() {
     {
       icon: "logo-whatsapp",
       color: "#25D366",
-      url: "https://wa.me/9647501234567",
+      url: `https://wa.me/${contactInfo.whatsapp.replace(/\D/g, "")}`,
     },
   ];
 
@@ -171,10 +226,8 @@ export default function About() {
             </View>
             <View style={styles.logoPulse} />
           </View>
-          <Text style={styles.appName}>Amanly</Text>
-          <Text style={styles.tagline}>
-            {t("appTagline") || "Your Trusted Shopping Partner"}
-          </Text>
+          <Text style={styles.appName}>{appName}</Text>
+          <Text style={styles.tagline}>{appTagline}</Text>
           <View style={styles.versionContainer}>
             <View style={styles.versionBadge}>
               <Ionicons name="code-slash" size={14} color="#fff" />
@@ -254,8 +307,7 @@ export default function About() {
                 { color: theme.colors.textSecondary },
               ]}
             >
-              {t("aboutAppText") ||
-                "Amanly Store is your one-stop destination for quality products at great prices. We connect you with trusted sellers and ensure a seamless shopping experience from browsing to delivery."}
+              {aboutText}
             </Text>
           </View>
         </View>

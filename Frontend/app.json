@@ -1,16 +1,16 @@
 {
   "expo": {
     "name": "Amanly",
-    "slug": "frontend",
+    "slug": "amanly",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/aman-app.png",
-    "scheme": "frontend",
+    "scheme": "amanly",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.aman.frontend",
+      "bundleIdentifier": "com.amanstore.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -19,7 +19,7 @@
       }
     },
     "android": {
-      "package": "com.aman.frontend",
+      "package": "com.amanstore.app",
       "versionCode": 1,
       "icon": "./assets/images/icon.png",
       "adaptiveIcon": {
@@ -39,7 +39,6 @@
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.FOREGROUND_SERVICE"
       ],
-      "useNextNotificationsApi": true,
       "googleServicesFile": "./google-services.json"
     },
     "web": {
@@ -80,8 +79,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "8069ba58-6ea7-47d0-95a5-dbb64e460529"
+        "projectId": "276f834f-adaa-4cda-afbb-c0412b6ab44d"
       }
-    }
+    },
+    "owner": "qasembradosti"
   }
 }

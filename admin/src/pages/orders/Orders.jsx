@@ -47,7 +47,7 @@ import {
 } from "../../components/ui/popover";
 
 const API_BASE =
-  import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:3000";
+  import.meta.env.VITE_API_URL?.replace("/api", "") ;
 
 const statusColors = {
   pending: "bg-yellow-50 text-yellow-700",

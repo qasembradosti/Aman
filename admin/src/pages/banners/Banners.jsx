@@ -33,7 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 
 const API_BASE =
-  import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:3000";
+  import.meta.env.VITE_API_URL?.replace("/api", "") ;
 
 export default function Banners() {
   const [banners, setBanners] = useState([]);

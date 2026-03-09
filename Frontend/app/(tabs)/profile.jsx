@@ -431,7 +431,7 @@ export default function Profile() {
                 </View>
               </View>
               <Ionicons
-                name={isRTL ? "chevron-back" : "chevron-forward"}
+                name={ "chevron-forward"}
                 size={18}
                 color={theme.colors.textSecondary}
               />

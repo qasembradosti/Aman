@@ -1,0 +1,32 @@
+# Dependencies
+**/node_modules/
+
+# Expo / React Native local state
+**/.expo/
+**/.expo-shared/
+
+# Build outputs
+**/dist/
+**/build/
+**/web-build/
+**/coverage/
+**/.cache/
+
+# Local env files
+**/.env.local
+**/.env.development
+**/.env.test
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+
+# IDE / OS
+.DS_Store
+Thumbs.db

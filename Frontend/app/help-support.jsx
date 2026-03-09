@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Text as RNText,
   Linking,
-  Platform,
   Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,6 +14,10 @@ import { useRouter } from "expo-router";
 import { useLanguage } from "../utils/LanguageContext";
 import { useTheme } from "../utils/ThemeContext";
 import ChatSupport from "../components/ChatSupport";
+import {
+  getAboutScreenContent,
+  getLocalizedValue,
+} from "../services/contentService";
 
 // Custom Text component with font
 const Text = ({ style, ...props }) => {
@@ -63,64 +66,102 @@ const useResponsiveLayout = () => {
 
 export default function HelpSupport() {
   const router = useRouter();
-  const { t, isRTL } = useLanguage();
+  const { t, isRTL, locale } = useLanguage();
   const { theme } = useTheme();
   const layout = useResponsiveLayout();
   const [expandedIndex, setExpandedIndex] = useState(null);
   const [showChat, setShowChat] = useState(false);
+  const [aboutContent, setAboutContent] = useState(null);
+  const [faqItemsFromApi, setFaqItemsFromApi] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadContent = async () => {
+      try {
+        const data = await getAboutScreenContent();
+        if (!mounted) return;
+
+        if (data?.about) {
+          setAboutContent(data.about);
+        }
+        if (Array.isArray(data?.faqs)) {
+          setFaqItemsFromApi(data.faqs);
+        }
+      } catch (error) {
+        console.error(
+          "Failed to load help/support content:",
+          error?.message || error
+        );
+      }
+    };
+
+    loadContent();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Contact information
   const contactInfo = {
-    whatsapp: "+9647501234567", // Replace with actual WhatsApp number
-    email: "support@amanshop.com", // Replace with actual email
-    phone: "+9647501234567", // Replace with actual phone number
+    whatsapp: aboutContent?.support_whatsapp || "+9647501234567",
+    email: aboutContent?.support_email || "support@aman-store.com",
+    phone: aboutContent?.support_phone || "+9647501234567",
   };
 
-  // FAQ Questions
-  const faqItems = [
+  const fallbackFaqItems = [
     {
+      id: "fallback-1",
       question: t("howToPlaceOrder") || "How do I place an order?",
       answer:
         t("howToPlaceOrderAnswer") ||
         "To place an order, browse our products, add items to your cart, and proceed to checkout. You'll need to provide shipping details and payment information to complete your purchase.",
     },
     {
+      id: "fallback-2",
       question: t("paymentMethods") || "What payment methods do you accept?",
       answer:
         t("paymentMethodsAnswer") ||
         "We accept various payment methods including credit/debit cards, PayPal, and cash on delivery. All transactions are secure and encrypted.",
     },
     {
+      id: "fallback-3",
       question: t("shippingTime") || "How long does shipping take?",
       answer:
         t("shippingTimeAnswer") ||
         "Standard shipping typically takes 3-7 business days. Express shipping is available for faster delivery. You'll receive tracking information once your order ships.",
     },
     {
+      id: "fallback-4",
       question: t("trackOrder") || "How can I track my order?",
       answer:
         t("trackOrderAnswer") ||
         "You can track your order by going to the Orders section in your profile. Each order has a tracking number that you can use to monitor its status.",
     },
     {
+      id: "fallback-5",
       question: t("returnPolicy") || "What is your return policy?",
       answer:
         t("returnPolicyAnswer") ||
         "We offer a 30-day return policy for most items. Products must be unused and in original packaging. Contact support to initiate a return.",
     },
     {
+      id: "fallback-6",
       question: t("cancelOrder") || "Can I cancel my order?",
       answer:
         t("cancelOrderAnswer") ||
         "You can cancel your order within 24 hours of placing it. Go to your Orders page and select the order you wish to cancel. After 24 hours, cancellation may not be possible.",
     },
     {
+      id: "fallback-7",
       question: t("accountIssues") || "I'm having trouble with my account",
       answer:
         t("accountIssuesAnswer") ||
         "If you're experiencing account issues, try resetting your password. If problems persist, contact our support team with your account details.",
     },
     {
+      id: "fallback-8",
       question: t("walletBalance") || "How does the wallet work?",
       answer:
         t("walletBalanceAnswer") ||
@@ -128,12 +169,51 @@ export default function HelpSupport() {
     },
   ];
 
+  const normalizedLocale = String(locale || "en").toLowerCase().startsWith("ar")
+    ? "ar"
+    : String(locale || "en").toLowerCase().startsWith("ku") ||
+      String(locale || "en").toLowerCase().startsWith("ckb")
+    ? "ku"
+    : "en";
+
+  const hasLocaleSpecificFaqValues =
+    normalizedLocale === "en"
+      ? true
+      : faqItemsFromApi.some((item) => {
+          const question = item?.[`question_${normalizedLocale}`];
+          const answer = item?.[`answer_${normalizedLocale}`];
+          return (
+            (typeof question === "string" && question.trim()) ||
+            (typeof answer === "string" && answer.trim())
+          );
+        });
+
+  const mappedFaqItems = faqItemsFromApi
+    .map((item) => ({
+      id: item.id,
+      question: getLocalizedValue(item, "question", locale, ""),
+      answer: getLocalizedValue(item, "answer", locale, ""),
+    }))
+    .filter((item) => item.question && item.answer);
+
+  const faqItems =
+    normalizedLocale !== "en" && !hasLocaleSpecificFaqValues
+      ? fallbackFaqItems
+      : mappedFaqItems.length > 0
+      ? mappedFaqItems
+      : fallbackFaqItems;
+
+  useEffect(() => {
+    setExpandedIndex(null);
+  }, [locale, faqItemsFromApi.length]);
+
   const handleContactPress = async (type) => {
     try {
       let url = "";
+      const whatsappNumber = String(contactInfo.whatsapp || "").replace(/\D/g, "");
       switch (type) {
         case "whatsapp":
-          url = `whatsapp://send?phone=${contactInfo.whatsapp}`;
+          url = `whatsapp://send?phone=${whatsappNumber}`;
           break;
         case "email":
           url = `mailto:${contactInfo.email}`;
@@ -146,6 +226,8 @@ export default function HelpSupport() {
       const canOpen = await Linking.canOpenURL(url);
       if (canOpen) {
         await Linking.openURL(url);
+      } else if (type === "whatsapp" && whatsappNumber) {
+        await Linking.openURL(`https://wa.me/${whatsappNumber}`);
       } else {
         console.log("Cannot open URL:", url);
       }
@@ -527,7 +609,7 @@ export default function HelpSupport() {
           <View style={styles.faqContainer}>
             {faqItems.map((item, index) => (
               <View
-                key={index}
+                key={item.id || index}
                 style={[
                   styles.faqItem,
                   {

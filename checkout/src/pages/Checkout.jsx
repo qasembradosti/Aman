@@ -197,8 +197,8 @@ const ImageSlider = ({ images, video }) => {
               onClick={() => setCurrentIndex(index)}
               className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all duration-300 relative ${
                 index === currentIndex
-                  ? "border-primary-500 ring-primary-200"
-                  : "border-gray-200 hover:border-primary-300"
+                  ? "border-blue-500 ring-blue-200"
+                  : "border-gray-200 hover:border-blue-300"
               }`}
             >
               {item.type === "video" ? (
@@ -764,7 +764,7 @@ const Checkout = () => {
   // Check if required parameters are missing
   if (!userId || !productId) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-primary-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-12 max-w-lg w-full">
           <div className="flex flex-col items-center text-center">
             <div className="bg-red-100 rounded-full p-6 mb-6">
@@ -803,10 +803,10 @@ const Checkout = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-primary-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
           <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary-600"></div>
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
             <p className="mt-4 text-lg text-gray-600 font-medium">
               {t.loading}
             </p>
@@ -818,7 +818,7 @@ const Checkout = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-primary-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
           <div className="flex flex-col items-center text-center">
             <div className="bg-red-100 rounded-full p-4 mb-4">
@@ -846,7 +846,7 @@ const Checkout = () => {
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-primary-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-12 max-w-lg w-full">
           <div className="flex flex-col items-center text-center">
             <div className="bg-red-100 rounded-full p-6 mb-6">
@@ -876,89 +876,58 @@ const Checkout = () => {
 
   return (
     <div
-      className="min-h-screen bg-linear-to-br from-primary-50 via-blue-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8"
+      className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8"
       dir={dir}
     >
       <div className="max-w-7xl mx-auto">
         {/* Language Switcher */}
-        <div className="flex justify-end mb-6">
-          <div className="bg-white rounded-xl shadow-lg p-1.5 sm:p-2 flex gap-1 sm:gap-2 overflow-x-auto">
+        <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            </svg>
+            <span className="text-lg font-bold text-gray-900">Aman</span>
+          </div>
+          <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1">
             <button
               onClick={() => changeLanguage("en")}
-              className={`px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-md font-medium transition-all text-sm whitespace-nowrap ${
                 language === "en"
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-600 hover:bg-gray-100"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-gray-500 hover:text-gray-800"
               }`}
             >
-              English
+              EN
             </button>
             <button
               onClick={() => changeLanguage("ar")}
-              className={`px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-md font-medium transition-all text-sm whitespace-nowrap ${
                 language === "ar"
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-600 hover:bg-gray-100"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-gray-500 hover:text-gray-800"
               }`}
             >
-              العربية
+              ع
             </button>
             <button
               onClick={() => changeLanguage("ku")}
-              className={`px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-md font-medium transition-all text-sm whitespace-nowrap ${
                 language === "ku"
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-600 hover:bg-gray-100"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-gray-500 hover:text-gray-800"
               }`}
             >
-              کوردی
+              ک
             </button>
           </div>
         </div>
 
-        {/* Header with Animation */}
-        <div className="text-center mb-12 animate-fade-in">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-500 rounded-full mb-6 shadow-lg">
-            <svg
-              className="w-10 h-10 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-              />
-            </svg>
-          </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold bg-linear-to-r from-gray-900 via-primary-800 to-blue-900 bg-clip-text text-transparent mb-3">
-            {t.secureCheckout}
-          </h1>
-          <p className="text-gray-600 text-base sm:text-lg md:text-xl">
-            {t.completeYourPurchase}
-          </p>
-        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
           {/* Product Details Card - Takes 3 columns */}
-          <div className="lg:col-span-3 bg-white rounded-2xl lg:rounded-3xl shadow-2xl overflow-hidden transform transition-all hover:shadow-3xl border border-gray-100">
-            <div className="bg-linear-to-r from-blue-300 via-primary-700 to-blue-600 px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white flex items-center">
-                <svg
-                  className="w-8 h-8 mr-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                  />
-                </svg>
+          <div className="lg:col-span-3 bg-white rounded-2xl shadow-md overflow-hidden border border-gray-200">
+            <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900 border-l-4 border-blue-600 pl-3">
                 {t.productDetails}
               </h2>
             </div>
@@ -988,11 +957,8 @@ const Checkout = () => {
                         {discountInfo.hasDiscount ? (
                           <div className="space-y-3">
                             {/* Discount Badge */}
-                            <div className="inline-flex items-center bg-red-500 text-white px-4 py-2 rounded-full font-bold text-lg shadow-lg">
-                              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
-                              </svg>
-                              {discountInfo.discountType === 'percentage' 
+                            <div className="inline-flex items-center bg-red-50 text-red-600 border border-red-200 px-3 py-1 rounded-lg font-bold text-sm">
+                              {discountInfo.discountType === 'percentage'
                                 ? `${discountInfo.discount}% ${t.off}`
                                 : `${discountInfo.discount.toLocaleString()} ${t.currency} ${t.off}`
                               }
@@ -1009,7 +975,7 @@ const Checkout = () => {
                             </div>
                             
                             {/* Discounted Price */}
-                            <div className="flex items-baseline gap-2 bg-linear-to-r from-green-50 to-blue-50 px-4 sm:px-6 py-3 rounded-xl border-2 border-green-200">
+                            <div className="flex items-baseline gap-2 py-2">
                               <span className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-green-600">
                                 {discountInfo.finalPrice.toLocaleString()}
                               </span>
@@ -1019,11 +985,11 @@ const Checkout = () => {
                             </div>
                           </div>
                         ) : (
-                          <div className="flex items-baseline gap-2 bg-primary-50 px-4 sm:px-6 py-3 rounded-xl">
-                            <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-primary-600">
+                          <div className="flex items-baseline gap-2 py-2">
+                            <span className="text-3xl sm:text-4xl font-extrabold text-blue-600">
                               {(product.sell_price || product.base_price)?.toLocaleString()}
                             </span>
-                            <span className="text-lg sm:text-xl md:text-2xl text-primary-700 font-semibold">
+                            <span className="text-lg text-blue-700 font-semibold">
                               {t.currency}
                             </span>
                           </div>
@@ -1057,7 +1023,7 @@ const Checkout = () => {
                   <div className="bg-gray-50 rounded-xl p-6">
                     <h4 className="text-lg font-bold gap-2 text-gray-900 mb-3 flex items-center">
                       <svg
-                        className="w-5 h-5 mr-2 text-primary-600"
+                        className="w-5 h-5 mr-2 text-blue-600"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1097,13 +1063,13 @@ const Checkout = () => {
                         d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
                       />
                     </svg>
-                    <p className="text-sm font-semibold text-blue-900">
+                    <p className="text-sm font-semibold text-blue-700">
                       {t.freePackaging}
                     </p>
                   </div>
-                  <div className="bg-purple-50 rounded-xl p-4 text-center">
+                  <div className="bg-blue-50 rounded-xl p-4 text-center">
                     <svg
-                      className="w-8 h-8 mx-auto mb-2 text-purple-600"
+                      className="w-8 h-8 mx-auto mb-2 text-blue-600"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1115,7 +1081,7 @@ const Checkout = () => {
                         d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
                       />
                     </svg>
-                    <p className="text-sm font-semibold text-purple-900">
+                    <p className="text-sm font-semibold text-blue-700">
                       {t.securePayment}
                     </p>
                   </div>
@@ -1125,28 +1091,9 @@ const Checkout = () => {
           </div>
 
           {/* Checkout Form Card - Takes 2 columns */}
-          <div className="lg:col-span-2 bg-white rounded-2xl lg:rounded-3xl shadow-2xl overflow-hidden border border-gray-100 lg:sticky lg:top-8 h-fit">
-            <div className="bg-linear-to-r from-blue-600 via-blue-700 to-purple-600 px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white flex items-center">
-                <svg
-                  className="w-8 h-8 mr-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
+          <div className="lg:col-span-2 bg-white rounded-2xl shadow-md overflow-hidden border border-gray-200 lg:sticky lg:top-8 h-fit">
+            <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900 border-l-4 border-blue-600 pl-3">
                 {t.deliveryInformation}
               </h2>
             </div>
@@ -1157,22 +1104,9 @@ const Checkout = () => {
             >
               {/* City Select */}
               <div className="space-y-2">
-                <Label htmlFor="city" className="flex items-center">
-                  <svg
-                    className="w-5 h-5 mr-2 text-blue-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                    />
-                  </svg>
-                  {t.selectCity}{" "}
-                  <span className="text-red-500 ml-1">{t.required}</span>
+                <Label htmlFor="city" className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+                  {t.selectCity}
+                  <span className="text-red-500">{t.required}</span>
                 </Label>
                 <Select value={formData.city} onValueChange={(value) => {
                   const selectedCity = iraqiCities.find(city => city.name_en === value);
@@ -1206,28 +1140,9 @@ const Checkout = () => {
 
               {/* District/Area */}
               <div className="space-y-2">
-                <Label htmlFor="district" className="flex items-center">
-                  <svg
-                    className="w-5 h-5 mr-2 text-blue-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                  {t.district}{" "}
-                  <span className="text-red-500 ml-1">{t.required}</span>
+                <Label htmlFor="district" className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+                  {t.district}
+                  <span className="text-red-500">{t.required}</span>
                 </Label>
                 <Input
                   id="district"
@@ -1241,22 +1156,9 @@ const Checkout = () => {
 
               {/* Phone */}
               <div className="space-y-2">
-                <Label htmlFor="phone" className="flex items-center">
-                  <svg
-                    className="w-5 h-5 mr-2 text-blue-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                    />
-                  </svg>
-                  {t.phone}{" "}
-                  <span className="text-red-500 ml-1">{t.required}</span>
+                <Label htmlFor="phone" className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+                  {t.phone}
+                  <span className="text-red-500">{t.required}</span>
                 </Label>
                 <Input
                   type="tel"
@@ -1271,28 +1173,9 @@ const Checkout = () => {
 
               {/* Address */}
               <div className="space-y-2">
-                <Label htmlFor="address" className="flex items-center">
-                  <svg
-                    className="w-5 h-5 mr-2 text-blue-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                  {t.address}{" "}
-                  <span className="text-red-500 ml-1">{t.required}</span>
+                <Label htmlFor="address" className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+                  {t.address}
+                  <span className="text-red-500">{t.required}</span>
                 </Label>
                 <Textarea
                   id="address"
@@ -1306,27 +1189,8 @@ const Checkout = () => {
               </div>
 
               {/* Map Location */}
-              <div className="transform transition-all hover:scale-[1.01]">
-                <label className="text-sm font-bold text-gray-800 mb-2 flex items-center">
-                  <svg
-                    className="w-5 h-5 mr-2 text-primary-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">
                   {t.yourLocation || "Your Location"}
                 </label>
 
@@ -1380,7 +1244,7 @@ const Checkout = () => {
                   </div>
 
                   {/* Map Container */}
-                  <div className="relative bg-gray-100 h-64">
+                  <div className="relative bg-gray-100 h-48">
                     {location.lat && location.lng ? (
                       <iframe
                         title="Location Map"
@@ -1477,7 +1341,7 @@ const Checkout = () => {
               </div>
 
               {/* Order Summary - Cart Items */}
-              <div className="bg-linear-to-br from-primary-50 via-blue-50 to-purple-50 rounded-2xl p-4 sm:p-6 border-2 border-primary-200 mt-6 sm:mt-8 shadow-inner">
+              <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 mt-6 sm:mt-8">
                 {/* Cart Error Notification */}
                 {cartError && (
                   <div className="mb-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg flex items-start animate-fade-in">
@@ -1496,9 +1360,9 @@ const Checkout = () => {
                   </div>
                 )}
 
-                <h3 className="text-lg sm:text-xl font-extrabold text-gray-900 mb-4 sm:mb-5 flex items-center">
+                <h3 className="text-base font-bold text-gray-900 mb-4 sm:mb-5 flex items-center border-l-4 border-blue-600 pl-3">
                   <svg
-                    className="w-7 h-7 mr-3 text-primary-600"
+                    className="w-5 h-5 mr-2 text-blue-600"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -1560,7 +1424,7 @@ const Checkout = () => {
                                       </p>
                                     </div>
                                   ) : (
-                                    <p className="text-xs sm:text-sm text-primary-600 font-semibold">
+                                    <p className="text-xs sm:text-sm text-blue-600 font-semibold">
                                       {(item.sell_price || item.price)?.toLocaleString()} {t.currency}
                                     </p>
                                   )}
@@ -1622,12 +1486,12 @@ const Checkout = () => {
                   </div>
                 )}
 
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center text-gray-700 bg-white rounded-lg p-3 gap-2">
-                    <span className="font-semibold text-sm sm:text-base">
+                <div className="border-t border-gray-100 pt-3 space-y-2">
+                  <div className="flex justify-between items-center text-gray-600 py-1.5 gap-2">
+                    <span className="text-sm font-medium">
                       {t.productsTotal}
                     </span>
-                    <span className="font-bold text-gray-900 text-sm sm:text-base text-right">
+                    <span className="text-sm font-semibold text-gray-900 text-right">
                       {cart
                         .reduce(
                           (sum, item) => {
@@ -1640,20 +1504,20 @@ const Checkout = () => {
                       {t.currency}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center text-gray-700 bg-white rounded-lg p-3 gap-2">
-                    <span className="font-semibold text-sm sm:text-base">
+                  <div className="flex justify-between items-center text-gray-600 py-1.5 gap-2">
+                    <span className="text-sm font-medium">
                       {t.deliveryFee}
                     </span>
-                    <span className="font-bold text-gray-900 text-sm sm:text-base text-right">
+                    <span className="text-sm font-semibold text-gray-900 text-right">
                       {formData.delivery_price.toLocaleString()} {t.currency}
                     </span>
                   </div>
-                  <div className="pt-4 border-t-2 border-primary-300">
-                    <div className="flex justify-between items-center bg-white rounded-xl p-3 sm:p-4 shadow-md gap-2">
-                      <span className="text-base sm:text-lg md:text-xl font-extrabold text-gray-900">
+                  <div className="pt-2 border-t border-gray-200">
+                    <div className="flex justify-between items-center bg-blue-600 text-white rounded-xl px-4 py-3 gap-2">
+                      <span className="text-base font-bold">
                         {t.total}
                       </span>
-                      <span className="text-xl sm:text-2xl md:text-3xl font-extrabold bg-blue-600 bg-clip-text text-transparent break-all">
+                      <span className="text-lg font-extrabold">
                         {calculateCartTotal().toLocaleString()} {t.currency}
                       </span>
                     </div>
@@ -1665,7 +1529,7 @@ const Checkout = () => {
               <button
                 type="submit"
                 disabled={submitting || cart.length === 0}
-                className="w-full bg-blue-600 hover:from-primary-700 hover:via-primary-800 hover:to-blue-700 text-white font-bold py-4 sm:py-5 px-4 sm:px-6 rounded-2xl transition-all transform hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-2xl hover:shadow-3xl flex items-center justify-center gap-2 sm:gap-3 text-base sm:text-lg md:text-xl group"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 text-base sm:text-lg"
               >
                 {submitting ? (
                   <>
@@ -1698,11 +1562,11 @@ const Checkout = () => {
         {/* Related Products Section */}
         {relatedProducts.length > 0 && (
           <div id="related-products" className="mt-12">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            <div className="mb-8">
+              <h2 className="text-xl font-bold text-gray-900 mb-1 border-l-4 border-blue-600 pl-3">
                 {t.youMayAlsoLike}
               </h2>
-              <p className="text-gray-600">
+              <p className="text-sm text-gray-500 pl-4">
                 {t.showing} {indexOfFirstItem + 1}-
                 {Math.min(indexOfLastItem, relatedProducts.length)} {t.of}{" "}
                 {relatedProducts.length} {t.products}
@@ -1729,7 +1593,7 @@ const Checkout = () => {
 
             {loadingRelated ? (
               <div className="flex justify-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-primary-600"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>
               </div>
             ) : (
               <>
@@ -1786,7 +1650,7 @@ const Checkout = () => {
                                 </div>
                               ) : (
                                 <div className="flex items-baseline space-x-2">
-                                  <span className="text-2xl font-bold text-primary-600">
+                                  <span className="text-2xl font-bold text-blue-600">
                                     {(relatedProduct.sell_price || relatedProduct.price)?.toLocaleString()}
                                   </span>
                                   <span className="text-sm text-gray-600 font-medium">
@@ -1803,7 +1667,7 @@ const Checkout = () => {
                             e.stopPropagation(); // Prevent triggering the card click
                             addToCart(relatedProduct);
                           }}
-                          className="w-full bg-blue-600 hover:from-primary-700 hover:to-blue-700 text-white font-semibold py-3 px-4 rounded-xl transition-all transform hover:scale-105 flex items-center justify-center space-x-2 mt-auto"
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center space-x-2 mt-auto"
                         >
                           <svg
                             className="w-5 h-5"
@@ -1866,7 +1730,7 @@ const Checkout = () => {
                               onClick={() => goToPage(pageNumber)}
                               className={`w-10 h-10 rounded-lg font-semibold transition-all ${
                                 currentPage === pageNumber
-                                  ? "bg-linear-to-r from-primary-600 to-blue-600 text-white shadow-lg"
+                                  ? "bg-blue-600 text-white shadow-lg"
                                   : "bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
                               }`}
                             >

@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:123456789000:android:abcd1234567890ef",
         "android_client_info": {
-          "package_name": "com.aman.frontend"
+          "package_name": "com.amanstore.app"
         }
       },
       "oauth_client": [

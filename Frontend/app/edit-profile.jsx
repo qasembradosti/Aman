@@ -172,7 +172,7 @@ export default function EditProfile() {
     if (validationErrors.length > 0) {
       Alert.alert(
         t("validationError") || "Validation Error",
-        validationErrors.join("\n")
+        validationErrors.join("\n"),
       );
       return;
     }
@@ -180,7 +180,7 @@ export default function EditProfile() {
     if (!hasChanges) {
       Alert.alert(
         t("noChanges") || "No Changes",
-        t("noChangesMessage") || "You haven't made any changes to save."
+        t("noChangesMessage") || "You haven't made any changes to save.",
       );
       return;
     }
@@ -204,12 +204,12 @@ export default function EditProfile() {
             text: t("ok") || "OK",
             onPress: () => router.back(),
           },
-        ]
+        ],
       );
     } catch (err) {
       Alert.alert(
         t("error") || "Error",
-        err || t("profileUpdateFailed") || "Failed to update profile"
+        err || t("profileUpdateFailed") || "Failed to update profile",
       );
     }
   };
@@ -230,7 +230,7 @@ export default function EditProfile() {
             style: "destructive",
             onPress: () => router.back(),
           },
-        ]
+        ],
       );
     } else {
       router.back();
@@ -239,10 +239,7 @@ export default function EditProfile() {
 
   return (
     <SafeAreaView
-      style={[
-        styles.container,
-        { backgroundColor: theme.colors.background },
-      ]}
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -258,12 +255,9 @@ export default function EditProfile() {
             },
           ]}
         >
-          <TouchableOpacity
-            onPress={handleCancel}
-            style={styles.headerButton}
-          >
+          <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
             <Ionicons
-              name={isRTL ? "chevron-forward" : "chevron-back"}
+              name={"arrow-back"}
               size={24}
               color={theme.colors.primary}
             />
@@ -296,33 +290,6 @@ export default function EditProfile() {
         </View>
 
         <ScrollView style={styles.scrollView}>
-          {/* Profile Picture Section */}
-          <View style={styles.avatarSection}>
-            <View
-              style={[
-                styles.avatar,
-                { borderColor: theme.colors.primary },
-              ]}
-            >
-              <Ionicons
-                name="person"
-                size={50}
-                color={theme.colors.primary}
-              />
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.changePhotoButton,
-                { backgroundColor: theme.colors.primary },
-              ]}
-            >
-              <Ionicons name="camera" size={20} color="#fff" />
-              <Text style={styles.changePhotoText}>
-                {t("changePhoto") || "Change Photo"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
           {/* Form Fields */}
           <View
             style={[
@@ -333,10 +300,7 @@ export default function EditProfile() {
             {/* First Name */}
             <View style={styles.inputGroup}>
               <Text
-                style={[
-                  styles.label,
-                  { color: theme.colors.textSecondary },
-                ]}
+                style={[styles.label, { color: theme.colors.textSecondary }]}
               >
                 {t("firstName") || "First Name"}
               </Text>
@@ -350,9 +314,7 @@ export default function EditProfile() {
                   },
                 ]}
                 value={formData.first_name}
-                onChangeText={(value) =>
-                  handleInputChange("first_name", value)
-                }
+                onChangeText={(value) => handleInputChange("first_name", value)}
                 onBlur={() => handleBlur("first_name")}
                 placeholder={t("enterFirstName") || "Enter first name"}
                 placeholderTextColor={theme.colors.textSecondary}
@@ -362,10 +324,7 @@ export default function EditProfile() {
             {/* Last Name */}
             <View style={styles.inputGroup}>
               <Text
-                style={[
-                  styles.label,
-                  { color: theme.colors.textSecondary },
-                ]}
+                style={[styles.label, { color: theme.colors.textSecondary }]}
               >
                 {t("lastName") || "Last Name"}
               </Text>
@@ -379,9 +338,7 @@ export default function EditProfile() {
                   },
                 ]}
                 value={formData.last_name}
-                onChangeText={(value) =>
-                  handleInputChange("last_name", value)
-                }
+                onChangeText={(value) => handleInputChange("last_name", value)}
                 onBlur={() => handleBlur("last_name")}
                 placeholder={t("enterLastName") || "Enter last name"}
                 placeholderTextColor={theme.colors.textSecondary}
@@ -391,10 +348,7 @@ export default function EditProfile() {
             {/* Email */}
             <View style={styles.inputGroup}>
               <Text
-                style={[
-                  styles.label,
-                  { color: theme.colors.textSecondary },
-                ]}
+                style={[styles.label, { color: theme.colors.textSecondary }]}
               >
                 {t("email") || "Email"}
               </Text>
@@ -420,10 +374,7 @@ export default function EditProfile() {
             {/* Phone */}
             <View style={styles.inputGroup}>
               <Text
-                style={[
-                  styles.label,
-                  { color: theme.colors.textSecondary },
-                ]}
+                style={[styles.label, { color: theme.colors.textSecondary }]}
               >
                 {t("phone") || "Phone Number"}
               </Text>
@@ -436,6 +387,7 @@ export default function EditProfile() {
                     textAlign: isRTL ? "right" : "left",
                   },
                 ]}
+                editable={false}
                 value={formData.phone}
                 onChangeText={(value) => handleInputChange("phone", value)}
                 onBlur={() => handleBlur("phone")}
@@ -448,10 +400,7 @@ export default function EditProfile() {
             {/* Username (Read-only) */}
             <View style={styles.inputGroup}>
               <Text
-                style={[
-                  styles.label,
-                  { color: theme.colors.textSecondary },
-                ]}
+                style={[styles.label, { color: theme.colors.textSecondary }]}
               >
                 {t("username") || "Username"}
               </Text>
@@ -469,7 +418,12 @@ export default function EditProfile() {
                 value={user?.username || ""}
                 editable={false}
               />
-              <Text style={[styles.helperText, { color: theme.colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.helperText,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
                 {t("usernameCannotBeChanged") || "Username cannot be changed"}
               </Text>
             </View>
@@ -551,24 +505,26 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#e0e0e0",
   },
   headerButton: {
-    padding: 8,
-    minWidth: 60,
+    width: 64,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
+    flex: 1,
     fontSize: 18,
-    
+    textAlign: "center",
     color: "#1a1a1a",
   },
   saveButtonText: {
     fontSize: 16,
-    
   },
   scrollView: {
     flex: 1,
@@ -599,7 +555,7 @@ const styles = StyleSheet.create({
   changePhotoText: {
     color: "#fff",
     fontSize: 14,
-    
+
     marginLeft: 8,
   },
   formContainer: {
@@ -613,7 +569,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    
+
     color: "#666",
     marginBottom: 8,
   },
@@ -659,7 +615,7 @@ const styles = StyleSheet.create({
   },
   changePasswordTitle: {
     fontSize: 16,
-    
+
     color: "#1a1a1a",
     marginBottom: 2,
   },

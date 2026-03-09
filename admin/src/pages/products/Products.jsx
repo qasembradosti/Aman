@@ -66,7 +66,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const API_BASE =
-  import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:3000";
+  import.meta.env.VITE_API_URL?.replace("/api", "") ;
 
 const isMainImageRecord = (img) =>
   img?.is_main === true || img?.is_main === 1 || img?.is_main === "1";
