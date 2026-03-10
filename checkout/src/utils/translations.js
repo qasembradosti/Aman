@@ -3,6 +3,8 @@ export const translations = {
     // Header
     secureCheckout: "Secure Checkout",
     completeYourPurchase: "Complete your purchase safely and easily",
+    contactSupport: "Contact Support",
+    callForOrders: "Call any of these numbers for fast order help",
     
     // Product Details
     productDetails: "Product Details",
@@ -75,6 +77,8 @@ export const translations = {
   },
   
   ar: {
+    contactSupport: "\u0627\u0644\u062F\u0639\u0645",
+    callForOrders: "\u0627\u062A\u0635\u0644 \u0628\u0647\u0630\u0647 \u0627\u0644\u0623\u0631\u0642\u0627\u0645 \u0644\u0644\u0645\u0633\u0627\u0639\u062F\u0629",
     // Header
     secureCheckout: "الدفع الآمن",
     completeYourPurchase: "أكمل عملية الشراء بأمان وسهولة",
@@ -150,6 +154,8 @@ export const translations = {
   },
   
   ku: {
+    contactSupport: "\u067E\u0634\u062A\u06AF\u06CC\u0631\u06CC",
+    callForOrders: "\u0628\u06C6 \u06CC\u0627\u0631\u0645\u06D5\u062A\u06CC \u067E\u06D5\u06CC\u0648\u06D5\u0646\u062F\u06CC \u0628\u06A9\u06D5",
     // Header
     secureCheckout: "پارەدانی پارێزراو ",
     completeYourPurchase: "کڕینەکەت بە سەلامەتی و ئاسانی تەواو بکە",

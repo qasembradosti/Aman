@@ -301,6 +301,10 @@ const calculateDiscount = (product) => {
   };
 };
 
+const FALLBACK_CONTACT_NUMBERS = ["07514747120", "0773 414120", "07814447120"];
+
+const normalizePhoneForTel = (phone) => phone.replace(/[^\d+]/g, "");
+
 const Checkout = () => {
   const navigate = useNavigate();
 
@@ -880,6 +884,44 @@ const Checkout = () => {
       dir={dir}
     >
       <div className="max-w-7xl mx-auto">
+        {/* Contact Panel */}
+        <div className="mb-6 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl p-4 sm:p-6 text-white shadow-lg">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold">
+                {t.contactSupport}
+              </h2>
+              <p className="text-sm text-blue-100 mt-1">
+                {t.callForOrders}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {FALLBACK_CONTACT_NUMBERS.map((phone) => (
+                <a
+                  key={phone}
+                  href={`tel:${normalizePhoneForTel(phone)}`}
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/30 font-semibold text-sm transition-colors"
+                >
+                  <svg
+                    className="w-4 h-4 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 5a2 2 0 012-2h3.28a2 2 0 011.94 1.515l.665 2.66a2 2 0 01-.45 1.86L9.21 10.26a16.026 16.026 0 006.53 6.53l1.225-1.225a2 2 0 011.86-.45l2.66.665A2 2 0 0123 17.72V21a2 2 0 01-2 2h-1C10.611 23 1 13.389 1 2V1a2 2 0 012-2z"
+                    />
+                  </svg>
+                  <span dir="ltr">{phone}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Language Switcher */}
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-200">
           <div className="flex items-center gap-2">

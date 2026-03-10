@@ -14,6 +14,7 @@ import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { useDispatch, useSelector } from "react-redux";
 import { useLanguage } from "../../utils/LanguageContext";
 import { useTheme } from "../../utils/ThemeContext";
@@ -188,6 +189,13 @@ export default function Home() {
     dispatch(fetchBrands({ is_active: "true" })); // Fetch only active brands
     loadHorizontalProducts(); // Load initial horizontal products
   }, [dispatch]);
+
+  useFocusEffect(
+    useCallback(() => {
+      // Keep Home products unfiltered after returning from filtered product screens.
+      dispatch(fetchProducts({ limit: pageLimit, offset: 0 }));
+    }, [dispatch, pageLimit]),
+  );
 
   const loadHorizontalProducts = useCallback(() => {
     if (horizontalLoading || !canLoadMoreHorizontal) return;
