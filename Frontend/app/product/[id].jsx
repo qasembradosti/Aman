@@ -13,11 +13,11 @@ import {
   Pressable,
   Clipboard,
   Linking,
-  Alert,
 } from "react-native";
 import { Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { useTheme } from "../../utils/ThemeContext";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
@@ -32,21 +32,22 @@ import {
   getProductImageUrl,
   getProductImageUrls,
   getProductVideoUrl,
-  resolveVideoUrl,
 } from "../../utils/productImages";
 import { getApiBaseUrl } from "../../utils/apiConfig";
 import { Text } from "../../components/ui/Text";
 import VideoSlide from "../../components/VideoSlide";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as MediaLibrary from "expo-media-library";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const isExpoGo = Constants.appOwnership === "expo";
 
 export default function ProductDetail() {
   const router = useRouter();
   const dispatch = useDispatch();
   const layout = useResponsiveLayout();
   const { t, isRTL, locale } = useLanguage();
+  const { theme } = useTheme();
   const API_BASE_URL = getApiBaseUrl();
   const rowDirection = isRTL ? "row-reverse" : "row";
   const textAlign = isRTL ? "right" : "left";
@@ -59,23 +60,6 @@ export default function ProductDetail() {
     const localizedField = `${field}_${lang}`;
     return product[localizedField] || product[field] || "";
   };
-  // Robust theme access: fall back to safe defaults if provider isn't mounted
-  let theme;
-  try {
-    ({ theme } = useTheme());
-  } catch (e) {
-    theme = {
-      colors: {
-        primary: "#007AFF",
-        success: "#34C759",
-        text: "#1a1a1a",
-        background: "#fff",
-        card: "#fff",
-        border: "#e0e0e0",
-        textSecondary: "#666",
-      },
-    };
-  }
   const { id } = useLocalSearchParams();
   const { items: products, loading: productsLoading } = useSelector(
     (state) => state.products,
@@ -367,51 +351,81 @@ export default function ProductDetail() {
 
   // Download media directly to device
   const downloadMedia = async (uri, type) => {
-    if (downloading) return;
+    if (downloading || !uri) return;
 
     try {
       setDownloading(true);
 
-      // Request permissions
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== "granted") {
+      const mediaKind = type === "video" ? "video" : "image";
+      const cleanUri = String(uri).split("?")[0].split("#")[0];
+      const extensionMatch = cleanUri.match(/\.([a-zA-Z0-9]+)$/);
+      const fallbackExtension = mediaKind === "video" ? "mp4" : "jpg";
+      const fileExtension = (
+        extensionMatch?.[1] || fallbackExtension
+      ).toLowerCase();
+      const fileName = `${mediaKind}_${Date.now()}.${fileExtension}`;
+      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+
+      if (isExpoGo) {
         setDialog({
           visible: true,
           title: t("error") || "Error",
-          message: t("permissionDenied") || "Permission to access media library is required",
+          message:
+            "Direct download is not available in Expo Go on Android. Test this feature in a development build.",
         });
         return;
       }
 
-      // Get file extension from URI
-      const fileExtension = uri.split(".").pop().split("?")[0];
-      const fileName = `${type}_${Date.now()}.${fileExtension}`;
-      const fileUri = FileSystem.documentDirectory + fileName;
+      const result = await FileSystem.downloadAsync(uri, fileUri);
 
-      // Download the file
-      const downloadResumable = FileSystem.createDownloadResumable(
-        uri,
-        fileUri
-      );
+      if (!result?.uri) {
+        throw new Error("File download did not return a local URI");
+      }
 
-      const result = await downloadResumable.downloadAsync();
-      
-      if (result && result.uri) {
-        // Save to media library
-        const asset = await MediaLibrary.createAssetAsync(result.uri);
-        
+      const granularPermissions = mediaKind === "video" ? ["video"] : ["photo"];
+      const mediaLibraryAvailable = await MediaLibrary.isAvailableAsync();
+
+      if (!mediaLibraryAvailable) {
         setDialog({
           visible: true,
-          title: t("success") || "Success",
-          message: t("downloadSuccess") || "File downloaded successfully",
+          title: t("error") || "Error",
+          message: t("openFailed") || "Failed to open media",
         });
+        return;
       }
+
+      const permission = await MediaLibrary.requestPermissionsAsync(
+        true,
+        granularPermissions,
+      );
+      if (!permission.granted) {
+        setDialog({
+          visible: true,
+          title: t("error") || "Error",
+          message:
+            t("permissionDenied") ||
+            "Permission to access media library is required",
+        });
+        return;
+      }
+
+      await MediaLibrary.saveToLibraryAsync(result.uri);
+      await FileSystem.deleteAsync(result.uri, { idempotent: true });
+
+      setDialog({
+        visible: true,
+        title: t("success") || "Success",
+        message: t("downloadSuccess") || "File downloaded successfully",
+      });
     } catch (err) {
       console.error("Download error:", err);
       setDialog({
         visible: true,
         title: t("error") || "Error",
-        message: t("downloadFailed") || "Failed to download file",
+        message:
+          isExpoGo
+            ? "Direct download is not available in Expo Go on Android. Test this feature in a development build."
+            : (t("downloadFailed") || "Failed to download file"),
       });
     } finally {
       setDownloading(false);

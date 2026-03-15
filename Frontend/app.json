@@ -69,6 +69,17 @@
           "androidCollapsedTitle": "#{unread_notifications} new notifications"
         }
       ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Amanly to access your photos and videos.",
+          "savePhotosPermission": "Allow Amanly to save photos and videos to your library.",
+          "granularPermissions": [
+            "photo",
+            "video"
+          ]
+        }
+      ],
       "expo-video",
       "@react-native-community/datetimepicker"
     ],
