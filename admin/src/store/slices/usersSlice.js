@@ -2,6 +2,15 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+const getErrorMessage = async (response, fallbackMessage) => {
+  try {
+    const data = await response.json();
+    return data?.message || fallbackMessage;
+  } catch {
+    return fallbackMessage;
+  }
+};
+
 // Fetch all users
 export const fetchUsers = createAsyncThunk(
   'users/fetchUsers',
@@ -13,7 +22,9 @@ export const fetchUsers = createAsyncThunk(
           Authorization: `Bearer ${token}`,
         },
       });
-      if (!response.ok) throw new Error('Failed to fetch users');
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, 'Failed to fetch users'));
+      }
       return await response.json();
     } catch (error) {
       return rejectWithValue(error.message);
@@ -32,7 +43,33 @@ export const fetchUser = createAsyncThunk(
           Authorization: `Bearer ${token}`,
         },
       });
-      if (!response.ok) throw new Error('Failed to fetch user');
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, 'Failed to fetch user'));
+      }
+      return await response.json();
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Create user
+export const createUser = createAsyncThunk(
+  'users/createUser',
+  async (data, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_URL}/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, 'Failed to create user'));
+      }
       return await response.json();
     } catch (error) {
       return rejectWithValue(error.message);
@@ -54,7 +91,9 @@ export const updateUser = createAsyncThunk(
         },
         body: JSON.stringify(data),
       });
-      if (!response.ok) throw new Error('Failed to update user');
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, 'Failed to update user'));
+      }
       return await response.json();
     } catch (error) {
       return rejectWithValue(error.message);
@@ -74,7 +113,9 @@ export const deleteUser = createAsyncThunk(
           Authorization: `Bearer ${token}`,
         },
       });
-      if (!response.ok) throw new Error('Failed to delete user');
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, 'Failed to delete user'));
+      }
       return id;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -123,6 +164,20 @@ const usersSlice = createSlice({
         state.currentUser = action.payload.user || action.payload;
       })
       .addCase(fetchUser.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // Create user
+      .addCase(createUser.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createUser.fulfilled, (state, action) => {
+        state.loading = false;
+        const createdUser = action.payload.user || action.payload;
+        state.items = [createdUser, ...state.items];
+      })
+      .addCase(createUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })

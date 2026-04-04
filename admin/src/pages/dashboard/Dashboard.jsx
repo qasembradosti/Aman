@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchDashboardStats } from '../../store/slices/dashboardSlice';
+import { isStoreAdmin } from '../../lib/access';
 import { 
   Users, 
   Package, 
@@ -17,9 +18,11 @@ import {
 
 const Dashboard = () => {
   const dispatch = useDispatch();
+  const currentUser = useSelector((state) => state.auth.user);
   const { stats, ordersByStatus, topProducts, monthlySales, loading } = useSelector(
     (state) => state.dashboard
   );
+  const storeAdmin = isStoreAdmin(currentUser);
 
   useEffect(() => {
     dispatch(fetchDashboardStats());
@@ -40,6 +43,150 @@ const Dashboard = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (storeAdmin) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900">Store Dashboard</h2>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Store Products</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalProducts}</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+                <Package className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Out of Stock</p>
+                <p className="text-2xl font-bold text-red-600">{stats.outOfStockProducts}</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
+                <Clock className="h-6 w-6 text-red-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Store Orders</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalOrders}</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                <ShoppingBag className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Store Revenue</p>
+                <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 className="h-5 w-5 text-gray-700" />
+              <h3 className="text-lg font-semibold text-gray-900">Monthly Sales</h3>
+            </div>
+            <div className="space-y-2">
+              {monthlySales.length > 0 ? (
+                <div className="h-64 flex items-end gap-2 justify-between">
+                  {monthlySales.map((data, index) => {
+                    const maxRevenue = Math.max(...monthlySales.map((m) => m.revenue));
+                    const heightPercentage = maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
+
+                    return (
+                      <div key={index} className="flex-1 flex flex-col items-center gap-1">
+                        <div
+                          className="w-full bg-blue-500 rounded-t hover:bg-blue-600 transition-colors relative group"
+                          style={{ height: `${heightPercentage}%`, minHeight: data.revenue > 0 ? '4px' : '0' }}
+                        >
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            {formatCurrency(data.revenue)}
+                          </div>
+                        </div>
+                        <span className="text-xs text-gray-600 mt-1">{monthNames[data.month - 1]}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-8">No sales data available</p>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Selling Products</h3>
+            <div className="space-y-3">
+              {topProducts.length > 0 ? (
+                topProducts.map((product, index) => (
+                  <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm">
+                        {index + 1}
+                      </span>
+                      <span className="text-sm font-medium text-gray-900">{product.name}</span>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-600">{product.totalSold} sold</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-8">No product sales yet</p>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm md:col-span-2">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Orders by Status</h3>
+            <div className="grid gap-3 md:grid-cols-4">
+              {Object.keys(ordersByStatus).length > 0 ? (
+                <>
+                  <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                    <span className="text-sm font-medium text-gray-900">Pending</span>
+                    <span className="text-sm font-semibold text-yellow-700">{ordersByStatus.pending || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                    <span className="text-sm font-medium text-gray-900">Processing</span>
+                    <span className="text-sm font-semibold text-blue-700">{ordersByStatus.processing || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                    <span className="text-sm font-medium text-gray-900">Shipped</span>
+                    <span className="text-sm font-semibold text-purple-700">{ordersByStatus.shipped || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                    <span className="text-sm font-medium text-gray-900">Delivered</span>
+                    <span className="text-sm font-semibold text-green-700">{ordersByStatus.delivered || 0}</span>
+                  </div>
+                </>
+              ) : (
+                <p className="text-gray-500 text-center py-8 md:col-span-4">No orders yet</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );

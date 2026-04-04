@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchUsers,
+  createUser,
   updateUser,
   deleteUser,
 } from "../../store/slices/usersSlice";
@@ -16,6 +17,7 @@ import {
   Eye,
   ShoppingBag,
   Package,
+  Plus,
 } from "lucide-react";
 import {
   Dialog,
@@ -46,6 +48,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog";
+import { toast } from "react-hot-toast";
+import api from "../../services/api";
+import { isSuperAdmin } from "../../lib/access";
 
 const statusColors = {
   active: "bg-green-50 text-green-700",
@@ -59,10 +64,37 @@ const roleColors = {
   seller: "bg-amber-50 text-amber-700 border-amber-200",
 };
 
+const getInitialEditFormData = () => ({
+  first_name: "",
+  last_name: "",
+  username: "",
+  email: "",
+  password: "",
+  phone: "",
+  status: "active",
+  role: "seller",
+  store_id: "",
+});
+
+const getInitialCreateFormData = () => ({
+  first_name: "",
+  last_name: "",
+  username: "",
+  email: "",
+  password: "",
+  phone: "",
+  status: "active",
+  role: "admin",
+  store_id: "",
+});
+
 const Users = () => {
   const dispatch = useDispatch();
   const { items, loading } = useSelector((state) => state.users);
+  const authUser = useSelector((state) => state.auth.user);
+  const canCreateUsers = isSuperAdmin(authUser);
 
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -71,50 +103,98 @@ const Users = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [userOrders, setUserOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [stores, setStores] = useState([]);
   const [orderFilters, setOrderFilters] = useState({
     startDate: "",
     endDate: "",
     status: "all",
     sortBy: "date-desc",
   });
-  const [formData, setFormData] = useState({
-    username: "",
-    phone: "",
-    status: "active",
-    role: "seller",
-  });
+  const [createFormData, setCreateFormData] = useState(getInitialCreateFormData());
+  const [formData, setFormData] = useState(getInitialEditFormData());
 
   useEffect(() => {
     dispatch(fetchUsers());
+    const loadStores = async () => {
+      try {
+        const response = await api.get("/stores");
+        setStores(response.data?.data || []);
+      } catch (error) {
+        console.error("Failed to load stores:", error);
+        setStores([]);
+      }
+    };
+
+    loadStores();
   }, [dispatch]);
 
   const openEdit = (user) => {
     setSelectedUser(user);
     setFormData({
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
       username: user.username || "",
+      email: user.email || "",
+      password: "",
       phone: user.phone || "",
       status: user.status || "active",
       role: user.role || "seller",
+      store_id: user.store_id ? String(user.store_id) : "",
     });
     setShowEditModal(true);
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    setCreateFormData(getInitialCreateFormData());
   };
 
   const closeEditModal = () => {
     setShowEditModal(false);
     setSelectedUser(null);
-    setFormData({
-      username: "",
-      phone: "",
-      status: "active",
-      role: "seller",
-    });
+    setFormData(getInitialEditFormData());
+  };
+
+  const handleCreateSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      await dispatch(
+        createUser({
+          ...createFormData,
+          phone: createFormData.phone.trim() || null,
+          store_id:
+            createFormData.role === "admin"
+              ? createFormData.store_id || null
+              : null,
+        })
+      ).unwrap();
+      toast.success("User created successfully");
+      closeCreateModal();
+    } catch (error) {
+      toast.error(error || "Failed to create user");
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedUser) {
-      await dispatch(updateUser({ id: selectedUser.id, data: formData }));
-      closeEditModal();
+      try {
+        await dispatch(
+          updateUser({
+            id: selectedUser.id,
+            data: {
+              ...formData,
+              password: formData.password.trim() || undefined,
+              store_id: formData.role === "admin" ? formData.store_id || null : null,
+            },
+          })
+        ).unwrap();
+        toast.success("User updated successfully");
+        closeEditModal();
+      } catch (error) {
+        toast.error(error || "Failed to update user");
+      }
     }
   };
 
@@ -122,9 +202,14 @@ const Users = () => {
     setDeleteConfirm({ open: true, id });
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (deleteConfirm.id) {
-      dispatch(deleteUser(deleteConfirm.id));
+      try {
+        await dispatch(deleteUser(deleteConfirm.id)).unwrap();
+        toast.success("User deleted successfully");
+      } catch (error) {
+        toast.error(error || "Failed to delete user");
+      }
     }
     setDeleteConfirm({ open: false, id: null });
   };
@@ -248,7 +333,11 @@ const Users = () => {
   };
 
   const handleStatusChange = async (userId, newStatus) => {
-    await dispatch(updateUser({ id: userId, data: { status: newStatus } }));
+    try {
+      await dispatch(updateUser({ id: userId, data: { status: newStatus } })).unwrap();
+    } catch (error) {
+      toast.error(error || "Failed to update status");
+    }
   };
 
   const filteredUsers = items.filter((user) => {
@@ -277,6 +366,12 @@ const Users = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold text-gray-900">Users</h2>
+        {canCreateUsers && (
+          <Button onClick={() => setShowCreateModal(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Create User
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -334,6 +429,9 @@ const Users = () => {
                     Role
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Store
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -366,6 +464,9 @@ const Users = () => {
                       >
                         {user.role || "seller"}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {user.store_name || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Select
@@ -430,36 +531,318 @@ const Users = () => {
         )}
       </div>
 
+      {/* Create User Modal */}
+      <Dialog
+        open={showCreateModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeCreateModal();
+            return;
+          }
+
+          setShowCreateModal(true);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create User</DialogTitle>
+            <DialogClose onClick={closeCreateModal} />
+          </DialogHeader>
+          <form onSubmit={handleCreateSubmit}>
+            <DialogBody className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="create_first_name">First Name</Label>
+                  <Input
+                    id="create_first_name"
+                    value={createFormData.first_name}
+                    onChange={(e) =>
+                      setCreateFormData({
+                        ...createFormData,
+                        first_name: e.target.value,
+                      })
+                    }
+                    placeholder="Enter first name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="create_last_name">Last Name</Label>
+                  <Input
+                    id="create_last_name"
+                    value={createFormData.last_name}
+                    onChange={(e) =>
+                      setCreateFormData({
+                        ...createFormData,
+                        last_name: e.target.value,
+                      })
+                    }
+                    placeholder="Enter last name"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="create_username">Username</Label>
+                  <Input
+                    id="create_username"
+                    value={createFormData.username}
+                    onChange={(e) =>
+                      setCreateFormData({
+                        ...createFormData,
+                        username: e.target.value,
+                      })
+                    }
+                    placeholder="Enter username"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="create_email">Email</Label>
+                  <Input
+                    id="create_email"
+                    type="email"
+                    value={createFormData.email}
+                    onChange={(e) =>
+                      setCreateFormData({
+                        ...createFormData,
+                        email: e.target.value,
+                      })
+                    }
+                    placeholder="Enter email"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="create_password">Password</Label>
+                  <Input
+                    id="create_password"
+                    type="password"
+                    value={createFormData.password}
+                    onChange={(e) =>
+                      setCreateFormData({
+                        ...createFormData,
+                        password: e.target.value,
+                      })
+                    }
+                    placeholder="Enter password"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="create_phone">Phone</Label>
+                  <Input
+                    id="create_phone"
+                    value={createFormData.phone}
+                    onChange={(e) =>
+                      setCreateFormData({
+                        ...createFormData,
+                        phone: e.target.value,
+                      })
+                    }
+                    placeholder="07XXXXXXXX"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="create_status">Status</Label>
+                  <Select
+                    value={createFormData.status}
+                    onValueChange={(value) =>
+                      setCreateFormData({ ...createFormData, status: value })
+                    }
+                  >
+                    <SelectTrigger id="create_status">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="suspended">Suspended</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="create_role">Role</Label>
+                  <Select
+                    value={createFormData.role}
+                    onValueChange={(value) =>
+                      setCreateFormData({
+                        ...createFormData,
+                        role: value,
+                        store_id: value === "admin" ? createFormData.store_id : "",
+                      })
+                    }
+                  >
+                    <SelectTrigger id="create_role">
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 rounded-full text-xs ${roleColors.admin}`}>
+                            Admin
+                          </span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="seller">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 rounded-full text-xs ${roleColors.seller}`}>
+                            Seller
+                          </span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {createFormData.role === "admin" && (
+                <div className="space-y-2">
+                  <Label htmlFor="create_store_id">Assigned Store</Label>
+                  <Select
+                    value={createFormData.store_id || ""}
+                    onValueChange={(value) =>
+                      setCreateFormData({ ...createFormData, store_id: value })
+                    }
+                  >
+                    <SelectTrigger id="create_store_id">
+                      <SelectValue placeholder="Select store" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stores.map((store) => (
+                        <SelectItem key={store.id} value={String(store.id)}>
+                          {store.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {stores.length === 0 && (
+                    <p className="text-sm text-red-600">
+                      Create a store first before creating an admin user.
+                    </p>
+                  )}
+                </div>
+              )}
+            </DialogBody>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeCreateModal}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create User"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit User Modal */}
-      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="max-w-md">
+      <Dialog
+        open={showEditModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeEditModal();
+            return;
+          }
+
+          setShowEditModal(true);
+        }}
+      >
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogClose onClick={closeEditModal} />
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <DialogBody className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  value={formData.username}
-                  onChange={(e) =>
-                    setFormData({ ...formData, username: e.target.value })
-                  }
-                  placeholder="Enter username"
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_first_name">First Name</Label>
+                  <Input
+                    id="edit_first_name"
+                    value={formData.first_name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, first_name: e.target.value })
+                    }
+                    placeholder="Enter first name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_last_name">Last Name</Label>
+                  <Input
+                    id="edit_last_name"
+                    value={formData.last_name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, last_name: e.target.value })
+                    }
+                    placeholder="Enter last name"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
-                  }
-                  placeholder="Enter phone number"
-                />
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_username">Username</Label>
+                  <Input
+                    id="edit_username"
+                    value={formData.username}
+                    onChange={(e) =>
+                      setFormData({ ...formData, username: e.target.value })
+                    }
+                    placeholder="Enter username"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_email">Email</Label>
+                  <Input
+                    id="edit_email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    placeholder="Enter email"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_phone">Phone</Label>
+                  <Input
+                    id="edit_phone"
+                    value={formData.phone}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: e.target.value })
+                    }
+                    placeholder="Enter phone number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_password">New Password</Label>
+                  <Input
+                    id="edit_password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    placeholder="Leave blank to keep current"
+                  />
+                </div>
               </div>
               <div className="flex w-full items-center gap-2 justify-around" >
               <div className="space-y-2">
@@ -485,7 +868,11 @@ const Users = () => {
                 <Select
                   value={formData.role}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, role: value })
+                    setFormData({
+                      ...formData,
+                      role: value,
+                      store_id: value === "admin" ? formData.store_id : "",
+                    })
                   }
                 >
                   <SelectTrigger>
@@ -517,6 +904,28 @@ const Users = () => {
                 </Select>
               </div>
               </div>
+              {formData.role === "admin" && (
+                <div className="space-y-2">
+                  <Label htmlFor="store_id">Assigned Store</Label>
+                  <Select
+                    value={formData.store_id || ""}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, store_id: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select store" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stores.map((store) => (
+                        <SelectItem key={store.id} value={String(store.id)}>
+                          {store.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </DialogBody>
             <DialogFooter>
               <Button

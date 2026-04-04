@@ -9,6 +9,10 @@ import {
   withdrawCommission
 } from '../controllers/orderController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
+import {
+  requireAdminPanelAccess,
+  requireSuperAdminAccess,
+} from '../middleware/adminPanelMiddleware.js';
 
 const router = express.Router();
 
@@ -19,18 +23,18 @@ router.post('/orders', createOrder);
 router.get('/orders', authenticateToken, getOrders);
 
 // Get order statistics
-router.get('/orders/stats', authenticateToken, getOrderStats);
+router.get('/orders/stats', authenticateToken, requireSuperAdminAccess, getOrderStats);
 
 // Get single order
-router.get('/orders/:id', getOrderById);
+router.get('/orders/:id', authenticateToken, getOrderById);
 
 // Update order status
-router.put('/orders/:id/status', authenticateToken, updateOrderStatus);
+router.put('/orders/:id/status', authenticateToken, requireAdminPanelAccess, updateOrderStatus);
 
 // Withdraw commission for delivered order
-router.post('/orders/:id/withdraw-commission', authenticateToken, withdrawCommission);
+router.post('/orders/:id/withdraw-commission', authenticateToken, requireSuperAdminAccess, withdrawCommission);
 
 // Delete order
-router.delete('/orders/:id', authenticateToken, deleteOrder);
+router.delete('/orders/:id', authenticateToken, requireSuperAdminAccess, deleteOrder);
 
 export default router;

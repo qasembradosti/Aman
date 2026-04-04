@@ -143,10 +143,6 @@ const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials." });
     }
 
-    // Check if user is superadmin (for admin panel access)
-    // Regular users can still login, but admin panel requires superadmin role
-    const isSuperAdmin = user.role === 'superadmin';
-
     // Create wallet if missing (for existing users who might not have one)
     try {
       await Wallet.createIfMissing(user.id, 'IQD');
@@ -162,6 +158,7 @@ const login = async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role || 'user',
+        store_id: user.store_id ?? null,
       },
       process.env.JWT_SECRET,
       { expiresIn: "30d" }
@@ -179,6 +176,7 @@ const login = async (req, res) => {
         status: user.status,
         phone_verified: user.phone_verified ?? false,
         role: user.role || 'user',
+        store_id: user.store_id ?? null,
         isSuperAdmin: user.role === 'superadmin'
       }
     });

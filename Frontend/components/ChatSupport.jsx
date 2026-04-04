@@ -105,6 +105,12 @@ export default function ChatSupport({ visible, onClose, orderId = null, existing
       }
     });
 
+    socket.on('conversation_closed', ({ conversation_id, status }) => {
+      if (conversation_id === conversationId && status === 'closed') {
+        setConversationStatus('closed');
+      }
+    });
+
     return () => {
       if (conversationId) {
         socket.emit('leave_conversation', conversationId);

@@ -232,10 +232,18 @@ export const closeConversation = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user.userId || req.user.id;
+    const userRole = req.user.role;
 
-    // Verify user owns this conversation
+    // Allow the conversation owner or a superadmin to close the conversation
     const conversation = await Chat.getConversationById(conversationId);
-    if (!conversation || conversation.user_id !== userId) {
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Conversation not found',
+      });
+    }
+
+    if (conversation.user_id !== userId && userRole !== 'superadmin') {
       return res.status(403).json({
         success: false,
         message: 'Unauthorized access to conversation',
@@ -363,6 +371,42 @@ export const sendAdminMessage = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to send message',
+      error: error.message,
+    });
+  }
+};
+
+// Admin: Close conversation
+export const closeAdminConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+
+    const conversation = await Chat.getConversationById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Conversation not found',
+      });
+    }
+
+    await Chat.updateConversation(conversationId, { status: 'closed' });
+
+    if (req.io) {
+      req.io.to(`conversation_${conversationId}`).emit('conversation_closed', {
+        conversation_id: Number(conversationId),
+        status: 'closed',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Conversation closed successfully',
+    });
+  } catch (error) {
+    console.error('Error closing admin conversation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to close conversation',
       error: error.message,
     });
   }

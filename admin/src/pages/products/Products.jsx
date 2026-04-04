@@ -54,6 +54,7 @@ import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
 import { Checkbox } from "../../components/ui/checkbox";
 import api from "../../services/api";
+import { canManageFullProducts, isStoreAdmin } from "../../lib/access";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -88,7 +89,16 @@ const getProductImageSrc = (image) => {
 };
 
 // Memoized ProductCard to prevent unnecessary re-renders
-const ProductCard = memo(({ product, onView, onEdit, onDelete }) => {
+const ProductCard = memo(({
+  product,
+  onView,
+  onEdit,
+  onDelete,
+  canDelete,
+  canView,
+  editLabel,
+  showExtendedPricing,
+}) => {
   const mainImageSrc = getProductImageSrc(getMainProductImage(product));
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300">
@@ -106,12 +116,14 @@ const ProductCard = memo(({ product, onView, onEdit, onDelete }) => {
             <ImageIcon className="w-12 h-12 text-gray-300" />
           </div>
         )}
-        {/* Stock Badge */}
-        <span className="absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
-          {product.commission_price} IQD
-        </span>
+        {/* Pricing Badge */}
+        {showExtendedPricing && product.commission_price ? (
+          <span className="absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
+            {product.commission_price} IQD
+          </span>
+        ) : null}
         {/* Discount Badge */}
-        {product.discount > 0 && (
+        {showExtendedPricing && product.discount > 0 && (
           <span className="absolute top-2 left-2 px-2 py-1 text-xs font-medium rounded-full bg-red-500 text-white">
             {product.discount_type === "fixed"
               ? `${product.discount}IQD OFF`
@@ -129,7 +141,7 @@ const ProductCard = memo(({ product, onView, onEdit, onDelete }) => {
           <span className="text-lg font-semibold text-gray-900">
             IQD {Number(product.base_price)}
           </span>
-          {product.sell_price && (
+          {showExtendedPricing && product.sell_price && (
             <span className="text-sm text-green-600">
               IQD {Number(product.sell_price)}
             </span>
@@ -137,25 +149,29 @@ const ProductCard = memo(({ product, onView, onEdit, onDelete }) => {
         </div>
         {/* Actions */}
         <div className="mt-3 flex items-center gap-2">
-          <Button
-            onClick={() => onView(product)}
-            className="flex items-center justify-center gap-1 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
-          >
-            <Eye className="w-3.5 h-3.5" />
-          </Button>
+          {canView && (
+            <Button
+              onClick={() => onView(product)}
+              className="flex items-center justify-center gap-1 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
+            >
+              <Eye className="w-3.5 h-3.5" />
+            </Button>
+          )}
           <Button
             onClick={() => onEdit(product)}
             className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
           >
             <Pencil className="w-3.5 h-3.5" />
-            Edit
+            {editLabel}
           </Button>
-          <Button
-            onClick={() => onDelete(product.id)}
-            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          {canDelete && (
+            <Button
+              onClick={() => onDelete(product.id)}
+              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
     </div>
@@ -165,7 +181,15 @@ const ProductCard = memo(({ product, onView, onEdit, onDelete }) => {
 ProductCard.displayName = "ProductCard";
 
 // Memoized ProductRow for table view
-const ProductRow = memo(({ product, onView, onEdit, onDelete }) => {
+const ProductRow = memo(({
+  product,
+  onView,
+  onEdit,
+  onDelete,
+  canDelete,
+  canView,
+  showExtendedPricing,
+}) => {
   const mainImageSrc = getProductImageSrc(getMainProductImage(product));
   return (
     <TableRow>
@@ -185,20 +209,24 @@ const ProductRow = memo(({ product, onView, onEdit, onDelete }) => {
       </TableCell>
       <TableCell className="font-medium">{product.name}</TableCell>
       <TableCell> {Number(product.base_price)} IQD</TableCell>
-      <TableCell>
-        {product.sell_price ? `${Number(product.sell_price)} IQD` : "-"}
-      </TableCell>
-      <TableCell>
-        {product.discount > 0 ? (
-          <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
-            {product.discount_type === "fixed"
-              ? `$${product.discount}`
-              : `${product.discount}%`}
-          </span>
-        ) : (
-          "-"
-        )}
-      </TableCell>
+      {showExtendedPricing && (
+        <TableCell>
+          {product.sell_price ? `${Number(product.sell_price)} IQD` : "-"}
+        </TableCell>
+      )}
+      {showExtendedPricing && (
+        <TableCell>
+          {product.discount > 0 ? (
+            <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
+              {product.discount_type === "fixed"
+                ? `$${product.discount}`
+                : `${product.discount}%`}
+            </span>
+          ) : (
+            "-"
+          )}
+        </TableCell>
+      )}
       <TableCell>
         <span
           className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
@@ -212,24 +240,28 @@ const ProductRow = memo(({ product, onView, onEdit, onDelete }) => {
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
-          <Button
-            onClick={() => onView(product)}
-            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-          >
-            <Eye className="w-4 h-4" />
-          </Button>
+          {canView && (
+            <Button
+              onClick={() => onView(product)}
+              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+            >
+              <Eye className="w-4 h-4" />
+            </Button>
+          )}
           <Button
             onClick={() => onEdit(product)}
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
           >
             <Pencil className="w-4 h-4" />
           </Button>
-          <Button
-            onClick={() => onDelete(product.id)}
-            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          {canDelete && (
+            <Button
+              onClick={() => onDelete(product.id)}
+              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </TableCell>
     </TableRow>
@@ -246,6 +278,10 @@ const Products = () => {
     meta,
   } = useSelector((state) => state.products);
   const { items: categoryItems } = useSelector((state) => state.categories);
+  const currentUser = useSelector((state) => state.auth.user);
+  const storeAdmin = isStoreAdmin(currentUser);
+  const fullProductAccess = canManageFullProducts(currentUser);
+  const showExtendedPricing = fullProductAccess;
   const items = Array.isArray(productItems) ? productItems : [];
   const categories = Array.isArray(categoryItems) ? categoryItems : [];
   const fileInputRef = useRef(null);
@@ -311,8 +347,12 @@ const Products = () => {
   useEffect(() => {
     dispatch(fetchCategories());
     fetchBrands();
-    fetchStores();
-  }, [dispatch]);
+    if (fullProductAccess) {
+      fetchStores();
+    } else {
+      setStores([]);
+    }
+  }, [dispatch, fullProductAccess]);
 
   const fetchBrands = async () => {
     try {
@@ -430,9 +470,12 @@ const Products = () => {
   };
 
   const openCreate = useCallback(() => {
+    if (!fullProductAccess) {
+      return;
+    }
     resetForm();
     setShowModal(true);
-  }, []);
+  }, [fullProductAccess]);
 
   const openEdit = useCallback((product) => {
     setEditingProduct(product);
@@ -518,6 +561,10 @@ const Products = () => {
 
   const handleImageSelect = useCallback(
     async (e) => {
+      if (!fullProductAccess) {
+        return;
+      }
+
       const files = Array.from(e.target.files);
       if (files.length === 0) return;
       
@@ -565,7 +612,7 @@ const Products = () => {
         }
       }
     },
-    [imageFiles, editingProduct, existingImages],
+    [fullProductAccess, imageFiles, editingProduct, existingImages],
   );
 
   const setMainImage = useCallback(
@@ -606,6 +653,10 @@ const Products = () => {
 
   const removeImage = useCallback(
     async (index) => {
+      if (!fullProductAccess) {
+        return;
+      }
+
       // Check if this is an existing server image
       if (editingProduct && existingImages[index]) {
         const imageToDelete = existingImages[index];
@@ -663,6 +714,7 @@ const Products = () => {
       }
     },
     [
+      fullProductAccess,
       imageFiles,
       imagePreviews,
       activeImageIndex,
@@ -674,6 +726,10 @@ const Products = () => {
 
   const handleVideoSelect = useCallback(
     (e) => {
+      if (!fullProductAccess) {
+        return;
+      }
+
       const files = Array.from(e.target.files);
       if (files.length === 0) return;
       const newFiles = [...videoFiles, ...files];
@@ -681,11 +737,15 @@ const Products = () => {
       const newPreviews = files.map((file) => URL.createObjectURL(file));
       setVideoPreviews((prev) => [...prev, ...newPreviews]);
     },
-    [videoFiles],
+    [fullProductAccess, videoFiles],
   );
 
   const removeVideo = useCallback(
     async (index) => {
+      if (!fullProductAccess) {
+        return;
+      }
+
       // Existing server video in edit mode
       if (editingProduct && index < existingVideos.length) {
         const videoToDelete = existingVideos[index];
@@ -721,7 +781,7 @@ const Products = () => {
         setActiveVideoIndex(Math.max(0, newPreviews.length - 1));
       }
     },
-    [videoFiles, videoPreviews, activeVideoIndex, editingProduct, existingVideos],
+    [fullProductAccess, videoFiles, videoPreviews, activeVideoIndex, editingProduct, existingVideos],
   );
 
   const handleFormChange = useCallback((field, value) => {
@@ -771,6 +831,17 @@ const Products = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (editingProduct) {
+      if (storeAdmin) {
+        await dispatch(
+          updateProduct({
+            id: editingProduct.id,
+            data: { in_stock: formData.in_stock },
+          }),
+        );
+        closeModal();
+        return;
+      }
+
       const keyFeaturesEn = formData.key_features_en
         ? formData.key_features_en
             .split(",")
@@ -847,6 +918,11 @@ const Products = () => {
         }
       }
     } else {
+      if (!fullProductAccess) {
+        closeModal();
+        return;
+      }
+
       const fd = new FormData();
       fd.append("name_en", formData.name_en);
       fd.append("name_ar", formData.name_ar);
@@ -920,11 +996,11 @@ const Products = () => {
   }, []);
 
   const handleDeleteConfirm = useCallback(() => {
-    if (deleteConfirm.id) {
+    if (fullProductAccess && deleteConfirm.id) {
       dispatch(deleteProduct(deleteConfirm.id));
     }
     setDeleteConfirm({ open: false, id: null });
-  }, [deleteConfirm.id, dispatch]);
+  }, [fullProductAccess, deleteConfirm.id, dispatch]);
 
   const nextImage = useCallback(
     () => setActiveImageIndex((prev) => (prev + 1) % imagePreviews.length),
@@ -980,13 +1056,15 @@ const Products = () => {
                 <List className="h-4 w-4" />
               </Button>
             </div>
-            <Button
-              onClick={openCreate}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800"
-            >
-              <Plus className="w-4 h-4" />
-              Add Product
-            </Button>
+            {fullProductAccess && (
+              <Button
+                onClick={openCreate}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800"
+              >
+                <Plus className="w-4 h-4" />
+                Add Product
+              </Button>
+            )}
           </div>
         </div>
 
@@ -1197,6 +1275,10 @@ const Products = () => {
                 onView={openView}
                 onEdit={openEdit}
                 onDelete={handleDeleteClick}
+                canDelete={fullProductAccess}
+                canView={true}
+                editLabel={storeAdmin ? "Stock" : "Edit"}
+                showExtendedPricing={showExtendedPricing}
               />
             ))}
           </div>
@@ -1209,8 +1291,8 @@ const Products = () => {
                   <TableHead className="w-16">Image</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Base Price</TableHead>
-                  <TableHead>Sell Price</TableHead>
-                  <TableHead>Discount</TableHead>
+                  {showExtendedPricing && <TableHead>Sell Price</TableHead>}
+                  {showExtendedPricing && <TableHead>Discount</TableHead>}
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -1223,6 +1305,9 @@ const Products = () => {
                     onView={openView}
                     onEdit={openEdit}
                     onDelete={handleDeleteClick}
+                    canDelete={fullProductAccess}
+                    canView={true}
+                    showExtendedPricing={showExtendedPricing}
                   />
                 ))}
               </TableBody>
@@ -1262,41 +1347,90 @@ const Products = () => {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog
-        open={deleteConfirm.open}
-        onOpenChange={(open) => setDeleteConfirm({ ...deleteConfirm, open })}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Product</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this product? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleteConfirm({ open: false, id: null })}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              variant="destructive"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {fullProductAccess && (
+        <AlertDialog
+          open={deleteConfirm.open}
+          onOpenChange={(open) => setDeleteConfirm({ ...deleteConfirm, open })}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Product</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this product? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDeleteConfirm({ open: false, id: null })}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteConfirm}
+                variant="destructive"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="w-[50vw]! max-w-7xl!">
           <DialogHeader>
             <DialogTitle>
-              {editingProduct ? "Edit Product" : "New Product"}
+              {storeAdmin && editingProduct
+                ? "Update Product Stock"
+                : editingProduct
+                  ? "Edit Product"
+                  : "New Product"}
             </DialogTitle>
             <DialogClose onClick={closeModal} />
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="flex flex-col">
             <DialogBody className="space-y-6 overflow-y-auto max-h-[60vh]">
+              {storeAdmin && editingProduct ? (
+                <div className="space-y-6">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-2">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {editingProduct.name_en || editingProduct.name || "Product"}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Store: {editingProduct.store_name || "-"}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Brand: {editingProduct.brand_name || "-"}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Category: {editingProduct.category_name || "-"}
+                    </p>
+                  </div>
+
+                  <div className="space-y-4 rounded-lg border border-gray-200 p-4">
+                    <h3 className="text-sm font-semibold text-gray-700">
+                      Stock Status
+                    </h3>
+                    <div className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+                      <Checkbox
+                        id="in_stock"
+                        checked={formData.in_stock}
+                        onCheckedChange={(checked) =>
+                          handleFormChange("in_stock", checked)
+                        }
+                      />
+                      <Label
+                        htmlFor="in_stock"
+                        className="text-sm font-medium cursor-pointer flex-1"
+                      >
+                        In Stock
+                      </Label>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Store admins can only update the stock status for products in their assigned store.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
               {/* Image Gallery */}
               <div>
                 <Label className="mb-2">Images</Label>
@@ -1886,6 +2020,8 @@ const Products = () => {
                   </div>
                 </div>
               </div>
+                </>
+              )}
             </DialogBody>
 
             <DialogFooter>
@@ -1893,7 +2029,11 @@ const Products = () => {
                 Cancel
               </Button>
               <Button type="submit">
-                {editingProduct ? "Update" : "Create"}
+                {storeAdmin && editingProduct
+                  ? "Update Stock"
+                  : editingProduct
+                    ? "Update"
+                    : "Create"}
               </Button>
             </DialogFooter>
           </form>
@@ -2064,14 +2204,18 @@ const Products = () => {
               {/* Pricing */}
               <div className="space-y-3 border-t pt-4">
                 <h3 className="text-sm font-semibold text-gray-700">Pricing</h3>
-                <div className="grid grid-cols-3 gap-4">
+                <div
+                  className={`grid gap-4 ${
+                    showExtendedPricing ? "grid-cols-3" : "grid-cols-1"
+                  }`}
+                >
                   <div>
                     <Label className="text-gray-500 text-xs">Base Price</Label>
                     <p className="text-lg font-semibold text-gray-900">
                       {Number(viewProduct.base_price)} IQD
                     </p>
                   </div>
-                  {viewProduct.sell_price && (
+                  {showExtendedPricing && viewProduct.sell_price && (
                     <div>
                       <Label className="text-gray-500 text-xs">
                         Sell Price
@@ -2081,7 +2225,7 @@ const Products = () => {
                       </p>
                     </div>
                   )}
-                  {viewProduct.commission_price && (
+                  {showExtendedPricing && viewProduct.commission_price && (
                     <div>
                       <Label className="text-gray-500 text-xs">
                         Commission
@@ -2095,7 +2239,7 @@ const Products = () => {
               </div>
 
               {/* Discount */}
-              {viewProduct.discount > 0 && (
+              {showExtendedPricing && viewProduct.discount > 0 && (
                 <div className="space-y-3 border-t pt-4">
                   <h3 className="text-sm font-semibold text-gray-700">
                     Discount
@@ -2241,23 +2385,23 @@ const Products = () => {
                   )}
                 </div>
               )}
-            </DialogBody>
+              </DialogBody>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeView}>
-                Close
-              </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  closeView();
-                  openEdit(viewProduct);
-                }}
-                disabled={!viewProduct}
-              >
-                Edit Product
-              </Button>
-            </DialogFooter>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={closeView}>
+                  Close
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    closeView();
+                    openEdit(viewProduct);
+                  }}
+                  disabled={!viewProduct}
+                >
+                  {storeAdmin ? "Update Stock" : "Edit Product"}
+                </Button>
+              </DialogFooter>
             </>
           )}
         </DialogContent>

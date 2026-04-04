@@ -1,5 +1,112 @@
 import db from '../config/knex.js';
 
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+
+let productColumnsPromise = null;
+
+const getProductColumns = async () => {
+  if (!productColumnsPromise) {
+    productColumnsPromise = db('products')
+      .columnInfo()
+      .then((columns) => new Set(Object.keys(columns)))
+      .catch((error) => {
+        productColumnsPromise = null;
+        throw error;
+      });
+  }
+
+  return productColumnsPromise;
+};
+
+const filterSupportedFields = async (payload) => {
+  const columns = await getProductColumns();
+
+  return Object.fromEntries(
+    Object.entries(payload).filter(([field, value]) => value !== undefined && columns.has(field)),
+  );
+};
+
+const normalizeJsonListField = (payload, field) => {
+  if (!hasOwn(payload, field)) {
+    return;
+  }
+
+  const value = payload[field];
+
+  if (value == null || value === '') {
+    payload[field] = null;
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    payload[field] = JSON.stringify(value);
+    return;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      payload[field] = null;
+      return;
+    }
+
+    try {
+      payload[field] = JSON.stringify(JSON.parse(trimmed));
+    } catch (err) {
+      const parts = trimmed
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      payload[field] = JSON.stringify(parts);
+    }
+
+    return;
+  }
+
+  payload[field] = JSON.stringify(value);
+};
+
+const normalizeTextListField = (payload, field) => {
+  if (!hasOwn(payload, field)) {
+    return;
+  }
+
+  const value = payload[field];
+
+  if (value == null) {
+    payload[field] = null;
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    const normalized = value
+      .map((item) => String(item).trim())
+      .filter(Boolean)
+      .join(', ');
+
+    payload[field] = normalized || null;
+    return;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    payload[field] = trimmed || null;
+    return;
+  }
+
+  payload[field] = String(value);
+};
+
+const normalizeListFields = (payload) => {
+  normalizeJsonListField(payload, 'key_features');
+  normalizeJsonListField(payload, 'colors');
+  normalizeTextListField(payload, 'key_features_en');
+  normalizeTextListField(payload, 'key_features_ar');
+  normalizeTextListField(payload, 'key_features_ku');
+};
+
 const Product = {
   // Find all products with filters
   findAll: async (filters = {}) => {
@@ -188,31 +295,14 @@ const Product = {
       }
     }
 
-    if (Object.prototype.hasOwnProperty.call(insertData, 'key_features')) {
-      if (insertData.key_features == null || insertData.key_features === '') {
-        insertData.key_features = null;
-      } else if (Array.isArray(insertData.key_features)) {
-        insertData.key_features = JSON.stringify(insertData.key_features);
-      } else if (typeof insertData.key_features !== 'string') {
-        insertData.key_features = JSON.stringify(insertData.key_features);
-      }
-    }
-
-    if (Object.prototype.hasOwnProperty.call(insertData, 'colors')) {
-      if (insertData.colors == null || insertData.colors === '') {
-        insertData.colors = null;
-      } else if (Array.isArray(insertData.colors)) {
-        insertData.colors = JSON.stringify(insertData.colors);
-      } else if (typeof insertData.colors !== 'string') {
-        insertData.colors = JSON.stringify(insertData.colors);
-      }
-    }
+    normalizeListFields(insertData);
 
     if (!insertData.discount_type) {
       insertData.discount_type = 'percentage';
     }
 
-    const inserted = await db('products').insert(insertData);
+    const supportedInsertData = await filterSupportedFields(insertData);
+    const inserted = await db('products').insert(supportedInsertData);
     const insertedRaw = Array.isArray(inserted) ? inserted[0] : inserted;
     const id = typeof insertedRaw === 'object' && insertedRaw !== null
       ? (insertedRaw.id ?? insertedRaw.insertId)
@@ -227,59 +317,25 @@ const Product = {
 
   // Update product
   update: async (id, productData) => {
-    const updates = { ...productData };
+    const updates = Object.fromEntries(
+      Object.entries(productData).filter(([, value]) => value !== undefined),
+    );
 
     // Prevent updating immutable fields
     delete updates.id;
     delete updates.created_at;
+    delete updates.updated_at;
 
-    if (Object.prototype.hasOwnProperty.call(updates, 'key_features')) {
-      if (updates.key_features == null) {
-        updates.key_features = null;
-      } else if (Array.isArray(updates.key_features)) {
-        updates.key_features = JSON.stringify(updates.key_features);
-      } else if (typeof updates.key_features === 'string') {
-        const trimmed = updates.key_features.trim();
-        if (!trimmed) {
-          updates.key_features = null;
-        } else {
-          try {
-            updates.key_features = JSON.stringify(JSON.parse(trimmed));
-          } catch (err) {
-            const parts = trimmed.split(',').map((f) => f.trim()).filter(Boolean);
-            updates.key_features = JSON.stringify(parts);
-          }
-        }
-      } else {
-        updates.key_features = JSON.stringify(updates.key_features);
-      }
-    }
+    normalizeListFields(updates);
 
-    // Handle colors field similar to key_features
-    if (Object.prototype.hasOwnProperty.call(updates, 'colors')) {
-      if (updates.colors == null) {
-        updates.colors = null;
-      } else if (Array.isArray(updates.colors)) {
-        updates.colors = JSON.stringify(updates.colors);
-      } else if (typeof updates.colors === 'string') {
-        const trimmed = updates.colors.trim();
-        if (!trimmed) {
-          updates.colors = null;
-        } else {
-          try {
-            updates.colors = JSON.stringify(JSON.parse(trimmed));
-          } catch (err) {
-            const parts = trimmed.split(',').map((c) => c.trim()).filter(Boolean);
-            updates.colors = JSON.stringify(parts);
-          }
-        }
-      } else {
-        updates.colors = JSON.stringify(updates.colors);
-      }
+    const supportedUpdates = await filterSupportedFields(updates);
+
+    if (Object.keys(supportedUpdates).length === 0) {
+      return await Product.findById(id);
     }
 
     try {
-      const numAffected = await db('products').where({ id }).update(updates);
+      const numAffected = await db('products').where({ id }).update(supportedUpdates);
       if (numAffected === 0) {
         return null; // Or throw an error if preferred
       }

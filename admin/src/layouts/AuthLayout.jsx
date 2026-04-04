@@ -1,12 +1,13 @@
 import { Outlet, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { getDefaultAdminPath } from '../lib/access';
 
 const AuthLayout = () => {
-  const { isAuthenticated } = useSelector((state) => state.auth);
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
 
   // If already authenticated, redirect to dashboard
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={getDefaultAdminPath(user)} replace />;
   }
 
   return (

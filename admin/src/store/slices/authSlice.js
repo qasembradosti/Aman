@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/api';
+import { canAccessAdminPanel } from '../../lib/access';
 
 // Load user from localStorage on init
 const loadUserFromStorage = () => {
@@ -7,7 +8,13 @@ const loadUserFromStorage = () => {
     const token = localStorage.getItem('adminToken');
     const user = localStorage.getItem('adminUser');
     if (token && user) {
-      return { token, user: JSON.parse(user) };
+      const parsedUser = JSON.parse(user);
+      if (!canAccessAdminPanel(parsedUser)) {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminUser');
+        return { token: null, user: null };
+      }
+      return { token, user: parsedUser };
     }
   } catch (error) {
     console.error('Error loading user from storage:', error);
@@ -25,9 +32,10 @@ export const loginAdmin = createAsyncThunk(
       const response = await api.post('/auth/login', { username, password });
       const { token, user } = response.data;
       
-      // Check if user is superadmin
-      if (user.role !== 'superadmin') {
-        return rejectWithValue('Access denied. Only superadmin users can access the admin panel.');
+      if (!canAccessAdminPanel(user)) {
+        return rejectWithValue(
+          'Access denied. Only superadmin users or admin users assigned to a store can access the admin panel.',
+        );
       }
       
       // Store in localStorage

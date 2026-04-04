@@ -1,8 +1,31 @@
 import db from '../config/knex.js';
 
+const applyStoreScopeToOrders = (query, storeId) => {
+  if (!storeId) {
+    return query;
+  }
+
+  const normalizedStoreId = Number(storeId);
+
+  return query.whereExists(function () {
+    this.select(db.raw('1'))
+      .from('order_items')
+      .join('products', 'order_items.product_id', 'products.id')
+      .whereRaw('order_items.order_id = orders.id')
+      .andWhere('products.store_id', normalizedStoreId);
+  });
+};
+
 const Order = {
   // Get all orders with pagination and filters
-  getAll: async ({ page = 1, limit = 20, status, search, user_id } = {}) => {
+  getAll: async ({
+    page = 1,
+    limit = 20,
+    status,
+    search,
+    user_id,
+    store_id,
+  } = {}) => {
     const offset = (page - 1) * limit;
     
     let query = db('orders')
@@ -12,10 +35,31 @@ const Order = {
         'users.last_name as user_last_name',
         'users.phone as user_phone',
         'users.email as user_email',
-        db.raw('(SELECT COUNT(*) FROM order_items WHERE order_items.order_id = orders.id) as items_count'),
-        db.raw(
-          '(SELECT COALESCE(SUM(order_items.commission_price * order_items.quantity), 0) FROM order_items WHERE order_items.order_id = orders.id) as commission_total'
-        )
+        store_id
+          ? db.raw(
+              `(SELECT COUNT(*)
+                FROM order_items
+                JOIN products ON products.id = order_items.product_id
+               WHERE order_items.order_id = orders.id
+                 AND products.store_id = ?) as items_count`,
+              [Number(store_id)],
+            )
+          : db.raw(
+              '(SELECT COUNT(*) FROM order_items WHERE order_items.order_id = orders.id) as items_count',
+            ),
+        store_id
+          ? db.raw(
+              `(SELECT COALESCE(SUM(order_items.quantity * order_items.price), 0)
+                FROM order_items
+                JOIN products ON products.id = order_items.product_id
+               WHERE order_items.order_id = orders.id
+                 AND products.store_id = ?) as scoped_total_amount`,
+              [Number(store_id)],
+            )
+          : db.raw(
+              '(SELECT COALESCE(SUM(order_items.commission_price * order_items.quantity), 0) FROM order_items WHERE order_items.order_id = orders.id) as commission_total',
+            ),
+        store_id ? db.raw('0 as commission_total') : db.raw('NULL as scoped_total_amount')
       )
       .leftJoin('users', 'orders.user_id', 'users.id');
 
@@ -23,6 +67,8 @@ const Order = {
     if (user_id) {
       query = query.where('orders.user_id', user_id);
     }
+
+    query = applyStoreScopeToOrders(query, store_id);
 
     if (status && status !== 'all') {
       query = query.where('orders.status', status);
@@ -45,8 +91,16 @@ const Order = {
       .limit(limit)
       .offset(offset);
 
+    const normalizedOrders = store_id
+      ? orders.map(({ scoped_total_amount, ...order }) => ({
+          ...order,
+          total_amount: Number(scoped_total_amount || 0),
+          commission_total: 0,
+        }))
+      : orders;
+
     return {
-      orders,
+      orders: normalizedOrders,
       pagination: {
         total,
         page,
@@ -57,8 +111,8 @@ const Order = {
   },
 
   // Get single order with items and user details
-  getById: async (id) => {
-    const order = await db('orders')
+  getById: async (id, { store_id } = {}) => {
+    let orderQuery = db('orders')
       .select(
         'orders.*',
         'users.first_name as user_first_name',
@@ -67,13 +121,16 @@ const Order = {
         'users.email as user_email'
       )
       .leftJoin('users', 'orders.user_id', 'users.id')
-      .where('orders.id', id)
-      .first();
+      .where('orders.id', id);
+
+    orderQuery = applyStoreScopeToOrders(orderQuery, store_id);
+
+    const order = await orderQuery.first();
 
     if (!order) return null;
 
     // Get order items with product details including commission_price
-    const items = await db('order_items')
+    const itemsQuery = db('order_items')
       .select(
         'order_items.*',
         'products.name_en',
@@ -86,10 +143,24 @@ const Order = {
       .leftJoin('products', 'order_items.product_id', 'products.id')
       .where('order_items.order_id', id);
 
+    if (store_id) {
+      itemsQuery.where('products.store_id', Number(store_id));
+    }
+
+    const items = await itemsQuery;
+
+    if (store_id && items.length === 0) {
+      return null;
+    }
+
     // Add product_name field with priority: Kurdish > English > Arabic
     items.forEach(item => {
       item.product_name = item.name_ku || item.name_en || item.name_ar || 'N/A';
       item.product_description = item.description_ku || item.description_en || item.description_ar || '';
+      if (store_id) {
+        item.price = Number(item.price ?? 0);
+        item.commission_price = 0;
+      }
     });
 
     // Get product images for each item
@@ -112,6 +183,23 @@ const Order = {
           item.image = null;
         }
       }
+    }
+
+    if (store_id) {
+      const scopedTotal = items.reduce(
+        (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+        0,
+      );
+
+      return {
+        ...order,
+        items,
+        subtotal: scopedTotal,
+        total_amount: scopedTotal,
+        shipping_cost: 0,
+        discount: 0,
+        commission_total: 0,
+      };
     }
 
     return { ...order, items };

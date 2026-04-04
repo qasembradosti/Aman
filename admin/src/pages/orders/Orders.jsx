@@ -45,6 +45,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "../../components/ui/popover";
+import { isStoreAdmin } from "../../lib/access";
 
 const API_BASE =
   import.meta.env.VITE_API_URL?.replace("/api", "") ;
@@ -59,7 +60,9 @@ const statusColors = {
 
 const Orders = () => {
   const dispatch = useDispatch();
-  const { items, loading } = useSelector((state) => state.orders);
+  const { items, loading, error } = useSelector((state) => state.orders);
+  const currentUser = useSelector((state) => state.auth.user);
+  const storeAdmin = isStoreAdmin(currentUser);
 
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -161,7 +164,7 @@ const Orders = () => {
   };
 
   const handleWithdrawCommission = async () => {
-    if (!selectedOrder) return;
+    if (!selectedOrder || storeAdmin) return;
 
     try {
       const result = await dispatch(
@@ -427,6 +430,12 @@ const Orders = () => {
         Showing {filteredOrders.length} of {Array.isArray(items) ? items.length : 0} orders
       </div>
 
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       {/* Orders Table */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         {loading ? (
@@ -436,7 +445,7 @@ const Orders = () => {
         ) : filteredOrders.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p>No orders found</p>
+            <p>{storeAdmin ? "No orders found for your store" : "No orders found"}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -503,28 +512,51 @@ const Orders = () => {
                       {order.items_count || order.items?.length || 0} items
                     </td>
                     <td className="px-6 py-4">
-                      <Select
-                        value={order.status}
-                        onValueChange={(value) =>
-                          handleStatusChange(order.id, value)
-                        }
-                      >
-                        <SelectTrigger
-                          className={`w-32 h-8 text-xs font-medium ${
-                            statusColors[order.status] ||
-                            "bg-gray-100 text-gray-600"
-                          }`}
+                      {storeAdmin ? (
+                        order.status === "pending" ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleStatusChange(order.id, "processing")}
+                            className="h-8 border-blue-200 text-blue-700 hover:bg-blue-50"
+                          >
+                            Mark Processing
+                          </Button>
+                        ) : (
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                              statusColors[order.status] ||
+                              "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {order.status}
+                          </span>
+                        )
+                      ) : (
+                        <Select
+                          value={order.status}
+                          onValueChange={(value) =>
+                            handleStatusChange(order.id, value)
+                          }
                         >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="processing">Processing</SelectItem>
-                          <SelectItem value="shipped">Shipped</SelectItem>
-                          <SelectItem value="delivered">Delivered</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                        </SelectContent>
-                      </Select>
+                          <SelectTrigger
+                            className={`w-32 h-8 text-xs font-medium ${
+                              statusColors[order.status] ||
+                              "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="processing">Processing</SelectItem>
+                            <SelectItem value="shipped">Shipped</SelectItem>
+                            <SelectItem value="delivered">Delivered</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right space-x-2">
                       <Button
@@ -848,7 +880,7 @@ const Orders = () => {
                   </div>
 
                   {/* Commission Section */}
-                  {calculateTotalCommission(selectedOrder) > 0 && (
+                  {!storeAdmin && calculateTotalCommission(selectedOrder) > 0 && (
                     <div className="border-t pt-4 print-section print:hidden">
                       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">

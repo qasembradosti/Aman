@@ -13,8 +13,11 @@ export const fetchOrders = createAsyncThunk(
           Authorization: `Bearer ${token}`,
         },
       });
-      if (!response.ok) throw new Error('Failed to fetch orders');
-      return await response.json();
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to fetch orders');
+      }
+      return data;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -32,8 +35,11 @@ export const fetchOrder = createAsyncThunk(
           Authorization: `Bearer ${token}`,
         },
       });
-      if (!response.ok) throw new Error('Failed to fetch order');
-      return await response.json();
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to fetch order');
+      }
+      return data;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -80,7 +86,10 @@ export const deleteOrder = createAsyncThunk(
           Authorization: `Bearer ${token}`,
         },
       });
-      if (!response.ok) throw new Error('Failed to delete order');
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to delete order');
+      }
       return id;
     } catch (error) {
       return rejectWithValue(error.message);

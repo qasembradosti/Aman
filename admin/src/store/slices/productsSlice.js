@@ -6,7 +6,7 @@ export const fetchProducts = createAsyncThunk(
   'products/fetchAll',
   async (params = {}, { rejectWithValue }) => {
     try {
-      const response = await api.get('/products', { params });
+      const response = await api.get('/admin/products', { params });
 
       console.log(response.data)
 

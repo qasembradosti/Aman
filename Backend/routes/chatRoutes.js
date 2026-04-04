@@ -9,6 +9,7 @@ import {
   reopenConversation,
   getAdminConversations,
   sendAdminMessage,
+  closeAdminConversation,
 } from '../controllers/chatController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 import { requireSuperAdmin } from '../middleware/superAdminMiddleware.js';
@@ -27,5 +28,17 @@ router.patch('/conversation/:conversationId/reopen', authenticateToken, reopenCo
 // Admin routes
 router.get('/admin/conversations', authenticateToken, requireSuperAdmin, getAdminConversations);
 router.post('/admin/message', authenticateToken, requireSuperAdmin, sendAdminMessage);
+router.patch(
+  '/admin/conversation/:conversationId/close',
+  authenticateToken,
+  requireSuperAdmin,
+  closeAdminConversation
+);
+router.patch(
+  '/admin/conversations/:conversationId/close',
+  authenticateToken,
+  requireSuperAdmin,
+  closeAdminConversation
+);
 
 export default router;

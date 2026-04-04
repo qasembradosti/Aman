@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { logoutAdmin } from '../store/slices/authSlice';
 import { useState } from 'react';
 import { Home, Package, FolderTree, ShoppingCart, MessageSquare, Bell, Users, LogOut, Menu, Image, Tag, Store, Wallet, MessageCircle, FileText } from 'lucide-react';
+import { isStoreAdmin } from '../lib/access';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +37,11 @@ const DashboardLayout = () => {
   const { user } = useSelector((state) => state.auth);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const visibleNavItems = isStoreAdmin(user)
+    ? navItems.filter(
+        (item) => item.path === '/products' || item.path === '/orders',
+      )
+    : navItems;
 
   const handleLogout = () => {
     dispatch(logoutAdmin());
@@ -53,7 +59,9 @@ const DashboardLayout = () => {
             >
               <Menu className="w-5 h-5 text-gray-600" />
             </button>
-            <span className="text-lg font-semibold text-gray-900">Admin</span>
+            <span className="text-lg font-semibold text-gray-900">
+              {isStoreAdmin(user) ? 'Store Admin' : 'Admin'}
+            </span>
           </div>
           
           <div className="flex items-center gap-4">
@@ -76,7 +84,7 @@ const DashboardLayout = () => {
           } bg-white border-r border-gray-200 transition-all duration-200 overflow-hidden shrink-0`}
         >
           <nav className="p-3 space-y-1">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}

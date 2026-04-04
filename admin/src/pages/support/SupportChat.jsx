@@ -43,8 +43,10 @@ import {
   upsertConversation,
 } from '../../store/slices/supportChatSlice';
 
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') ||
+  'http://localhost:3000';
 
 // Helper function to format dates
 const formatDate = (date) => {
@@ -145,7 +147,7 @@ export default function SupportChat() {
     });
 
     socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
+      console.error('Socket connection error:', error, 'socketUrl:', API_BASE_URL);
     });
 
     // Listen for new user messages

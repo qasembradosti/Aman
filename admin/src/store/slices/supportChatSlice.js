@@ -81,7 +81,7 @@ export const closeConversation = createAsyncThunk(
   'supportChat/closeConversation',
   async (conversationId, { rejectWithValue }) => {
     try {
-      const response = await api.patch(`/conversation/${conversationId}/close`);
+      const response = await api.patch(`/admin/conversation/${conversationId}/close`);
       const payload = response.data;
 
       if (payload?.success === false) {
@@ -90,6 +90,12 @@ export const closeConversation = createAsyncThunk(
 
       return { conversationId };
     } catch (error) {
+      if (error.response?.status === 404) {
+        return rejectWithValue(
+          'Close chat endpoint is missing on the backend deployment. Deploy the latest backend chat routes.',
+        );
+      }
+
       return rejectWithValue(
         error.response?.data?.message || error.message || 'Failed to close conversation'
       );

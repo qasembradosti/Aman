@@ -1,24 +1,28 @@
 import Order from '../models/order.js';
 import User from '../models/user.js';
 import Wallet from '../models/wallet.js';
+import { isStoreAdmin, isSuperAdmin } from '../middleware/adminPanelMiddleware.js';
 
 // Get all orders with pagination and filters
 export const getOrders = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, search } = req.query;
+    const { page = 1, limit = 20, status, search, user_id: requestedUserId } = req.query;
     const userId = req.user?.userId; // Get user ID from JWT token
-    const userRole = req.user?.role;
     
-    // If user is not admin/superadmin, filter by user_id
     const filters = {
-      page: parseInt(page),
-      limit: parseInt(limit),
+      page: parseInt(page, 10) || 1,
+      limit: parseInt(limit, 10) || 20,
       status,
       search
     };
     
-    // Only show user's own orders unless they're admin
-    if (userRole !== 'superadmin' && userRole !== 'admin' && userId) {
+    if (isStoreAdmin(req.user)) {
+      filters.store_id = Number(req.user.store_id);
+    } else if (isSuperAdmin(req.user)) {
+      if (requestedUserId) {
+        filters.user_id = Number(requestedUserId);
+      }
+    } else if (userId) {
       filters.user_id = userId;
     }
     
@@ -34,7 +38,13 @@ export const getOrders = async (req, res) => {
 export const getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
-    const order = await Order.getById(id);
+    let order = null;
+
+    if (isStoreAdmin(req.user)) {
+      order = await Order.getById(id, { store_id: Number(req.user.store_id) });
+    } else {
+      order = await Order.getById(id);
+    }
 
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
@@ -45,6 +55,12 @@ export const getOrderById = async (req, res) => {
       product_name: item.product_name,
       image: item.image,
     })));
+
+    if (!isSuperAdmin(req.user) && !isStoreAdmin(req.user)) {
+      if (Number(order.user_id) !== Number(req.user?.userId)) {
+        return res.status(404).json({ message: 'Order not found' });
+      }
+    }
 
     res.json(order);
   } catch (error) {
@@ -101,6 +117,7 @@ export const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+    const storeAdmin = isStoreAdmin(req.user);
 
     const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
     if (!validStatuses.includes(status)) {
@@ -109,7 +126,15 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     // Get current order status to validate transition
-    const currentOrder = await Order.getById(id);
+    if (storeAdmin && status !== 'processing') {
+      return res.status(403).json({
+        message: 'Store admins can only update order status to processing.',
+      });
+    }
+
+    const currentOrder = storeAdmin
+      ? await Order.getById(id, { store_id: Number(req.user.store_id) })
+      : await Order.getById(id);
     if (!currentOrder) {
       return res.status(404).json({ message: 'Order not found' });
     }
@@ -146,7 +171,9 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     // Fetch and return the updated order
-    const order = await Order.getById(id);
+    const order = storeAdmin
+      ? await Order.getById(id, { store_id: Number(req.user.store_id) })
+      : await Order.getById(id);
 
     // Process commission if order is delivered
     if (status === 'delivered') {
