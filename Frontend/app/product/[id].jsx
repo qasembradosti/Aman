@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Platform,
   Share,
   FlatList,
   Animated,
@@ -17,7 +18,6 @@ import {
 import { Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import Constants from "expo-constants";
 import { useTheme } from "../../utils/ThemeContext";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
@@ -37,10 +37,9 @@ import { getApiBaseUrl } from "../../utils/apiConfig";
 import { Text } from "../../components/ui/Text";
 import VideoSlide from "../../components/VideoSlide";
 import * as FileSystem from "expo-file-system/legacy";
-import * as MediaLibrary from "expo-media-library";
+import * as Sharing from "expo-sharing";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const isExpoGo = Constants.appOwnership === "expo";
 
 export default function ProductDetail() {
   const router = useRouter();
@@ -103,7 +102,7 @@ export default function ProductDetail() {
   const [newRating, setNewRating] = useState(0);
   const [newComment, setNewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
-  const [downloading, setDownloading] = useState(false);
+  const [exportingMedia, setExportingMedia] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
@@ -349,12 +348,12 @@ export default function ProductDetail() {
     }
   };
 
-  // Download media directly to device
-  const downloadMedia = async (uri, type) => {
-    if (downloading || !uri) return;
+  // Export media without requiring gallery permissions.
+  const exportMedia = async (uri, type) => {
+    if (exportingMedia || !uri) return;
 
     try {
-      setDownloading(true);
+      setExportingMedia(true);
 
       const mediaKind = type === "video" ? "video" : "image";
       const cleanUri = String(uri).split("?")[0].split("#")[0];
@@ -364,71 +363,53 @@ export default function ProductDetail() {
         extensionMatch?.[1] || fallbackExtension
       ).toLowerCase();
       const fileName = `${mediaKind}_${Date.now()}.${fileExtension}`;
-      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+      const baseDirectory =
+        FileSystem.cacheDirectory || FileSystem.documentDirectory;
 
-      if (isExpoGo) {
-        setDialog({
-          visible: true,
-          title: t("error") || "Error",
-          message:
-            "Direct download is not available in Expo Go on Android. Test this feature in a development build.",
-        });
+      if (Platform.OS === "web") {
+        const canOpen = await Linking.canOpenURL(uri);
+        if (!canOpen) {
+          throw new Error("Unable to open remote media URL");
+        }
+        await Linking.openURL(uri);
         return;
       }
 
-      const result = await FileSystem.downloadAsync(uri, fileUri);
+      const sharingAvailable = await Sharing.isAvailableAsync();
+      if (!sharingAvailable) {
+        const canOpen = await Linking.canOpenURL(uri);
+        if (!canOpen) {
+          throw new Error(
+            "Native sharing is unavailable and the media URL cannot be opened",
+          );
+        }
+        await Linking.openURL(uri);
+        return;
+      }
+
+      const result = await FileSystem.downloadAsync(
+        uri,
+        `${baseDirectory}${fileName}`,
+      );
 
       if (!result?.uri) {
         throw new Error("File download did not return a local URI");
       }
 
-      const granularPermissions = mediaKind === "video" ? ["video"] : ["photo"];
-      const mediaLibraryAvailable = await MediaLibrary.isAvailableAsync();
-
-      if (!mediaLibraryAvailable) {
-        setDialog({
-          visible: true,
-          title: t("error") || "Error",
-          message: t("openFailed") || "Failed to open media",
-        });
-        return;
-      }
-
-      const permission = await MediaLibrary.requestPermissionsAsync(
-        true,
-        granularPermissions,
-      );
-      if (!permission.granted) {
-        setDialog({
-          visible: true,
-          title: t("error") || "Error",
-          message:
-            t("permissionDenied") ||
-            "Permission to access media library is required",
-        });
-        return;
-      }
-
-      await MediaLibrary.saveToLibraryAsync(result.uri);
-      await FileSystem.deleteAsync(result.uri, { idempotent: true });
-
-      setDialog({
-        visible: true,
-        title: t("success") || "Success",
-        message: t("downloadSuccess") || "File downloaded successfully",
+      await Sharing.shareAsync(result.uri, {
+        dialogTitle: product?.name || "Share media",
+        mimeType: mediaKind === "video" ? "video/*" : "image/*",
+        UTI: mediaKind === "video" ? "public.movie" : "public.image",
       });
     } catch (err) {
-      console.error("Download error:", err);
+      console.error("Media export error:", err);
       setDialog({
         visible: true,
         title: t("error") || "Error",
-        message:
-          isExpoGo
-            ? "Direct download is not available in Expo Go on Android. Test this feature in a development build."
-            : (t("downloadFailed") || "Failed to download file"),
+        message: t("unableToShareProduct") || "Unable to share file",
       });
     } finally {
-      setDownloading(false);
+      setExportingMedia(false);
     }
   };
 
@@ -878,24 +859,20 @@ export default function ProductDetail() {
                   </View>
                 )}
 
-                {/* Download Button */}
+                {/* Share Button */}
                 {item.uri && (
                   <TouchableOpacity
                     style={[
                       styles.downloadButton,
                       { backgroundColor: "rgba(0,0,0,0.6)" },
                     ]}
-                    onPress={() => downloadMedia(item.uri, item.type)}
-                    disabled={downloading}
+                    onPress={() => exportMedia(item.uri, item.type)}
+                    disabled={exportingMedia}
                   >
-                    {downloading ? (
+                    {exportingMedia ? (
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                      <Ionicons
-                        name="download-outline"
-                        size={24}
-                        color="#fff"
-                      />
+                      <Ionicons name="share-outline" size={24} color="#fff" />
                     )}
                   </TouchableOpacity>
                 )}

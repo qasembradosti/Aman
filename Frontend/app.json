@@ -20,7 +20,7 @@
     },
     "android": {
       "package": "com.amanstore.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "icon": "./assets/images/icon.png",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -38,6 +38,12 @@
         "android.permission.WAKE_LOCK",
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.FOREGROUND_SERVICE"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "googleServicesFile": "./google-services.json"
     },
@@ -67,17 +73,6 @@
           "mode": "production",
           "androidMode": "default",
           "androidCollapsedTitle": "#{unread_notifications} new notifications"
-        }
-      ],
-      [
-        "expo-media-library",
-        {
-          "photosPermission": "Allow Amanly to access your photos and videos.",
-          "savePhotosPermission": "Allow Amanly to save photos and videos to your library.",
-          "granularPermissions": [
-            "photo",
-            "video"
-          ]
         }
       ],
       "expo-video",
