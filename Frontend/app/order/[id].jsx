@@ -268,7 +268,7 @@ export default function OrderDetails() {
                       { color: theme.colors.textSecondary },
                     ]}
                   >
-                    {t("quantity")}: {item.quantity}
+                    {(t("quantityShort") || t("quantity"))}: {item.quantity}
                   </Text>
                 </View>
                 <Text

@@ -120,7 +120,8 @@ export default function HelpSupport() {
     },
     {
       id: "fallback-2",
-      question: t("paymentMethods") || "What payment methods do you accept?",
+      question:
+        t("paymentMethodsQuestion") || "What payment methods do you accept?",
       answer:
         t("paymentMethodsAnswer") ||
         "We accept various payment methods including credit/debit cards, PayPal, and cash on delivery. All transactions are secure and encrypted.",

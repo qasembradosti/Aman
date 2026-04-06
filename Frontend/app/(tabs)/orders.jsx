@@ -1936,7 +1936,8 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                               color: theme.colors.textSecondary,
                             }}
                           >
-                            {t("quantity")}: {item.quantity || 1}
+                            {(t("quantityShort") || t("quantity"))}:{" "}
+                            {item.quantity || 1}
                           </Text>
                           <View
                             style={{
