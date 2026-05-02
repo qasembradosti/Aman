@@ -8,21 +8,25 @@ import {
   Alert,
   Share,
   ActivityIndicator,
-} from "react-native";
-import { Image } from "react-native";
-import {
   Pressable,
 } from "react-native";
+import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
 import { useLanguage } from "../../utils/LanguageContext";
 import { useTheme } from "../../utils/ThemeContext";
-import { fetchProducts } from "../../store/slices/productsSlice";
+import {
+  buildProductCollectionKey,
+  fetchProducts,
+} from "../../store/slices/productsSlice";
 import { fetchCategories } from "../../store/slices/categoriesSlice";
 import { getApiBaseUrl } from "../../utils/apiConfig";
 import { getProductImageUrl } from "../../utils/productImages";
-import Text from "../../components/ui/Text";
+import { Text } from "../../components/ui/Text";
+import { buildPublicProductUrl } from "../../utils/productLinks";
+
+const DEFAULT_PRODUCT_COLLECTION_KEY = buildProductCollectionKey({});
 
 export default function CategoryScreen() {
   const { slug } = useLocalSearchParams();
@@ -38,8 +42,10 @@ export default function CategoryScreen() {
 
   // Get categories and products from Redux
   const { items: categories } = useSelector((state) => state.categories);
-  const { items: allProducts } = useSelector((state) => state.products);
-
+  const {
+    items: allProducts,
+    lastCollectionKey,
+  } = useSelector((state) => state.products);
   // Find the category by slug
   const category = useMemo(
     () => categories.find((cat) => cat.slug === slug),
@@ -51,27 +57,38 @@ export default function CategoryScreen() {
     const loadData = async () => {
       setLoading(true);
       try {
-        // Fetch categories and products without unwrap to avoid throwing errors
-        const [categoriesResult, productsResult] = await Promise.allSettled([
-          dispatch(fetchCategories({})),
-          dispatch(fetchProducts({ limit: 100, offset: 0 })),
-        ]);
-        
-        // Log any errors but don't throw
-        if (categoriesResult.status === 'rejected') {
-          console.error('Failed to fetch categories:', categoriesResult.reason);
+        const pendingRequests = [];
+
+        if (!categories.length) {
+          pendingRequests.push(
+            dispatch(fetchCategories({})).catch((error) => {
+              console.error("Failed to fetch categories:", error);
+            }),
+          );
         }
-        if (productsResult.status === 'rejected') {
-          console.error('Failed to fetch products:', productsResult.reason);
+
+        if (
+          allProducts.length === 0 ||
+          lastCollectionKey !== DEFAULT_PRODUCT_COLLECTION_KEY
+        ) {
+          pendingRequests.push(
+            dispatch(fetchProducts({ limit: 100, offset: 0 })).catch((error) => {
+              console.error("Failed to fetch products:", error);
+            }),
+          );
+        }
+
+        if (pendingRequests.length > 0) {
+          await Promise.all(pendingRequests);
         }
       } catch (error) {
-        console.error('Error loading category data:', error);
+        console.error("Error loading category data:", error);
       } finally {
         setLoading(false);
       }
     };
     loadData();
-  }, [dispatch]);
+  }, [allProducts.length, categories.length, dispatch, lastCollectionKey]);
 
   // Filter products by category
   useEffect(() => {
@@ -98,10 +115,11 @@ export default function CategoryScreen() {
   const handleShareProduct = async (item) => {
     try {
       const itemName = getLocalizedName(item);
+      const productUrl = buildPublicProductUrl(item.id);
       await Share.share({
         title: itemName,
-        message: `Check out this product: ${itemName}`,
-        url: `https://check.com/product/${item.id}`,
+        message: `Check out this product: ${itemName}\n\n${productUrl}`,
+        url: productUrl,
       });
     } catch (_e) {
       Alert.alert("Error", "Unable to share product");

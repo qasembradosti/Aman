@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { View, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Text as RNText } from "react-native";
-import { Image } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
@@ -44,7 +44,7 @@ export default function ForgotPassword() {
     setError(null);
     try {
       const { type, value } = resolveIdentifierType(v);
-      const res = await dispatch(requestPasswordReset({ identifier: value, channel: 'whatsapp', lang: locale, fallback: 'no' })).unwrap();
+      await dispatch(requestPasswordReset({ identifier: value, channel: 'whatsapp', lang: locale, fallback: 'no' })).unwrap();
       // Go to reset-password and carry the identifier
       router.push({ pathname: "/(auth)/reset-password", params: { type, value } });
     } catch (e) {

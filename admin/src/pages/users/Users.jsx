@@ -61,7 +61,15 @@ const statusColors = {
 const roleColors = {
   superadmin: "bg-purple-50 text-purple-700 border-purple-200",
   admin: "bg-blue-50 text-blue-700 border-blue-200",
+  delivery_company: "bg-emerald-50 text-emerald-700 border-emerald-200",
   seller: "bg-amber-50 text-amber-700 border-amber-200",
+};
+
+const roleLabels = {
+  superadmin: "Superadmin",
+  admin: "Admin",
+  delivery_company: "Delivery Company",
+  seller: "Seller",
 };
 
 const getInitialEditFormData = () => ({
@@ -99,6 +107,8 @@ const Users = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [storeFilter, setStoreFilter] = useState("all");
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: null });
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [userOrders, setUserOrders] = useState([]);
@@ -340,13 +350,46 @@ const Users = () => {
     }
   };
 
+  const clearUserFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("all");
+    setRoleFilter("all");
+    setStoreFilter("all");
+  };
+
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const hasActiveUserFilters =
+    normalizedSearchQuery.length > 0 ||
+    statusFilter !== "all" ||
+    roleFilter !== "all" ||
+    storeFilter !== "all";
+
   const filteredUsers = items.filter((user) => {
+    const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
+    const searchableFields = [
+      user.username,
+      user.phone,
+      user.email,
+      user.first_name,
+      user.last_name,
+      fullName,
+      user.store_name,
+    ];
     const matchesSearch =
-      user.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.phone?.includes(searchQuery);
+      normalizedSearchQuery === "" ||
+      searchableFields.some((value) =>
+        String(value || "").toLowerCase().includes(normalizedSearchQuery),
+      );
     const matchesStatus =
       statusFilter === "all" || user.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesRole = roleFilter === "all" || (user.role || "seller") === roleFilter;
+    const matchesStore =
+      storeFilter === "all" ||
+      (storeFilter === "unassigned"
+        ? !user.store_id
+        : String(user.store_id || "") === storeFilter);
+
+    return matchesSearch && matchesStatus && matchesRole && matchesStore;
   });
 
   const formatDate = (dateString) => {
@@ -375,12 +418,12 @@ const Users = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input
             type="text"
-            placeholder="Search by username or phone..."
+            placeholder="Search by name, username, email, phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -398,6 +441,44 @@ const Users = () => {
             <SelectItem value="suspended">Suspended</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Filter by role" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Roles</SelectItem>
+            <SelectItem value="superadmin">Superadmin</SelectItem>
+            <SelectItem value="admin">Admin</SelectItem>
+            <SelectItem value="delivery_company">Delivery Company</SelectItem>
+            <SelectItem value="seller">Seller</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={storeFilter} onValueChange={setStoreFilter}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Filter by store" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Stores</SelectItem>
+            <SelectItem value="unassigned">No Store</SelectItem>
+            {stores.map((store) => (
+              <SelectItem key={store.id} value={String(store.id)}>
+                {store.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-gray-500">
+          Showing {filteredUsers.length} of {items.length} users
+        </div>
+        {hasActiveUserFilters && (
+          <Button variant="outline" onClick={clearUserFilters}>
+            <X className="w-4 h-4 mr-2" />
+            Clear Filters
+          </Button>
+        )}
       </div>
 
       {/* Users Table */}
@@ -462,7 +543,7 @@ const Users = () => {
                           roleColors[user.role] || roleColors.seller
                         }`}
                       >
-                        {user.role || "seller"}
+                        {roleLabels[user.role] || roleLabels.seller}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -690,6 +771,15 @@ const Users = () => {
                           </span>
                         </div>
                       </SelectItem>
+                      <SelectItem value="delivery_company">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs ${roleColors.delivery_company}`}
+                          >
+                            Delivery Company
+                          </span>
+                        </div>
+                      </SelectItem>
                       <SelectItem value="seller">
                         <div className="flex items-center gap-2">
                           <span className={`px-2 py-1 rounded-full text-xs ${roleColors.seller}`}>
@@ -893,6 +983,15 @@ const Users = () => {
                         </span>
                       </div>
                     </SelectItem>
+                    <SelectItem value="delivery_company">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs ${roleColors.delivery_company}`}
+                        >
+                          Delivery Company
+                        </span>
+                      </div>
+                    </SelectItem>
                     <SelectItem value="seller">
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-1 rounded-full text-xs ${roleColors.seller}`}>
@@ -972,7 +1071,7 @@ const Users = () => {
                 </div>
                 <div className="flex gap-2">
                   <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${roleColors[selectedUser?.role] || roleColors.seller}`}>
-                    {selectedUser?.role || 'seller'}
+                    {roleLabels[selectedUser?.role] || roleLabels.seller}
                   </span>
                   <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${statusColors[selectedUser?.status] || statusColors.active}`}>
                     {selectedUser?.status || 'active'}

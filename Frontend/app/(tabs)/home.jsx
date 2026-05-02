@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -6,11 +6,11 @@ import {
   RefreshControl,
   TouchableOpacity,
   Pressable,
-  Dimensions,
   Text as RNText,
   Share,
 } from "react-native";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -18,7 +18,10 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useDispatch, useSelector } from "react-redux";
 import { useLanguage } from "../../utils/LanguageContext";
 import { useTheme } from "../../utils/ThemeContext";
-import { fetchProducts } from "../../store/slices/productsSlice";
+import {
+  buildProductCollectionKey,
+  fetchProducts,
+} from "../../store/slices/productsSlice";
 import { fetchCategories } from "../../store/slices/categoriesSlice";
 import { fetchBrands } from "../../store/slices/brandsSlice";
 import { getApiBaseUrl } from "../../utils/apiConfig";
@@ -29,10 +32,12 @@ import HomeHeader from "../../components/HomeHeader";
 import BannerSlider from "../../components/BannerSlider";
 import DiscountProductSlider from "../../components/DiscountProductSlider";
 import SectionBanner from "../../components/SectionBanner";
-import { useRef } from "react";
 import { Heart, Star } from "lucide-react-native";
 import { toggleFavorite } from "../../services/favoriteService";
-import TrendingProductSlider from "@/components/TrendingProductSlider";
+import TrendingProductSlider from "../../components/TrendingProductSlider";
+import { useResponsiveLayout } from "../../utils/useResponsiveLayout";
+import { buildPublicProductUrl } from "../../utils/productLinks";
+import apiService from "../../services/apiService";
 // Custom Text component with font
 const Text = ({ style, ...props }) => {
   const { fontFamily } = useLanguage();
@@ -47,72 +52,28 @@ const Text = ({ style, ...props }) => {
   );
 };
 
-// Responsive layout hook
-const useResponsiveLayout = () => {
-  const [dimensions, setDimensions] = useState(Dimensions.get("window"));
+const formatCompactNumber = (value) => {
+  const number = Number(value ?? 0);
 
-  useEffect(() => {
-    const subscription = Dimensions.addEventListener("change", ({ window }) => {
-      setDimensions(window);
-    });
-    return () => subscription?.remove();
-  }, []);
+  if (!Number.isFinite(number) || number <= 0) {
+    return "0";
+  }
 
-  const { width, height } = dimensions;
-  const isLandscape = width > height;
+  if (number >= 1000000) {
+    const millions = number / 1000000;
+    return `${millions >= 10 ? millions.toFixed(0) : millions.toFixed(1).replace(/\.0$/, "")}M`;
+  }
 
-  // Device type detection
-  const isSmallPhone = width <= 375; // iPhone SE, iPhone 12 mini
-  const isMediumPhone = width > 375 && width <= 414;
-  const isLargePhone = width > 414; // iPhone Pro Max models, iPhone 15/16 Plus
-  const language = useLanguage();
-  // Responsive values
-  const horizontalPadding = isSmallPhone ? 12 : isMediumPhone ? 16 : 20;
-  const cardGap = isSmallPhone ? 8 : 12;
+  if (number >= 1000) {
+    const thousands = number / 1000;
+    return `${thousands >= 10 ? thousands.toFixed(0) : thousands.toFixed(1).replace(/\.0$/, "")}K`;
+  }
 
-  // Calculate card width based on screen size
-  const columns = isLandscape ? 3 : isLargePhone ? 3 : 2;
-  const totalGapWidth = cardGap * (columns - 1);
-  const cardWidth = Math.floor(
-    (width - horizontalPadding * 2 - totalGapWidth) / columns,
-  );
-
-  // Responsive dimensions
-  const categoryIconSize = isSmallPhone ? 20 : 24;
-  const categoryCardWidth = isSmallPhone ? 70 : 80;
-  const categoryIconContainerSize = isSmallPhone ? 45 : 50;
-
-  // Wallet dimensions
-  const walletPadding = isSmallPhone ? 12 : 16;
-  const walletActionButtonSize = isSmallPhone ? 40 : 44;
-
-  // Text sizes
-  const sectionTitleSize = isSmallPhone ? 16 : 18;
-  const productNameSize = isSmallPhone ? 12 : 13;
-  const productPriceSize = isSmallPhone ? 14 : 16;
-  const walletBalanceSize = isSmallPhone ? 24 : 28;
-
-  return {
-    width,
-    height,
-    isLandscape,
-    isSmallPhone,
-    isMediumPhone,
-    isLargePhone,
-    horizontalPadding,
-    cardGap,
-    cardWidth,
-    categoryIconSize,
-    categoryCardWidth,
-    categoryIconContainerSize,
-    walletPadding,
-    walletActionButtonSize,
-    sectionTitleSize,
-    productNameSize,
-    productPriceSize,
-    walletBalanceSize,
-  };
+  return String(number);
 };
+
+const DEFAULT_PRODUCT_COLLECTION_KEY = buildProductCollectionKey({});
+const HERO_PREVIEW_LIMIT = 6;
 
 export default function Home() {
   const router = useRouter();
@@ -122,6 +83,7 @@ export default function Home() {
   const layout = useResponsiveLayout();
   const API_BASE_URL = getApiBaseUrl();
   const navigationInProgress = useRef(false);
+  const initialFocusHandled = useRef(false);
 
   // Helper function to get localized text
   const getLocalizedText = (product, field) => {
@@ -129,12 +91,6 @@ export default function Home() {
     const lang = locale;
     const localizedField = `${field}_${lang}`;
     return product[localizedField] || product[field] || "";
-  };
-
-  // Helper function to get localized category name
-  const getLocalizedCategoryName = (category) => {
-    const lang = locale || "en";
-    return category[`name_${lang}`] || category.name || "";
   };
 
   // Dialog state for errors/info
@@ -152,17 +108,15 @@ export default function Home() {
   // Favorites state - track which products are favorited
   const [favorites, setFavorites] = useState({});
 
-  // Horizontal slider products state
-  const [horizontalProducts, setHorizontalProducts] = useState([]);
-  const [horizontalLoading, setHorizontalLoading] = useState(false);
-  const [canLoadMoreHorizontal, setCanLoadMoreHorizontal] = useState(true);
-  const horizontalLimit = 10;
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [featuredLoading, setFeaturedLoading] = useState(false);
 
   // Redux selectors
   const {
     items: products,
     loading: productsLoading,
     meta,
+    lastCollectionKey,
   } = useSelector((state) => state.products);
   const { items: categories, loading: categoriesLoading } = useSelector(
     (state) => state.categories,
@@ -170,10 +124,19 @@ export default function Home() {
   const { items: brands, loading: brandsLoading } = useSelector(
     (state) => state.brands,
   );
-  const { isAuthenticated, user } = useSelector((state) => state.auth);
+  const { isAuthenticated } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setFavorites({});
+    }
+  }, [isAuthenticated]);
 
   // Get parent categories (categories with no parent_id)
-  const parentCategories = categories.filter((cat) => cat.parent_id === null);
+  const parentCategories = useMemo(
+    () => categories.filter((cat) => cat.parent_id === null),
+    [categories],
+  );
 
   // Infinite scroll state
   const [loadingMore, setLoadingMore] = useState(false);
@@ -181,94 +144,100 @@ export default function Home() {
   const pageLimit = 10;
   const hasMore =
     typeof meta?.total === "number" ? products.length < meta.total : true;
+  const shouldLoadDefaultProducts =
+    products.length === 0 ||
+    lastCollectionKey !== DEFAULT_PRODUCT_COLLECTION_KEY;
 
   // Fetch data on component mount
   useEffect(() => {
-    dispatch(fetchProducts({ limit: pageLimit, offset: 0 }));
-    dispatch(fetchCategories({})); // Fetch all categories without limit
-    dispatch(fetchBrands({ is_active: "true" })); // Fetch only active brands
-    loadHorizontalProducts(); // Load initial horizontal products
-  }, [dispatch]);
+    if (shouldLoadDefaultProducts && !productsLoading) {
+      dispatch(fetchProducts({ limit: pageLimit, offset: 0 }));
+    }
+
+    if (!categories.length && !categoriesLoading) {
+      dispatch(fetchCategories({}));
+    }
+
+    if (!brands.length && !brandsLoading) {
+      dispatch(fetchBrands({ is_active: "true" }));
+    }
+  }, [
+    brands.length,
+    brandsLoading,
+    categories.length,
+    categoriesLoading,
+    dispatch,
+    pageLimit,
+    productsLoading,
+    shouldLoadDefaultProducts,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
-      // Keep Home products unfiltered after returning from filtered product screens.
-      dispatch(fetchProducts({ limit: pageLimit, offset: 0 }));
-    }, [dispatch, pageLimit]),
+      if (!initialFocusHandled.current) {
+        initialFocusHandled.current = true;
+        return undefined;
+      }
+
+      if (shouldLoadDefaultProducts && !productsLoading) {
+        dispatch(fetchProducts({ limit: pageLimit, offset: 0 }));
+      }
+
+      return undefined;
+    }, [dispatch, pageLimit, productsLoading, shouldLoadDefaultProducts]),
   );
 
-  const loadHorizontalProducts = useCallback(() => {
-    if (horizontalLoading || !canLoadMoreHorizontal) return;
-    setHorizontalLoading(true);
-    setCanLoadMoreHorizontal(false);
-    dispatch(
-      fetchProducts({
-        limit: 100, // Fetch more to have a good pool for randomization
-        offset: 0,
-      }),
-    )
-      .then((response) => {
-        // Handle both unwrapped and wrapped responses
-        const allProducts = response.payload?.data || response.payload || [];
-        if (allProducts.length > 0) {
-          const shuffled = [...allProducts].sort(() => Math.random() - 0.5);
-          const randomProducts = shuffled.slice(0, horizontalLimit);
-          // Filter out products that are already in the list
-          setHorizontalProducts((prev) => {
-            const existingIds = new Set(prev.map((p) => p.id));
-            const newProducts = randomProducts.filter(
-              (p) => !existingIds.has(p.id),
-            );
-            return [...prev, ...newProducts];
-          });
-        } else {
-          // Fallback to using existing products from state
-          if (products.length > 0) {
-            const shuffled = [...products].sort(() => Math.random() - 0.5);
-            const randomProducts = shuffled.slice(0, horizontalLimit);
-            setHorizontalProducts((prev) => {
-              const existingIds = new Set(prev.map((p) => p.id));
-              const newProducts = randomProducts.filter(
-                (p) => !existingIds.has(p.id),
-              );
-              return [...prev, ...newProducts];
-            });
-          }
-        }
-        // Re-enable loading after a short delay
-        setTimeout(() => setCanLoadMoreHorizontal(true), 1000);
-      })
-      .catch((error) => {
-        console.error("Load horizontal products error:", error);
-        // On error, use existing products from state
-        if (products.length > 0) {
-          const shuffled = [...products].sort(() => Math.random() - 0.5);
-          const randomProducts = shuffled.slice(0, horizontalLimit);
-          setHorizontalProducts((prev) => {
-            const existingIds = new Set(prev.map((p) => p.id));
-            const newProducts = randomProducts.filter(
-              (p) => !existingIds.has(p.id),
-            );
-            return [...prev, ...newProducts];
-          });
-        }
-        setTimeout(() => setCanLoadMoreHorizontal(true), 1000);
-      })
-      .finally(() => setHorizontalLoading(false));
-  }, [dispatch, horizontalLoading, products, canLoadMoreHorizontal]);
+  const loadFeaturedProducts = useCallback(async () => {
+    setFeaturedLoading(true);
+
+    try {
+      const response = await apiService.get("/api/products", {
+        params: {
+          is_important: 1,
+          in_stock: 1,
+          limit: 24,
+          offset: 0,
+        },
+      });
+
+      const responseData = response?.data;
+      const rawProducts = Array.isArray(responseData?.data)
+        ? responseData.data
+        : Array.isArray(responseData)
+          ? responseData
+          : [];
+      const importantOnly = rawProducts.filter(
+        (product) =>
+          product?.is_important === true || Number(product?.is_important) === 1,
+      );
+
+      setFeaturedProducts(importantOnly);
+    } catch (error) {
+      const isSilentFeaturedError =
+        error?.isOffline || error?.message === "Network Error";
+
+      if (!isSilentFeaturedError) {
+        console.error("Load featured products error:", error);
+      }
+
+      setFeaturedProducts([]);
+    } finally {
+      setFeaturedLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadFeaturedProducts();
+  }, [loadFeaturedProducts]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    setHorizontalProducts([]);
-    setCanLoadMoreHorizontal(true);
     Promise.all([
       dispatch(fetchProducts({ limit: pageLimit, offset: 0 })),
       dispatch(fetchCategories({})), // Fetch all categories
       dispatch(fetchBrands({ is_active: "true" })), // Fetch only active brands
+      loadFeaturedProducts(),
     ])
-      .then(() => {
-        loadHorizontalProducts();
-      })
       .catch((error) => {
         console.error("Refresh error:", error);
         setDialog({
@@ -306,7 +275,7 @@ export default function Home() {
         });
       })
       .finally(() => setLoadingMore(false));
-  }, [dispatch, loadingMore, hasMore, products.length, productsLoading]);
+  }, [dispatch, loadingMore, hasMore, products.length, productsLoading, t]);
 
   const resolveCategoryImageUri = (category) => {
     const imageUrl = category?.image_url || category?.image;
@@ -334,27 +303,37 @@ export default function Home() {
     return "https://via.placeholder.com/400";
   };
 
+  const navigateToRoute = useCallback((route, delay = 350) => {
+    if (navigationInProgress.current) return;
+
+    navigationInProgress.current = true;
+    router.push(route);
+
+    setTimeout(() => {
+      navigationInProgress.current = false;
+    }, delay);
+  }, [router]);
+
   const navigateToFilteredProducts = useCallback(
     (filterKey, filterValue) => {
-      if (navigationInProgress.current) return;
-
-      navigationInProgress.current = true;
-      router.push(`/products?${filterKey}=${filterValue}`);
-
-      setTimeout(() => {
-        navigationInProgress.current = false;
-      }, 350);
+      navigateToRoute(`/products?${filterKey}=${filterValue}`);
     },
-    [router],
+    [navigateToRoute],
+  );
+
+  const openProduct = useCallback(
+    (id) => {
+      navigateToRoute(`/product/${id}`, 500);
+    },
+    [navigateToRoute],
   );
 
   const handleShareProduct = async (id, name) => {
     try {
-      const userId = user?.id;
-      const checkoutUrl = `https://checkout.aman-store.com/checkout?userId=${userId}&productId=${id}`;
+      const productUrl = buildPublicProductUrl(id);
 
       const result = await Share.share({
-        message: `${name}\n\n${checkoutUrl}`,
+        message: `${name}\n\n${productUrl}`,
         title: name,
       });
 
@@ -367,7 +346,7 @@ export default function Home() {
       } else if (result.action === Share.dismissedAction) {
         console.log("Share dismissed");
       }
-    } catch (error) {
+    } catch (_error) {
       setDialog({
         visible: true,
         title: "Error",
@@ -379,11 +358,7 @@ export default function Home() {
   // Handle favorite toggle
   const handleToggleFavorite = async (productId) => {
     if (!isAuthenticated) {
-      setDialog({
-        visible: true,
-        title: t("loginRequired"),
-        message: t("loginToFavorite"),
-      });
+      router.push("/(auth)/login");
       return;
     }
 
@@ -395,7 +370,7 @@ export default function Home() {
       }));
 
       await toggleFavorite(productId);
-    } catch (error) {
+    } catch (_error) {
       // Revert on error
       setFavorites((prev) => ({
         ...prev,
@@ -408,6 +383,216 @@ export default function Home() {
         message: t("favoriteError"),
       });
     }
+  };
+
+  const sectionTopInset = layout.sectionBannerOffset;
+  const featuredColumns = layout.isTablet
+    ? layout.getGridColumns(2, 3, 4, 5)
+    : 2;
+  const featuredCardWidth = layout.getCardWidth(featuredColumns, layout.cardGap);
+  const featuredImageHeight = layout.isTablet
+    ? Math.max(160, Math.round(featuredCardWidth * 0.82))
+    : layout.isSmallPhone
+      ? 100
+      : layout.isMediumPhone
+        ? 110
+        : 120;
+  const categoryGridGap = layout.isTablet ? 14 : 12;
+  const categoryCardSize = layout.isTablet
+    ? layout.isLandscape
+      ? 118
+      : layout.isSmallTablet
+        ? 96
+        : 108
+    : 80;
+  const categoryCardRadius = layout.isTablet ? 18 : 15;
+  const iconColumnWidth = categoryCardSize;
+  const recentCardWidth = layout.isTablet
+    ? Math.min(
+        Math.max(
+          layout.width *
+            (layout.isLandscape ? 0.24 : layout.isSmallTablet ? 0.32 : 0.28),
+          210,
+        ),
+        layout.isLargeTablet ? 292 : 250,
+      )
+    : 140;
+  const recentImageHeight = layout.isTablet
+    ? Math.round(recentCardWidth * 0.82)
+    : 120;
+  const productActionButtonSize = layout.isTablet
+    ? 40
+    : layout.isSmallPhone
+      ? 32
+      : 36;
+  const productActionIconSize = layout.isTablet
+    ? 20
+    : layout.isSmallPhone
+      ? 16
+      : 18;
+  const categoryTileStyle = {
+    width: categoryCardSize,
+    height: categoryCardSize,
+    borderRadius: categoryCardRadius,
+  };
+  const totalProductsCount =
+    typeof meta?.total === "number" ? meta.total : products.length;
+  const heroActionGap = layout.isTablet ? 14 : 10;
+  const heroPreviewCardWidth = layout.isTablet ? 186 : 158;
+  const heroPreviewProducts = useMemo(() => {
+    const sourceProducts =
+      featuredProducts.length > 0 ? featuredProducts : products;
+
+    return sourceProducts.slice(0, HERO_PREVIEW_LIMIT);
+  }, [featuredProducts, products]);
+  const categoryPreview = parentCategories.slice(0, 12);
+  const brandPreview = brands.slice(0, 12);
+  const buildTwoRowColumns = (items) => {
+    const columns = [];
+
+    for (let index = 0; index < items.length; index += 2) {
+      columns.push(items.slice(index, index + 2));
+    }
+
+    return columns;
+  };
+  const categoryColumns = buildTwoRowColumns(categoryPreview);
+  const brandColumns = buildTwoRowColumns(brandPreview);
+  const heroMetrics = [
+    { key: "products", label: t("products"), value: totalProductsCount },
+    { key: "categories", label: t("categories"), value: parentCategories.length },
+    { key: "brands", label: t("brands"), value: brands.length },
+  ];
+  const heroActions = [
+    {
+      key: "search",
+      label: t("search"),
+      icon: "search-outline",
+      route: "/search",
+      accent: theme.colors.primary,
+      background: theme.isDark ? "rgba(255,255,255,0.08)" : "#FFF1DF",
+    },
+    {
+      key: "categories",
+      label: t("categories"),
+      icon: "grid-outline",
+      route: "/categories",
+      accent: "#0F766E",
+      background: theme.isDark ? "rgba(16,185,129,0.16)" : "#EAFBF7",
+    },
+    {
+      key: "brands",
+      label: t("brands"),
+      icon: "storefront-outline",
+      route: "/brands",
+      accent: theme.colors.secondary,
+      background: theme.isDark ? "rgba(37,99,235,0.18)" : "#ECF3FF",
+    },
+    {
+      key: "featured",
+      label: t("featuredProducts"),
+      icon: "sparkles-outline",
+      route: "/products?is_important=1",
+      accent: "#C2410C",
+      background: theme.isDark ? "rgba(251,146,60,0.18)" : "#FFF0E6",
+    },
+  ];
+  const renderIconTile = (item, kind) => {
+    const isCategoryCard = kind === "category";
+    const imageUri = isCategoryCard
+      ? resolveCategoryImageUri(item)
+      : resolveBrandImageUri(item);
+    const accentColor = isCategoryCard
+      ? theme.colors.primary
+      : theme.colors.secondary;
+
+    return (
+      <Pressable
+        key={`${kind}-${item.id}`}
+        style={({ pressed }) => [
+          styles.iconTilePressable,
+          { width: iconColumnWidth },
+          pressed && styles.iconTilePressed,
+        ]}
+        onPress={() =>
+          navigateToFilteredProducts(isCategoryCard ? "category" : "brand", item.id)
+        }
+      >
+        <View
+          style={[
+            styles.iconTile,
+            {
+              width: categoryCardSize,
+              height: categoryCardSize,
+              borderRadius: categoryCardRadius,
+              borderColor: theme.colors.border,
+              backgroundColor: theme.colors.card,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.iconTileHalo,
+              { backgroundColor: `${accentColor}${theme.isDark ? "24" : "16"}` },
+            ]}
+          />
+          <View
+            style={[
+              styles.iconTileInner,
+              categoryTileStyle,
+              {
+                backgroundColor: `${accentColor}${theme.isDark ? "16" : "14"}`,
+                borderColor: `${accentColor}${theme.isDark ? "32" : "22"}`,
+              },
+            ]}
+          >
+            <Image
+              source={{ uri: imageUri }}
+              style={styles.iconTileImage}
+              contentFit={isCategoryCard ? "cover" : "contain"}
+              transition={180}
+              cachePolicy="memory-disk"
+            />
+          </View>
+        </View>
+      </Pressable>
+    );
+  };
+
+  const renderIconTileSkeleton = (key, kind) => {
+    const accentColor = kind === "category"
+      ? theme.colors.primary
+      : theme.colors.secondary;
+
+    return (
+      <View
+        key={`${kind}-skeleton-${key}`}
+        style={[
+          styles.iconTile,
+          {
+            width: categoryCardSize,
+            height: categoryCardSize,
+            borderRadius: categoryCardRadius,
+            borderColor: theme.colors.border,
+            backgroundColor: theme.colors.card,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.iconTileHalo,
+            { backgroundColor: `${accentColor}${theme.isDark ? "16" : "12"}` },
+          ]}
+        />
+        <View
+          style={[
+            styles.iconTileInner,
+            categoryTileStyle,
+            { backgroundColor: theme.colors.border, borderColor: theme.colors.border },
+          ]}
+        />
+      </View>
+    );
   };
 
   return (
@@ -425,6 +610,11 @@ export default function Home() {
 
       <ScrollView
         style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: layout.spacing.xl + 18 },
+        ]}
         onScroll={({ nativeEvent }) => {
           const { contentSize, contentOffset, layoutMeasurement } = nativeEvent;
           const paddingToBottom = 160; // preload before exact bottom
@@ -445,279 +635,467 @@ export default function Home() {
           />
         }
       >
-        {/* Banner Slider */}
-        <BannerSlider />
+        <View
+          style={[
+            styles.heroSection,
+            { paddingHorizontal: layout.horizontalPadding },
+          ]}
+        >
+          <LinearGradient
+            colors={
+              theme.isDark
+                ? ["#111827", "#172033", "#0F172A"]
+                : ["#FFF7EC", "#FFE8C9", "#FFD6AE"]
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[
+              styles.heroPanel,
+              {
+                borderRadius: layout.isTablet ? 34 : 28,
+                borderColor: theme.isDark
+                  ? "rgba(255,255,255,0.08)"
+                  : "rgba(255,255,255,0.72)",
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.heroOrb,
+                styles.heroOrbTop,
+                {
+                  backgroundColor: `${theme.colors.primary}${
+                    theme.isDark ? "24" : "18"
+                  }`,
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.heroOrb,
+                styles.heroOrbBottom,
+                {
+                  backgroundColor: `${theme.colors.secondary}${
+                    theme.isDark ? "22" : "14"
+                  }`,
+                },
+              ]}
+            />
 
-        {/* Discount Products Slider */}
-        <DiscountProductSlider />
+            <View style={styles.heroCopyBlock}>
+              <Text
+                style={[
+                  styles.heroTitle,
+                  {
+                    color: theme.isDark ? "#F8FAFC" : "#111827",
+                    direction:!isRTL ? 'ltr' : 'rtl'
+                  },
+                ]}
+              >
+                {t("discoverProducts")}
+              </Text>
+            </View>
 
-        {/* Categories - 2 Row Layout */}
-        <SectionBanner type="categories" resizeMode="stretch" style={[styles.section, styles.categoriesSection]} route="/categories">
-          <View style={styles.sectionBackdrop}>
-            <View style={[styles.decorativeCircle, styles.decorativeCircle1]} />
-            <View style={[styles.decorativeCircle, styles.decorativeCircle2]} />
-          </View>
+            <View
+              style={[
+                styles.heroActionsGrid,
+                {
+                  gap: heroActionGap,
+                  flexDirection: isRTL ? "row-reverse" : "row",
+                },
+              ]}
+            >
+              {heroActions.map((action) => (
+                <Pressable
+                  key={action.key}
+                  style={({ pressed }) => [
+                    styles.heroActionCard,
+                    {
+                      backgroundColor: action.background,
+                      width: layout.isTablet
+                        ? Math.min(
+                            220,
+                            (layout.width - layout.horizontalPadding * 2 - 72) / 2,
+                          )
+                        : "48%",
+                    },
+                    pressed && styles.heroActionCardPressed,
+                  ]}
+                  onPress={() => navigateToRoute(action.route)}
+                >
+                  <View
+                    style={[
+                      styles.heroActionIconWrap,
+                      { backgroundColor: `${action.accent}18` },
+                    ]}
+                  >
+                    <Ionicons
+                      name={action.icon}
+                      size={layout.isTablet ? 20 : 18}
+                      color={action.accent}
+                    />
+                  </View>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.heroActionLabel,
+                      { color: theme.isDark ? "#F8FAFC" : "#111827" },
+                    ]}
+                  >
+                    {action.label}
+                  </Text>
+                  <Ionicons
+                    name={isRTL ? "arrow-back" : "arrow-forward"}
+                    size={14}
+                    color={theme.isDark ? "#CBD5E1" : "#6B7280"}
+                  />
+                </Pressable>
+              ))}
+            </View>
+
+            <View
+              style={[
+                styles.heroMetricsRow,
+                {
+                  flexDirection: isRTL ? "row-reverse" : "row",
+                  gap: heroActionGap,
+                },
+              ]}
+            >
+              {heroMetrics.map((metric) => (
+                <View
+                  key={metric.key}
+                  style={[
+                    styles.heroMetricCard,
+                    {
+                      backgroundColor: theme.isDark
+                        ? "rgba(255,255,255,0.05)"
+                        : "rgba(255,255,255,0.58)",
+                      borderColor: theme.isDark
+                        ? "rgba(255,255,255,0.06)"
+                        : "rgba(255,255,255,0.65)",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.heroMetricValue,
+                      { color: theme.isDark ? "#F8FAFC" : "#111827" },
+                    ]}
+                  >
+                    {formatCompactNumber(metric.value)}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.heroMetricLabel,
+                      {
+                        color: theme.isDark
+                          ? "rgba(226,232,240,0.82)"
+                          : "rgba(55,65,81,0.78)",
+                      },
+                    ]}
+                  >
+                    {metric.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {((featuredLoading || productsLoading) ||
+              heroPreviewProducts.length > 0) && (
+              <View style={styles.heroPreviewBlock}>
+                <View
+                  style={[
+                    styles.heroPreviewHeader,
+                    { flexDirection: isRTL ? "row-reverse" : "row" },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.heroPreviewTitle,
+                      { color: theme.isDark ? "#F8FAFC" : "#111827" },
+                    ]}
+                  >
+                    {t("featuredProducts")}
+                  </Text>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.heroPreviewLink,
+                      pressed && styles.heroSearchButtonPressed,
+                    ]}
+                    onPress={() => navigateToRoute("/products?is_important=1")}
+                  >
+                    <Text
+                      style={[
+                        styles.heroPreviewLinkText,
+                        { color: theme.colors.primary },
+                      ]}
+                    >
+                      {t("seeAll")}
+                    </Text>
+                  </Pressable>
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{
+                    paddingRight: 4,
+                    gap: 10,
+                    flexDirection: isRTL ? "row-reverse" : "row",
+                  }}
+                >
+                  {(featuredLoading || productsLoading) &&
+                  heroPreviewProducts.length === 0
+                    ? [1, 2, 3].map((item) => (
+                        <View
+                          key={`hero-skeleton-${item}`}
+                          style={[
+                            styles.heroPreviewCard,
+                            {
+                              width: heroPreviewCardWidth,
+                              backgroundColor: theme.isDark
+                                ? "rgba(255,255,255,0.06)"
+                                : "rgba(255,255,255,0.5)",
+                              borderColor: theme.isDark
+                                ? "rgba(255,255,255,0.06)"
+                                : "rgba(255,255,255,0.74)",
+                            },
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.heroPreviewImage,
+                              { backgroundColor: theme.colors.border },
+                            ]}
+                          />
+                          <View style={styles.heroPreviewInfo}>
+                            <View
+                              style={[
+                                styles.collectionSkeletonLine,
+                                { width: "78%", backgroundColor: theme.colors.border },
+                              ]}
+                            />
+                            <View
+                              style={[
+                                styles.collectionSkeletonLine,
+                                { width: "46%", backgroundColor: theme.colors.border },
+                              ]}
+                            />
+                          </View>
+                        </View>
+                      ))
+                    : heroPreviewProducts.map((product) => (
+                        <Pressable
+                          key={`hero-product-${product.id}`}
+                          style={({ pressed }) => [
+                            styles.heroPreviewCard,
+                            {
+                              width: heroPreviewCardWidth,
+                              backgroundColor: theme.isDark
+                                ? "rgba(255,255,255,0.06)"
+                                : "rgba(255,255,255,0.54)",
+                              borderColor: theme.isDark
+                                ? "rgba(255,255,255,0.06)"
+                                : "rgba(255,255,255,0.74)",
+                            },
+                            pressed && styles.heroActionCardPressed,
+                          ]}
+                          onPress={() => openProduct(product.id)}
+                        >
+                          <Image
+                            source={{
+                              uri: getProductImageUrl(
+                                product,
+                                "https://via.placeholder.com/400",
+                              ),
+                            }}
+                            style={styles.heroPreviewImage}
+                            contentFit="cover"
+                            transition={180}
+                            cachePolicy="memory-disk"
+                          />
+                          <View style={styles.heroPreviewInfo}>
+                            <Text
+                              numberOfLines={2}
+                              style={[
+                                styles.heroPreviewName,
+                                { color: theme.isDark ? "#F8FAFC" : "#111827" },
+                              ]}
+                            >
+                              {getLocalizedText(product, "name")}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.heroPreviewPrice,
+                                { color: theme.colors.primary },
+                              ]}
+                            >
+                              {isRTL
+                                ? `${product.sell_price} دينار`
+                                : `${product.sell_price} IQD`}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ))}
+                </ScrollView>
+              </View>
+            )}
+          </LinearGradient>
+        </View>
+
+        <View style={styles.mediaStack}>
+          <BannerSlider />
+          <DiscountProductSlider />
+        </View>
+
+        {/* Categories */}
+        <SectionBanner
+          type="categories"
+          resizeMode="stretch"
+          style={[styles.section, styles.categoriesSection]}
+          route="/categories"
+        >
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={[
-              styles.categoriesScroll,
-              { paddingLeft: layout.horizontalPadding ,marginTop:70 },
+            contentContainerStyle={[
+              styles.iconRail,
+              {
+                paddingLeft: layout.horizontalPadding,
+                paddingRight: layout.horizontalPadding,
+                marginTop: sectionTopInset,
+                gap: categoryGridGap,
+                flexDirection: isRTL ? "row-reverse" : "row",
+              },
             ]}
-            contentContainerStyle={{ paddingRight: layout.horizontalPadding }}
           >
-            {categoriesLoading ? (
-              <View style={{ flexDirection: "column", gap: 12 }}>
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  {[1, 2, 3, 4].map((i) => (
-                    <View key={i} style={styles.categoryCard2Row}>
-                      <View
-                        style={[
-                          styles.categoryImageContainer2Row,
-                          {
-                            backgroundColor: theme.colors.border,
-                          },
-                        ]}
-                      />
+            {categoriesLoading
+              ? [1, 2, 3, 4].map((columnIndex) => (
+                  <View
+                    key={`category-column-skeleton-${columnIndex}`}
+                    style={[styles.iconColumn, { gap: categoryGridGap }]}
+                  >
+                    {renderIconTileSkeleton(`${columnIndex}-top`, "category")}
+                    {renderIconTileSkeleton(`${columnIndex}-bottom`, "category")}
+                  </View>
+                ))
+              : categoryColumns.length > 0
+                ? categoryColumns.map((column, columnIndex) => (
+                    <View
+                      key={`category-column-${columnIndex}`}
+                      style={[styles.iconColumn, { gap: categoryGridGap }]}
+                    >
+                      {column.map((category) => renderIconTile(category, "category"))}
+                      {column.length === 1 && (
+                        <View style={{ width: iconColumnWidth, height: categoryCardSize }} />
+                      )}
                     </View>
-                  ))}
-                </View>
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  {[5, 6, 7, 8].map((i) => (
-                    <View key={i} style={styles.categoryCard2Row}>
-                      <View
-                        style={[
-                          styles.categoryImageContainer2Row,
-                          {
-                            backgroundColor: theme.colors.border,
-                          },
-                        ]}
+                  ))
+                : (
+                    <View
+                      style={[
+                        styles.collectionEmptyState,
+                        {
+                          backgroundColor: theme.colors.card,
+                          borderColor: theme.colors.border,
+                          width: Math.max(
+                            220,
+                            layout.width - layout.horizontalPadding * 2,
+                          ),
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="grid-outline"
+                        size={22}
+                        color={theme.colors.textSecondary}
                       />
+                      <Text
+                        style={[
+                          styles.collectionEmptyText,
+                          { color: theme.colors.textSecondary },
+                        ]}
+                      >
+                        {t("noCategories")}
+                      </Text>
                     </View>
-                  ))}
-                </View>
-              </View>
-            ) : parentCategories.length > 0 ? (
-              <View style={{ flexDirection: "column", gap: 10 }}>
-                {/* First Row */}
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  {parentCategories
-                    .filter((_, idx) => idx % 2 === 0)
-                    .map((category) => (
-                      <Pressable
-                        key={category.id}
-                        style={({ pressed }) => [
-                          styles.categoryCard2Row,
-                          {
-                            backgroundColor: theme.colors.card,
-                            borderColor: theme.colors.border,
-                          },
-                          pressed && {
-                            transform: [{ scale: 0.95 }],
-                            opacity: 0.8,
-                          },
-                        ]}
-                        onPress={() => {
-                          navigateToFilteredProducts("category", category.id);
-                        }}
-                      >
-                        <View
-                          style={[
-                            styles.categoryImageContainer2Row,
-                            {
-                              backgroundColor: theme.colors.primary + "10",
-                            },
-                          ]}
-                        >
-                          <Image
-                            source={{ uri: resolveCategoryImageUri(category) }}
-                            style={styles.categoryImage}
-                            contentFit="cover"
-                            transition={200}
-                            cachePolicy="memory-disk"
-                          />
-                        </View>
-                      </Pressable>
-                    ))}
-                </View>
-                {/* Second Row */}
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  {parentCategories
-                    .filter((_, idx) => idx % 2 === 1)
-                    .map((category) => (
-                      <Pressable
-                        key={category.id}
-                        style={({ pressed }) => [
-                          styles.categoryCard2Row,
-                          {
-                            backgroundColor: theme.colors.card,
-                            borderColor: theme.colors.border,
-                          },
-                          pressed && {
-                            transform: [{ scale: 0.95 }],
-                            opacity: 0.8,
-                          },
-                        ]}
-                        onPress={() => {
-                          navigateToFilteredProducts("category", category.id);
-                        }}
-                      >
-                        <View
-                          style={[
-                            styles.categoryImageContainer2Row,
-                            {
-                              backgroundColor: theme.colors.primary + "10",
-                            },
-                          ]}
-                        >
-                          <Image
-                            source={{ uri: resolveCategoryImageUri(category) }}
-                            style={styles.categoryImage}
-                            contentFit="cover"
-                            transition={200}
-                            cachePolicy="memory-disk"
-                          />
-                        </View>
-                      </Pressable>
-                    ))}
-                </View>
-              </View>
-            ) : null}
+                  )}
           </ScrollView>
         </SectionBanner>
 
-        {/* Brands - 2 Row Layout */}
-        <SectionBanner type="brands" resizeMode="stretch" style={[styles.section, styles.brandsSection]} route="/brands">
-          <View style={styles.sectionBackdrop}>
-            <View style={[styles.decorativeCircle, styles.decorativeCircle3]} />
-            <View style={[styles.decorativeCircle, styles.decorativeCircle4]} />
-          </View>
+        {/* Brands */}
+        <SectionBanner
+          type="brands"
+          resizeMode="stretch"
+          style={[styles.section, styles.brandsSection]}
+          route="/brands"
+        >
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={[
-              styles.categoriesScroll,
-              { paddingLeft: layout.horizontalPadding ,marginTop:70},
+            contentContainerStyle={[
+              styles.iconRail,
+              {
+                paddingLeft: layout.horizontalPadding,
+                paddingRight: layout.horizontalPadding,
+                marginTop: sectionTopInset,
+                gap: categoryGridGap,
+                flexDirection: isRTL ? "row-reverse" : "row",
+              },
             ]}
-            contentContainerStyle={{ paddingRight: layout.horizontalPadding }}
           >
-            {brandsLoading ? (
-              <View style={{ flexDirection: "column", gap: 12 }}>
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  {[1, 2, 3, 4].map((i) => (
-                    <View key={i} style={styles.categoryCard2Row}>
-                      <View
-                        style={[
-                          styles.categoryImageContainer2Row,
-                          {
-                            backgroundColor: theme.colors.border,
-                          },
-                        ]}
-                      />
+            {brandsLoading
+              ? [1, 2, 3, 4].map((columnIndex) => (
+                  <View
+                    key={`brand-column-skeleton-${columnIndex}`}
+                    style={[styles.iconColumn, { gap: categoryGridGap }]}
+                  >
+                    {renderIconTileSkeleton(`${columnIndex}-top`, "brand")}
+                    {renderIconTileSkeleton(`${columnIndex}-bottom`, "brand")}
+                  </View>
+                ))
+              : brandColumns.length > 0
+                ? brandColumns.map((column, columnIndex) => (
+                    <View
+                      key={`brand-column-${columnIndex}`}
+                      style={[styles.iconColumn, { gap: categoryGridGap }]}
+                    >
+                      {column.map((brand) => renderIconTile(brand, "brand"))}
+                      {column.length === 1 && (
+                        <View style={{ width: iconColumnWidth, height: categoryCardSize }} />
+                      )}
                     </View>
-                  ))}
-                </View>
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  {[5, 6, 7, 8].map((i) => (
-                    <View key={i} style={styles.categoryCard2Row}>
-                      <View
-                        style={[
-                          styles.categoryImageContainer2Row,
-                          {
-                            backgroundColor: theme.colors.border,
-                          },
-                        ]}
+                  ))
+                : (
+                    <View
+                      style={[
+                        styles.collectionEmptyState,
+                        {
+                          backgroundColor: theme.colors.card,
+                          borderColor: theme.colors.border,
+                          width: Math.max(
+                            220,
+                            layout.width - layout.horizontalPadding * 2,
+                          ),
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="storefront-outline"
+                        size={22}
+                        color={theme.colors.textSecondary}
                       />
+                      <Text
+                        style={[
+                          styles.collectionEmptyText,
+                          { color: theme.colors.textSecondary },
+                        ]}
+                      >
+                        {t("noBrands")}
+                      </Text>
                     </View>
-                  ))}
-                </View>
-              </View>
-            ) : brands.length > 0 ? (
-              <View style={{ flexDirection: "column", gap: 10 }}>
-                {/* First Row */}
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  {brands
-                    .filter((_, idx) => idx % 2 === 0)
-                    .map((brand) => (
-                      <Pressable
-                        key={brand.id}
-                        style={({ pressed }) => [
-                          styles.categoryCard2Row,
-                          {
-                            backgroundColor: theme.colors.card,
-                            borderColor: theme.colors.border,
-                          },
-                          pressed && {
-                            transform: [{ scale: 0.95 }],
-                            opacity: 0.8,
-                          },
-                        ]}
-                        onPress={() => {
-                          navigateToFilteredProducts("brand", brand.id);
-                        }}
-                      >
-                        <View
-                          style={[
-                            styles.categoryImageContainer2Row,
-                            {
-                              backgroundColor: theme.colors.primary + "10",
-                            },
-                          ]}
-                        >
-                          <Image
-                            source={{ uri: resolveBrandImageUri(brand) }}
-                            style={styles.categoryImage}
-                            contentFit="cover"
-                            transition={200}
-                            cachePolicy="memory-disk"
-                          />
-                        </View>
-                      </Pressable>
-                    ))}
-                </View>
-                {/* Second Row */}
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  {brands
-                    .filter((_, idx) => idx % 2 === 1)
-                    .map((brand) => (
-                      <Pressable
-                        key={brand.id}
-                        style={({ pressed }) => [
-                          styles.categoryCard2Row,
-                          {
-                            backgroundColor: theme.colors.card,
-                            borderColor: theme.colors.border,
-                          },
-                          pressed && {
-                            transform: [{ scale: 0.95 }],
-                            opacity: 0.8,
-                          },
-                        ]}
-                        onPress={() => {
-                          navigateToFilteredProducts("brand", brand.id);
-                        }}
-                      >
-                        <View
-                          style={[
-                            styles.categoryImageContainer2Row,
-                            {
-                              backgroundColor: theme.colors.primary + "10",
-                            },
-                          ]}
-                        >
-                          <Image
-                            source={{ uri: resolveBrandImageUri(brand) }}
-                            style={styles.categoryImage}
-                            contentFit="cover"
-                            transition={200}
-                            cachePolicy="memory-disk"
-                          />
-                        </View>
-                      </Pressable>
-                    ))}
-                </View>
-              </View>
-            ) : null}
+                  )}
           </ScrollView>
         </SectionBanner>
 
@@ -748,8 +1126,8 @@ export default function Home() {
                 style={{ paddingLeft: layout.horizontalPadding }}
                 contentContainerStyle={{
                   paddingRight: layout.horizontalPadding,
-                  gap: 12,
-                  marginTop: 70,
+                  gap: layout.isTablet ? 16 : 12,
+                  marginTop: sectionTopInset,
                 }}
               >
                 {recentProducts.map((product) => (
@@ -757,23 +1135,24 @@ export default function Home() {
                     key={product.id}
                     style={({ pressed }) => [
                       styles.recentCard,
-                      { backgroundColor: theme.colors.card },
+                      {
+                        backgroundColor: theme.colors.card,
+                        width: recentCardWidth,
+                        borderRadius: layout.isTablet ? 16 : 12,
+                      },
                       pressed && {
                         transform: [{ scale: 0.97 }],
                         opacity: 0.9,
                       },
                     ]}
-                    onPress={() => {
-                      if (!navigationInProgress.current) {
-                        navigationInProgress.current = true;
-                        router.push(`/product/${product.id}`);
-                        setTimeout(() => {
-                          navigationInProgress.current = false;
-                        }, 500);
-                      }
-                    }}
+                    onPress={() => openProduct(product.id)}
                   >
-                    <View style={styles.recentImage}>
+                    <View
+                      style={[
+                        styles.recentImage,
+                        { height: recentImageHeight },
+                      ]}
+                    >
                       <Image
                         source={{
                           uri: getProductImageUrl(
@@ -814,7 +1193,11 @@ export default function Home() {
                           styles.recentProductName,
                           {
                             color: theme.colors.text,
-                            fontSize: layout.isSmallPhone ? 12 : 13,
+                            fontSize: layout.isTablet
+                              ? 14
+                              : layout.isSmallPhone
+                                ? 12
+                                : 13,
                           },
                         ]}
                       >
@@ -826,7 +1209,11 @@ export default function Home() {
                             styles.recentPrice,
                             {
                               color: theme.colors.primary,
-                              fontSize: layout.isSmallPhone ? 14 : 15,
+                              fontSize: layout.isTablet
+                                ? 16
+                                : layout.isSmallPhone
+                                  ? 14
+                                  : 15,
                             },
                           ]}
                         >
@@ -853,27 +1240,28 @@ export default function Home() {
         })()}
 
         {/* Featured Products */}
-        <SectionBanner
-          type="special"
-          resizeMode="none"
-          style={[
-            styles.section,
-            { backgroundColor: "transparent", paddingVertical: 10 },
-          ]}
-          route="/products"
-        >
+        {(featuredLoading || featuredProducts.length > 0) && (
+          <SectionBanner
+            type="special"
+            resizeMode="none"
+            style={[
+              styles.section,
+              { backgroundColor: "transparent", paddingTop: 10, paddingBottom: 0 },
+            ]}
+            route="/products?is_important=1"
+          >
           <View
             style={[
               styles.productsGrid,
               {
                 flexDirection: isRTL ? "row-reverse" : "row",
                 paddingHorizontal: layout.horizontalPadding,
-                marginTop:70,
+                marginTop: sectionTopInset,
                 gap: layout.cardGap,
               },
             ]}
           >
-            {productsLoading && products.length === 0 ? (
+            {featuredLoading && featuredProducts.length === 0 ? (
               <>
                 {[1, 2, 3, 4].map((i) => (
                   <View
@@ -882,7 +1270,7 @@ export default function Home() {
                       styles.productCard,
                       {
                         backgroundColor: theme.colors.card,
-                        width: layout.cardWidth,
+                        width: featuredCardWidth,
                         borderColor: theme.colors.border,
                         borderWidth: StyleSheet.hairlineWidth,
                       },
@@ -892,11 +1280,7 @@ export default function Home() {
                       style={[
                         styles.productImage,
                         {
-                          height: layout.isSmallPhone
-                            ? 100
-                            : layout.isMediumPhone
-                              ? 110
-                              : 120,
+                          height: featuredImageHeight,
                           backgroundColor: theme.colors.border,
                         },
                       ]}
@@ -931,9 +1315,9 @@ export default function Home() {
                         />
                         <View
                           style={{
-                            width: layout.isSmallPhone ? 32 : 36,
-                            height: layout.isSmallPhone ? 32 : 36,
-                            borderRadius: layout.isSmallPhone ? 16 : 18,
+                            width: productActionButtonSize,
+                            height: productActionButtonSize,
+                            borderRadius: productActionButtonSize / 2,
                             backgroundColor: theme.colors.border,
                           }}
                         />
@@ -942,34 +1326,26 @@ export default function Home() {
                   </View>
                 ))}
               </>
-            ) : products.length > 0 ? (
-              products.map((product) => (
+            ) : featuredProducts.length > 0 ? (
+              featuredProducts.map((product) => (
                 <Pressable
                   key={product.id}
                   style={({ pressed }) => [
                     styles.productCard,
                     {
                       backgroundColor: theme.colors.card,
-                      width: layout.cardWidth,
+                      width: featuredCardWidth,
                     },
                     pressed && styles.productCardPressed,
                   ]}
-                  onPress={() => {
-                    if (!navigationInProgress.current) {
-                      navigationInProgress.current = true;
-                      router.push(`/product/${product.id}`);
-                      setTimeout(() => {
-                        navigationInProgress.current = false;
-                      }, 500);
-                    }
-                  }}
+                  onPress={() => openProduct(product.id)}
                 >
                   {/* Image at top */}
                   <View
                     style={[
                       styles.productImage,
                       {
-                        height: layout.cardWidth * 0.75,
+                        height: featuredImageHeight,
                       },
                     ]}
                   >
@@ -1003,6 +1379,9 @@ export default function Home() {
                         styles.favoriteButton,
                         {
                           backgroundColor: theme.colors.card,
+                          width: productActionButtonSize,
+                          height: productActionButtonSize,
+                          borderRadius: productActionButtonSize / 2,
                         },
                       ]}
                       onPress={(e) => {
@@ -1011,7 +1390,7 @@ export default function Home() {
                       }}
                     >
                       <Heart
-                        size={16}
+                        size={layout.isTablet ? 18 : 16}
                         color={
                           favorites[product.id] ? "#EF4444" : theme.colors.text
                         }
@@ -1028,12 +1407,12 @@ export default function Home() {
                       numberOfLines={2}
                       style={[
                         styles.productName,
-                        {
-                          color: theme.colors.text,
-                          fontSize: layout.productNameSize,
-                          minHeight: 32,
-                        },
-                      ]}
+                          {
+                            color: theme.colors.text,
+                            fontSize: layout.productNameSize,
+                            minHeight: layout.isTablet ? 38 : 32,
+                          },
+                        ]}
                     >
                       {getLocalizedText(product, "name")}
                     </Text>
@@ -1083,22 +1462,19 @@ export default function Home() {
                           styles.shareButton,
                           {
                             backgroundColor: theme.colors.primary,
-                            width: layout.isSmallPhone ? 32 : 36,
-                            height: layout.isSmallPhone ? 32 : 36,
-                            borderRadius: layout.isSmallPhone ? 16 : 18,
+                            width: productActionButtonSize,
+                            height: productActionButtonSize,
+                            borderRadius: productActionButtonSize / 2,
                           },
                         ]}
                         onPress={(e) => {
                           e.stopPropagation();
-                          handleShareProduct(
-                            product.id,
-                            getLocalizedText(product, "name"),
-                          );
+                          handleShareProduct(product.id, getLocalizedText(product, "name"));
                         }}
                       >
                         <Ionicons
                           name="share-outline"
-                          size={layout.isSmallPhone ? 16 : 18}
+                          size={productActionIconSize}
                           color="#fff"
                         />
                       </TouchableOpacity>
@@ -1108,27 +1484,21 @@ export default function Home() {
               ))
             ) : null}
           </View>
-          {/* Loading more indicator */}
-          {loadingMore && (
-            <View
-              style={{
-                paddingVertical: 12,
-                alignItems: "center",
-              }}
-            >
+          </SectionBanner>
+        )}
+        {(loadingMore || (!hasMore && products.length > 0)) && (
+          <View style={styles.listFooter}>
+            {loadingMore ? (
               <Text style={{ color: theme.colors.textSecondary }}>
                 {t("loadingMore")}...
               </Text>
-            </View>
-          )}
-          {!hasMore && products.length > 0 && (
-            <View style={{ paddingVertical: 8, alignItems: "center" }}>
+            ) : (
               <Text style={{ color: theme.colors.textSecondary }}>
                 {t("noMoreItems")}
               </Text>
-            </View>
-          )}
-        </SectionBanner>
+            )}
+          </View>
+        )}
         <InfoDialog
           visible={dialog.visible}
           title={dialog.title}
@@ -1150,6 +1520,229 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    gap: 0,
+  },
+  heroSection: {
+    marginTop: 8,
+    marginBottom: 18,
+  },
+  heroPanel: {
+    overflow: "hidden",
+    borderWidth: 1,
+    padding: 18,
+    gap: 16,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 5,
+  },
+  heroOrb: {
+    position: "absolute",
+    borderRadius: 999,
+  },
+  heroOrbTop: {
+    width: 170,
+    height: 170,
+    top: -56,
+    right: -40,
+  },
+  heroOrbBottom: {
+    width: 190,
+    height: 190,
+    bottom: -108,
+    left: -54,
+  },
+  heroCopyBlock: {
+    gap: 10,
+  },
+  heroRibbon: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    maxWidth: "100%",
+  },
+  heroRibbonText: {
+    fontSize: 11,
+  },
+  heroTitle: {
+    fontSize: 28,
+    lineHeight: 34,
+  },
+  heroSubtitle: {
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  heroSearchButton: {
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  heroSearchButtonPressed: {
+    transform: [{ scale: 0.98 }],
+    opacity: 0.92,
+  },
+  heroSearchIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroSearchText: {
+    flex: 1,
+    fontSize: 14,
+  },
+  heroActionsGrid: {
+    flexWrap: "wrap",
+  },
+  heroActionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 18,
+  },
+  heroActionCardPressed: {
+    transform: [{ scale: 0.97 }],
+    opacity: 0.9,
+  },
+  heroActionIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroActionLabel: {
+    flex: 1,
+    fontSize: 13,
+  },
+  heroMetricsRow: {
+    justifyContent: "space-between",
+  },
+  heroMetricCard: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 2,
+  },
+  heroMetricValue: {
+    fontSize: 18,
+  },
+  heroMetricLabel: {
+    fontSize: 11,
+  },
+  heroPreviewBlock: {
+    gap: 10,
+  },
+  heroPreviewHeader: {
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  heroPreviewTitle: {
+    fontSize: 15,
+  },
+  heroPreviewLink: {
+    paddingVertical: 4,
+  },
+  heroPreviewLinkText: {
+    fontSize: 12,
+  },
+  heroPreviewCard: {
+    borderRadius: 18,
+    overflow: "hidden",
+    borderWidth: 1,
+  },
+  heroPreviewImage: {
+    width: "100%",
+    height: 118,
+    backgroundColor: "#E5E7EB",
+  },
+  heroPreviewInfo: {
+    padding: 10,
+    gap: 6,
+  },
+  heroPreviewName: {
+    fontSize: 12,
+    lineHeight: 17,
+    minHeight: 34,
+  },
+  heroPreviewPrice: {
+    fontSize: 13,
+  },
+  mediaStack: {
+    gap: 4,
+  },
+  iconRail: {
+    alignItems: "flex-start",
+  },
+  iconColumn: {
+    justifyContent: "flex-start",
+  },
+  iconTilePressable: {
+    alignItems: "center",
+  },
+  iconTilePressed: {
+    transform: [{ scale: 0.95 }],
+    opacity: 0.88,
+  },
+  iconTile: {
+    overflow: "hidden",
+    borderWidth: 1,
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconTileHalo: {
+    position: "absolute",
+    width: "74%",
+    height: "74%",
+    borderRadius: 999,
+  },
+  iconTileInner: {
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+  },
+  iconTileImage: {
+    width: "100%",
+    height: "100%",
+  },
+  collectionSkeletonLine: {
+    height: 10,
+    borderRadius: 999,
+  },
+  collectionEmptyState: {
+    minHeight: 120,
+    borderWidth: 1,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  collectionEmptyText: {
+    fontSize: 13,
+    textAlign: "center",
+  },
+  listFooter: {
+    paddingTop: 6,
+    paddingBottom: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   header: {
     flexDirection: "row",
@@ -1232,8 +1825,8 @@ const styles = StyleSheet.create({
   section: {
   },
   categoriesSection: {
-    paddingVertical: 10,
-    paddingBottom: 10,
+    paddingTop: 10,
+    paddingBottom: 0,
     marginBottom: 0,
     borderRadius: 0,
     backgroundColor: "#FAFAFA",
@@ -1246,8 +1839,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   brandsSection: {
-    paddingVertical: 10,
-    paddingBottom: 10,
+    paddingTop: 10,
+    paddingBottom: 0,
     marginBottom: 0,
     borderRadius: 0,
     backgroundColor: "#F5F5F5",
@@ -1255,14 +1848,14 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   recentSection: {
-    paddingVertical: 10,
-    paddingBottom: 10,
+    paddingTop: 10,
+    paddingBottom: 0,
     marginBottom: 0,
     backgroundColor: "#FFFFFF",
   },
   horizontalProductsSection: {
-    paddingVertical: 20,
-    paddingBottom: 24,
+    paddingTop: 20,
+    paddingBottom: 0,
     marginBottom: 0,
     backgroundColor: "#FAFAFA",
   },
@@ -1420,16 +2013,55 @@ const styles = StyleSheet.create({
     borderRadius:15,
     backgroundColor: "#fff",
   },
+  categoryShowcaseCard: {
+    position: "relative",
+    overflow: "hidden",
+    borderWidth: 1,
+    gap: 10,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3,
+  },
+  categoryShowcaseCardPressed: {
+    transform: [{ scale: 0.96 }],
+    opacity: 0.9,
+  },
+  categoryGlowOrb: {
+    position: "absolute",
+    width: 96,
+    height: 96,
+    borderRadius: 999,
+    top: -22,
+    right: -16,
+    opacity: 0.9,
+  },
   categoryImageContainer2Row: {
-    width: 80,
-    height: 80,
-    borderRadius: 15,
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#f0f4f8",
-    borderWidth: 3,
     borderColor: "#fff",
+  },
+  categoryFooterRow: {
+    width: "100%",
+    alignItems: "center",
+    gap: 8,
+  },
+  categoryShowcaseLabel: {
+    flex: 1,
+    lineHeight: 16,
+    letterSpacing: -0.1,
+  },
+  categoryArrowChip: {
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  categorySkeletonLine: {
+    height: 10,
+    borderRadius: 999,
   },
   categoryText2Row: {
     fontSize: 11,
@@ -1575,7 +2207,6 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   recentCard: {
-    width: 140,
     borderRadius: 12,
     overflow: "hidden",
     marginRight: 0,
@@ -1585,7 +2216,6 @@ const styles = StyleSheet.create({
   },
   recentImage: {
     width: "100%",
-    height: 120,
     backgroundColor: "#f5f5f5",
     position: "relative",
   },

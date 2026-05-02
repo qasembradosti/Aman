@@ -11,19 +11,13 @@ import {
 import { useSelector } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
-import Text from "../../components/ui/Text";
+import { Text } from "../../components/ui/Text";
 import apiService from "../../services/apiService";
 import { useLanguage } from "../../utils/LanguageContext";
 import { useTheme } from "../../utils/ThemeContext";
 import { getApiBaseUrl } from "../../utils/apiConfig";
 // Use theme.colors.primary instead of direct constant
 import * as Haptics from "expo-haptics";
-
-const computeRanked = (list) =>
-  list
-    .slice()
-    .sort((a, b) => Number(b.balance) - Number(a.balance))
-    .map((item, idx) => ({ ...item, rank: idx + 1 }));
 
 const getDisplayName = (user) => {
   const firstName = user?.first_name || user?.firstName;
@@ -235,7 +229,6 @@ export default function Rank() {
 
   // Filters (UI only for now)
   const [period, setPeriod] = useState("allTime"); // 'weekly' | 'monthly' | 'yearly' | 'allTime'
-  const [scope, setScope] = useState("global"); // 'global' | 'friends'
 
   // Check if current user is admin or superadmin
   const isAdminUser = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';

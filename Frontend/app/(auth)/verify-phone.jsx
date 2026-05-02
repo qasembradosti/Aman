@@ -46,7 +46,6 @@ export default function VerifyPhone() {
   const {
     user,
     loading,
-    error: authError,
   } = useSelector((state) => state.auth);
   const [code, setCode] = useState("");
   const [resending, setResending] = useState(false);

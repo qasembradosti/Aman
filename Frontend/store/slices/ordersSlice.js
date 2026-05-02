@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import apiService from '../../services/apiService';
+import { logout, loadTokenFromStorage } from './authSlice';
 
 // Fetch list of orders with optional filters
 export const fetchOrders = createAsyncThunk(
@@ -158,6 +159,30 @@ const ordersSlice = createSlice({
       })
       .addCase(cancelOrderThunk.rejected, (state, action) => {
         state.error = action.payload || 'Failed to cancel order';
+      })
+      .addCase(logout.fulfilled, (state) => {
+        state.items = [];
+        state.currentOrder = null;
+        state.pagination = {
+          page: 1,
+          limit: 20,
+          total: 0,
+          totalPages: 0,
+        };
+        state.loading = false;
+        state.error = null;
+      })
+      .addCase(loadTokenFromStorage.rejected, (state) => {
+        state.items = [];
+        state.currentOrder = null;
+        state.pagination = {
+          page: 1,
+          limit: 20,
+          total: 0,
+          totalPages: 0,
+        };
+        state.loading = false;
+        state.error = null;
       });
   },
 });

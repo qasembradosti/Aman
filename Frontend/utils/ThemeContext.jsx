@@ -2,7 +2,27 @@ import { createContext, useContext, useState, useEffect } from "react";
 import { Colors } from "../constants/Colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const ThemeContext = createContext();
+const defaultTheme = {
+  isDark: false,
+  colors: {
+    ...Colors.light,
+    primary: Colors.primary,
+    secondary: Colors.secondary,
+    accent: Colors.accent,
+    success: Colors.success,
+    warning: Colors.warning,
+    danger: Colors.danger,
+    info: Colors.info,
+  },
+};
+
+export const defaultThemeContextValue = {
+  theme: defaultTheme,
+  toggleTheme: async () => {},
+  isDark: false,
+};
+
+export const ThemeContext = createContext(defaultThemeContextValue);
 
 export const ThemeProvider = ({ children }) => {
   const [isDark, setIsDark] = useState(false);
@@ -67,9 +87,5 @@ export const ThemeProvider = ({ children }) => {
 };
 
 export const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error("useTheme must be used within ThemeProvider");
-  }
-  return context;
+  return useContext(ThemeContext);
 };

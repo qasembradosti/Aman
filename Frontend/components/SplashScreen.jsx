@@ -28,7 +28,7 @@ export default function SplashScreen() {
         useNativeDriver: true,
       }).start();
     });
-  }, []);
+  }, [fadeAnim, scaleAnim, textFadeAnim]);
 
   return (
     <View style={styles.container}>
@@ -66,7 +66,7 @@ export default function SplashScreen() {
           },
         ]}
       >
-        <Animated.Text style={styles.brandText}>Aman</Animated.Text>
+        <Animated.Text style={styles.brandText}>Amanly</Animated.Text>
         <Animated.Text style={styles.taglineText}>
           Your Shopping Partner
         </Animated.Text>

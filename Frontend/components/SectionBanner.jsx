@@ -3,10 +3,7 @@ import {
   View,
   StyleSheet,
   ImageBackground,
-  TouchableOpacity,
 } from "react-native";
-import { useRouter } from "expo-router";
-import { Text } from "./ui/Text";
 import { useLanguage } from "../utils/LanguageContext";
 
 // Map of section types to banner filenames (without locale suffix)
@@ -26,8 +23,7 @@ export default function SectionBanner({
   resizeMode = "cover",
   route,
 }) {
-  const { locale, isRTL, t } = useLanguage();
-  const router = useRouter();
+  const { locale } = useLanguage();
 
   // Get the banner filename based on type and locale
   const getBannerSource = () => {
@@ -94,40 +90,8 @@ export default function SectionBanner({
     return <View style={[styles.container, style]}>{children}</View>;
   }
 
-  // Button positioning based on language
-  const isRTLLanguage = locale !== "ar" || locale !== "ku";
-  const buttonPosition = !isRTLLanguage ? { left: 12 } : { right: 12 };
-
   return (
     <View style={{ position: "relative", width: "100%" }}>
-      <TouchableOpacity
-        style={[
-          {
-            position: "absolute",
-            top: 35,
-            zIndex: 10,
-            backgroundColor: "rgba(0,0,0,0.5)",
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            borderRadius: 20,
-          },
-          buttonPosition,
-        ]}
-        onPress={() => {
-          if (route) {
-            router.push(route);
-          }
-        }}
-      >
-        <Text style={{ color: "#fff", fontSize: 12 }}>
-          {locale === "ar"
-            ? "عرض الجميع"
-            : locale === "ku"
-              ? "بینینی هەموو"
-              : "see all"}
-        </Text>
-      </TouchableOpacity>
-
       <ImageBackground
         source={bannerSource}
         style={[styles.container, style]}

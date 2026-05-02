@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { logoutAdmin } from '../store/slices/authSlice';
 import { useState } from 'react';
 import { Home, Package, FolderTree, ShoppingCart, MessageSquare, Bell, Users, LogOut, Menu, Image, Tag, Store, Wallet, MessageCircle, FileText } from 'lucide-react';
-import { isStoreAdmin } from '../lib/access';
+import { isDeliveryCompany, isStoreAdmin } from '../lib/access';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,7 +41,9 @@ const DashboardLayout = () => {
     ? navItems.filter(
         (item) => item.path === '/products' || item.path === '/orders',
       )
-    : navItems;
+    : isDeliveryCompany(user)
+      ? navItems.filter((item) => item.path === '/orders')
+      : navItems;
 
   const handleLogout = () => {
     dispatch(logoutAdmin());
@@ -60,7 +62,11 @@ const DashboardLayout = () => {
               <Menu className="w-5 h-5 text-gray-600" />
             </button>
             <span className="text-lg font-semibold text-gray-900">
-              {isStoreAdmin(user) ? 'Store Admin' : 'Admin'}
+              {isStoreAdmin(user)
+                ? 'Store Admin'
+                : isDeliveryCompany(user)
+                  ? 'Delivery Company'
+                  : 'Admin'}
             </span>
           </div>
           

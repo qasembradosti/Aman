@@ -6,8 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,7 +28,6 @@ export default function OrderDetails() {
   const {
     currentOrder: order,
     loading,
-    error,
   } = useSelector((state) => state.orders);
 
   useEffect(() => {

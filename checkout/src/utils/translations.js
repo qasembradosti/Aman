@@ -9,6 +9,7 @@ export const translations = {
     // Product Details
     productDetails: "Product Details",
     inStock: "In Stock",
+    outOfStock: "Out of Stock",
     addToCart: "Add to Cart",
     productDescription: "Product Description",
     freePackaging: "Free Packaging",
@@ -55,6 +56,7 @@ export const translations = {
     failedToLoad: "Failed to load product. Please try again.",
     productIdRequired: "Product ID is required",
     stockError: "Cannot add more. Only {stock} items available in stock.",
+    outOfStockError: "This product is currently out of stock.",
     fillAllFields: "Please fill in all required fields",
     cartEmpty: "Your cart is empty",
     orderSuccess: "Orders created successfully! Total: {total}",
@@ -86,6 +88,7 @@ export const translations = {
     // Product Details
     productDetails: "تفاصيل المنتج",
     inStock: "متوفر",
+    outOfStock: "غير متوفر",
     addToCart: "أضف إلى السلة",
     productDescription: "وصف المنتج",
     freePackaging: "تغليف مجاني",
@@ -132,6 +135,7 @@ export const translations = {
     failedToLoad: "فشل تحميل المنتج. يرجى المحاولة مرة أخرى.",
     productIdRequired: "معرف المنتج مطلوب",
     stockError: "لا يمكن إضافة المزيد. {stock} قطعة فقط متوفرة في المخزون.",
+    outOfStockError: "هذا المنتج غير متوفر حالياً.",
     fillAllFields: "يرجى ملء جميع الحقول المطلوبة",
     cartEmpty: "سلة التسوق فارغة",
     orderSuccess: "تم إنشاء الطلبات بنجاح! المجموع: {total}",
@@ -163,6 +167,7 @@ export const translations = {
     // Product Details
     productDetails: "وردەکاریەکانی بەرهەم",
     inStock: "لە کۆگادا هەیە",
+    outOfStock: "بەردەست نییە",
     addToCart: "زیادکردن بۆ سەبەتە",
     productDescription: "پێناسەی بەرهەم",
     freePackaging: "پاکێجکردنی بەخۆڕایی",
@@ -209,6 +214,7 @@ export const translations = {
     failedToLoad: "بارکردنی بەرهەم سەرکەوتوو نەبوو. تکایە دووبارە هەوڵ بدەوە.",
     productIdRequired: "ناسنامەی بەرهەم پێویستە",
     stockError: "ناتوانرێت زیاتر زیاد بکرێت. تەنها {stock} دانە لە کۆگادا هەیە.",
+    outOfStockError: "ئەم بەرهەمە لە ئێستادا بەردەست نییە.",
     fillAllFields: "تکایە هەموو خانە پێویستەکان پڕ بکەوە",
     cartEmpty: "سەبەتەکەت بەتاڵە",
     orderSuccess: "داواکاریەکان بە سەرکەوتوویی دروست کران! کۆی گشتی: {total}",

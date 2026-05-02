@@ -28,9 +28,37 @@ async function ensureUsersStoreColumn() {
   }
 }
 
+async function ensureOrderItemsBasePriceColumn() {
+  try {
+    const orderItemsExists = await db.schema.hasTable('order_items');
+
+    if (!orderItemsExists) {
+      return;
+    }
+
+    const hasBasePrice = await db.schema.hasColumn('order_items', 'base_price');
+
+    if (!hasBasePrice) {
+      await db.schema.alterTable('order_items', (table) => {
+        table.decimal('base_price', 10, 2).nullable();
+      });
+      console.log(' Order_items.base_price column created');
+    }
+
+    await db('order_items')
+      .whereNull('base_price')
+      .update({
+        base_price: db.ref('price'),
+      });
+  } catch (error) {
+    console.error('Error ensuring order_items.base_price column:', error);
+  }
+}
+
 export async function runStartupSchemaSetup() {
   try {
     await ensureUsersStoreColumn();
+    await ensureOrderItemsBasePriceColumn();
   } catch (e) {
     console.warn('Schema setup skipped/failed:', e.message);
   }

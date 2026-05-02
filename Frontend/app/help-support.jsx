@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useSelector } from "react-redux";
 import { useLanguage } from "../utils/LanguageContext";
 import { useTheme } from "../utils/ThemeContext";
 import ChatSupport from "../components/ChatSupport";
@@ -69,6 +70,7 @@ export default function HelpSupport() {
   const { t, isRTL, locale } = useLanguage();
   const { theme } = useTheme();
   const layout = useResponsiveLayout();
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   const [expandedIndex, setExpandedIndex] = useState(null);
   const [showChat, setShowChat] = useState(false);
   const [aboutContent, setAboutContent] = useState(null);
@@ -517,7 +519,11 @@ export default function HelpSupport() {
                   backgroundColor: theme.colors.primary,
                 },
               ]}
-              onPress={() => setShowChat(true)}
+              onPress={() =>
+                isAuthenticated
+                  ? setShowChat(true)
+                  : router.push("/(auth)/login")
+              }
             >
               <View
                 style={[

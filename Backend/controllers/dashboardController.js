@@ -35,7 +35,7 @@ const getStoreDashboardStats = async (storeId) => {
     .clone()
     .select(
       db.raw('COUNT(DISTINCT orders.id) as total_orders'),
-      db.raw('COALESCE(SUM(order_items.quantity * order_items.price), 0) as total_revenue'),
+      db.raw('COALESCE(SUM(order_items.quantity * COALESCE(order_items.base_price, order_items.price)), 0) as total_revenue'),
     )
     .first();
 
@@ -71,7 +71,7 @@ const getStoreDashboardStats = async (storeId) => {
       db.raw('MONTH(orders.created_at) as month'),
       db.raw('YEAR(orders.created_at) as year'),
       db.raw('COUNT(DISTINCT orders.id) as order_count'),
-      db.raw('COALESCE(SUM(order_items.quantity * order_items.price), 0) as revenue'),
+      db.raw('COALESCE(SUM(order_items.quantity * COALESCE(order_items.base_price, order_items.price)), 0) as revenue'),
     )
     .where('orders.created_at', '>=', db.raw('DATE_SUB(NOW(), INTERVAL 12 MONTH)'))
     .groupBy(db.raw('YEAR(orders.created_at), MONTH(orders.created_at)'))
@@ -83,7 +83,7 @@ const getStoreDashboardStats = async (storeId) => {
     .select(
       db.raw('DATE(orders.created_at) as date'),
       db.raw('COUNT(DISTINCT orders.id) as order_count'),
-      db.raw('COALESCE(SUM(order_items.quantity * order_items.price), 0) as revenue'),
+      db.raw('COALESCE(SUM(order_items.quantity * COALESCE(order_items.base_price, order_items.price)), 0) as revenue'),
     )
     .where('orders.created_at', '>=', db.raw('DATE_SUB(NOW(), INTERVAL 30 DAY)'))
     .groupBy(db.raw('DATE(orders.created_at)'))

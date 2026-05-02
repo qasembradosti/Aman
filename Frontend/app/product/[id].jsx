@@ -7,6 +7,7 @@ import {
   Dimensions,
   Platform,
   Share,
+  Modal,
   FlatList,
   Animated,
   ActivityIndicator,
@@ -15,7 +16,7 @@ import {
   Clipboard,
   Linking,
 } from "react-native";
-import { Image } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../utils/ThemeContext";
@@ -33,9 +34,11 @@ import {
   getProductImageUrls,
   getProductVideoUrl,
 } from "../../utils/productImages";
+import { buildPublicProductUrl } from "../../utils/productLinks";
 import { getApiBaseUrl } from "../../utils/apiConfig";
 import { Text } from "../../components/ui/Text";
 import VideoSlide from "../../components/VideoSlide";
+import QRCode from "react-native-qrcode-svg";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
@@ -53,12 +56,12 @@ export default function ProductDetail() {
   const navigationInProgress = useRef(false);
 
   // Helper function to get localized text
-  const getLocalizedText = (product, field) => {
+  const getLocalizedText = useCallback((product, field) => {
     // Ensure language has a default fallback
     const lang = locale;
     const localizedField = `${field}_${lang}`;
     return product[localizedField] || product[field] || "";
-  };
+  }, [locale]);
   const { id } = useLocalSearchParams();
   const { items: products, loading: productsLoading } = useSelector(
     (state) => state.products,
@@ -66,7 +69,7 @@ export default function ProductDetail() {
   const { items: brands, loading: brandsLoading } = useSelector(
     (state) => state.brands,
   );
-  const { user } = useSelector((state) => state.auth);
+  const { isAuthenticated } = useSelector((state) => state.auth);
 
   useEffect(() => {
     // Only fetch if products not already loaded
@@ -84,7 +87,6 @@ export default function ProductDetail() {
     }
   }, [dispatch, products.length, brands.length]);
 
-  const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [dialog, setDialog] = useState({
     visible: false,
@@ -103,6 +105,7 @@ export default function ProductDetail() {
   const [newComment, setNewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
   const [exportingMedia, setExportingMedia] = useState(false);
+  const [shareCodeVisible, setShareCodeVisible] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
@@ -248,7 +251,7 @@ export default function ProductDetail() {
       };
     }
     return null;
-  }, [dbProduct, id, locale]);
+  }, [dbProduct, getLocalizedText]);
 
   // Fetch reviews and rating summary
   useEffect(() => {
@@ -258,10 +261,13 @@ export default function ProductDetail() {
       setReviewsLoading(true);
       setReviewsError(null);
       try {
+        const favoriteStatusPromise = isAuthenticated
+          ? favoriteService.checkFavorite(product.id).catch(() => false)
+          : Promise.resolve(false);
         const [summaryRes, reviewsRes, isFav] = await Promise.all([
           api.get(`/api/products/${product.id}/reviews/summary`),
           api.get(`/api/products/${product.id}/reviews?limit=10`),
-          favoriteService.checkFavorite(product.id).catch(() => false),
+          favoriteStatusPromise,
         ]);
         if (cancelled) return;
         setReviewSummary(
@@ -286,20 +292,15 @@ export default function ProductDetail() {
     return () => {
       cancelled = true;
     };
-  }, [product?.id]);
-
-  // Derived display rating/count using summary when available
-  const displayedRating =
-    Number(reviewSummary?.count) > 0
-      ? Number(reviewSummary?.average || 0).toFixed(1)
-      : (product?.rating ?? 0).toFixed(1);
-  const displayedReviewCount = Number(
-    reviewSummary?.count || product?.reviews || 0,
-  );
+  }, [product?.id, isAuthenticated]);
 
   // Submit a new review
   const submitReview = async () => {
     if (!product?.id) return;
+    if (!isAuthenticated) {
+      router.push("/(auth)/login");
+      return;
+    }
     if (!newRating || newRating < 1 || newRating > 5) {
       setReviewsError(t("invalidRating") || "Please select a rating 1-5");
       return;
@@ -339,7 +340,7 @@ export default function ProductDetail() {
   const copyToClipboard = async (text, label) => {
     try {
       await Clipboard.setString(text);
-    } catch (err) {
+    } catch (_err) {
       setDialog({
         visible: true,
         title: t("error") || "Error",
@@ -616,6 +617,10 @@ export default function ProductDetail() {
 
   const toggleFavorite = async () => {
     if (!product?.id) return;
+    if (!isAuthenticated) {
+      router.push("/(auth)/login");
+      return;
+    }
 
     try {
       const result = await favoriteService.toggleFavorite(product.id);
@@ -635,12 +640,10 @@ export default function ProductDetail() {
 
   const handleShare = async () => {
     try {
-      const userId = user?.id || "unknown";
-      const productId = product?.id || id;
-      const checkoutUrl = `https://checkout.aman-store.com/checkout?userId=${userId}&productId=${productId}`;
+      const publicProductUrl = buildPublicProductUrl(product?.id || id);
 
       const result = await Share.share({
-        message: `${product.name}\n\n${checkoutUrl}`,
+        message: `${product.name}\n\n${publicProductUrl}`,
         title: product.name,
       });
 
@@ -663,31 +666,12 @@ export default function ProductDetail() {
     }
   };
   
-  const handleCheckout = async () => {
-    try {
-      const userId = user?.id || "unknown";
-      const productId = product?.id || id;
-      const checkoutUrl = `https://checkout.aman-store.com/checkout?userId=${userId}&productId=${productId}&quantity=${quantity}`;
-
-      const canOpen = await Linking.canOpenURL(checkoutUrl);
-      if (canOpen) {
-        await Linking.openURL(checkoutUrl);
-      } else {
-        setDialog({
-          visible: true,
-          title: t("error") || "Error",
-          message: t("cannotOpenCheckout") || "Cannot open checkout page",
-        });
-      }
-    } catch (error) {
-      console.error("Checkout error:", error);
-      setDialog({
-        visible: true,
-        title: t("error") || "Error",
-        message: t("checkoutError") || "Unable to open checkout",
-      });
-    }
+  const openShareCode = () => {
+    if (!product?.id) return;
+    setShareCodeVisible(true);
   };
+
+  const shareLink = product?.id ? buildPublicProductUrl(product.id) : "";
 
   if ((productsLoading && !product) || fetchingProduct) {
     return (
@@ -781,7 +765,7 @@ export default function ProductDetail() {
             }
           >
             <Ionicons
-              name={isRTL ? "arrow-back" : "arrow-forward"}
+              name={"arrow-back"}
               size={24}
               color={theme.colors.text}
             />
@@ -2270,16 +2254,18 @@ export default function ProductDetail() {
           style={[
             styles.shareButton,
             {
-              backgroundColor: "green",
+              backgroundColor: "#111827",
               borderRadius: layout.borderRadius.lg,
               paddingVertical: layout.spacing.md,
               minHeight: layout.touchTargets.lg,
               flexDirection: rowDirection,
+              opacity: shareLink ? 1 : 0.55,
             },
           ]}
-          onPress={handleCheckout}
+          disabled={!product?.id}
+          onPress={openShareCode}
         >
-          <Ionicons name="cart" size={20} color="#fff" />
+          <Ionicons name="qr-code-outline" size={20} color="#fff" />
           <Text
             style={[
               styles.shareButtonText,
@@ -2288,10 +2274,132 @@ export default function ProductDetail() {
               },
             ]}
           >
-            {t("buyProduct") || "Buy Product"}
+            {t("shareBarcode") || "Barcode"}
           </Text>
         </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={shareCodeVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShareCodeVisible(false)}
+      >
+        <View style={styles.shareCodeOverlay}>
+          <View
+            style={[
+              styles.shareCodeCard,
+              {
+                backgroundColor: theme.colors.card,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.shareCodeHeader,
+                { direction:~isRTL ? 'rtl':'ltr',flexDirection:rowDirection },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.shareCodeTitle,
+                  { color: theme.colors.text, textAlign },
+                ]}
+              >
+                {t("shareBarcode") || "Barcode"}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShareCodeVisible(false)}
+                style={[
+                  styles.shareCodeCloseButton,
+                  { backgroundColor: theme.colors.background },
+                ]}
+              >
+                <Ionicons name="close" size={20} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text
+              style={[
+                styles.shareCodeSubtitle,
+                { color: theme.colors.textSecondary, textAlign },
+              ]}
+            >
+              {t("scanToOpenShareLink") || "Scan to open the share link"}
+            </Text>
+
+            <View style={styles.shareCodeQrWrap}>
+              {shareLink ? (
+                <QRCode
+                  value={shareLink}
+                  size={Math.min(layout.width * 0.58, layout.isTablet ? 260 : 220)}
+                  color="#111827"
+                  backgroundColor="#FFFFFF"
+                />
+              ) : null}
+            </View>
+
+            <View
+              style={[
+                styles.shareCodeActionRow,
+                { flexDirection: rowDirection },
+              ]}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.shareCodeActionButton,
+                  {
+                    backgroundColor: theme.colors.background,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+                onPress={() =>
+                  copyToClipboard(
+                    shareLink,
+                    t("copyLink") || "Copy Link",
+                  )
+                }
+              >
+                <Ionicons
+                  name="copy-outline"
+                  size={18}
+                  color={theme.colors.primary}
+                />
+                <Text
+                  style={[
+                    styles.shareCodeActionText,
+                    { color: theme.colors.text },
+                  ]}
+                >
+                  {t("copyLink") || "Copy Link"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.shareCodeActionButton,
+                  styles.shareCodePrimaryButton,
+                  { backgroundColor: theme.colors.primary },
+                ]}
+                onPress={async () => {
+                  await handleShare();
+                  setShareCodeVisible(false);
+                }}
+              >
+                <Ionicons name="share-social-outline" size={18} color="#fff" />
+                <Text
+                  style={[
+                    styles.shareCodeActionText,
+                    { color: "#fff" },
+                  ]}
+                >
+                  {t("shareProduct") || "Share Product"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <InfoDialog
         visible={dialog.visible}
@@ -2539,20 +2647,85 @@ const styles = StyleSheet.create({
   // Bottom Actions
   bottomActions: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    display:"flex",
-    flexDirection:"row",
-    justifyContent:"center",
-    gap:10
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 10,
   },
   shareButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    width:"50%",
+    flex: 1,
   },
   shareButtonText: {
     color: "#fff",
+  },
+  shareCodeOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.62)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  shareCodeCard: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 20,
+    gap: 16,
+  },
+  shareCodeHeader: {
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  shareCodeTitle: {
+    flex: 1,
+    fontSize: 22,
+  },
+  shareCodeCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  shareCodeSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  shareCodeQrWrap: {
+    alignSelf: "center",
+    padding: 14,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+  },
+  shareCodeLink: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  shareCodeActionRow: {
+    gap: 10,
+  },
+  shareCodeActionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    minHeight: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+  },
+  shareCodePrimaryButton: {
+    borderWidth: 0,
+  },
+  shareCodeActionText: {
+    fontSize: 14,
   },
   // Download Button
   downloadButton: {

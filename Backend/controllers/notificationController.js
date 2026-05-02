@@ -1,10 +1,12 @@
 import Notification from '../models/notification.js';
-import { sendPushNotification, sendPushNotificationBatch } from '../services/expoPushService.js';
-import db from '../config/knex.js';
+import {
+  deliverBroadcastNotification,
+  deliverNotificationToUser,
+} from '../services/notificationDeliveryService.js';
 
 export const getNotifications = async (req, res) => {
   try {
-    const userId = req.user.userId; // From JWT middleware
+    const userId = req.user.userId;
     const limit = Number(req.query.limit || 20);
     const offset = Number(req.query.offset || 0);
     const unreadOnly = req.query.unread === 'true';
@@ -12,7 +14,7 @@ export const getNotifications = async (req, res) => {
     const notifications = await Notification.getUserNotifications(userId, {
       limit,
       offset,
-      unreadOnly
+      unreadOnly,
     });
 
     res.json(notifications);
@@ -22,7 +24,6 @@ export const getNotifications = async (req, res) => {
   }
 };
 
-// Get all notifications (admin only)
 export const getAllNotifications = async (req, res) => {
   try {
     const limit = Number(req.query.limit || 100);
@@ -30,7 +31,7 @@ export const getAllNotifications = async (req, res) => {
 
     const notifications = await Notification.getAllNotifications({
       limit,
-      offset
+      offset,
     });
 
     res.json(notifications);
@@ -55,16 +56,12 @@ export const markAsRead = async (req, res) => {
   try {
     const userId = req.user.userId;
     const { id } = req.params;
-    
-    console.log(`📖 markAsRead called - userId: ${userId}, notificationId: ${id}`);
 
     const notification = await Notification.markAsRead(id, userId);
     if (!notification) {
-      console.log(`❌ Notification ${id} not found for user ${userId}`);
       return res.status(404).json({ message: 'Notification not found' });
     }
 
-    console.log(` Notification ${id} marked as read`);
     res.json(notification);
   } catch (error) {
     console.error('Mark as read error:', error);
@@ -94,7 +91,7 @@ export const createNotification = async (req, res) => {
     const notification = await Notification.create({
       user_id,
       title,
-      message
+      message,
     });
 
     res.status(201).json(notification);
@@ -110,12 +107,11 @@ export const deleteNotification = async (req, res) => {
     const { id } = req.params;
 
     const result = await Notification.delete(id, userId);
-    
-    // Check if notification is global and cannot be deleted
+
     if (result && result.isGlobal) {
       return res.status(403).json({ message: 'Cannot delete global notifications' });
     }
-    
+
     if (!result) {
       return res.status(404).json({ message: 'Notification not found' });
     }
@@ -138,7 +134,6 @@ export const deleteAllNotifications = async (req, res) => {
   }
 };
 
-// Send notification to a specific user
 export const sendToUser = async (req, res) => {
   try {
     const { user_id, title, message } = req.body;
@@ -147,37 +142,19 @@ export const sendToUser = async (req, res) => {
       return res.status(400).json({ message: 'user_id, title, and message are required' });
     }
 
-    // Create notification in database
-    const notification = await Notification.create({
-      user_id,
+    const notification = await deliverNotificationToUser({
+      userId: user_id,
       title,
-      message
+      message,
+      data: {
+        route: '/notifications',
+        type: 'direct-notification',
+      },
     });
-
-    // Send real-time notification via Socket.io
-    if (global.io) {
-      global.io.to(`user:${user_id}`).emit('new_notification', notification);
-    }
-
-    // Send push notification if user has a push token (non-blocking)
-    const user = await db('users').where({ id: user_id }).select('push_token').first();
-    if (user?.push_token) {
-      sendPushNotification(user.push_token, {
-        title,
-        body: message,
-        data: { notificationId: notification.id }
-      })
-      .then(() => {
-        console.log(`📱 Push notification sent to user ${user_id}`);
-      })
-      .catch(pushError => {
-        console.error('⚠️ Push notification failed:', pushError.message);
-      });
-    }
 
     res.status(201).json({
       message: 'Notification sent to user',
-      notification
+      notification,
     });
   } catch (error) {
     console.error('Send to user error:', error);
@@ -185,7 +162,6 @@ export const sendToUser = async (req, res) => {
   }
 };
 
-// Send notification to all users
 export const sendToAllUsers = async (req, res) => {
   try {
     const { title, message } = req.body;
@@ -194,66 +170,24 @@ export const sendToAllUsers = async (req, res) => {
       return res.status(400).json({ message: 'title and message are required' });
     }
 
-    // Get all users
-    const users = await db('users').select('id', 'push_token');
+    const result = await deliverBroadcastNotification({
+      title,
+      message,
+      isGlobal: true,
+      data: {
+        route: '/notifications',
+        type: 'broadcast-notification',
+      },
+    });
 
-    if (users.length === 0) {
+    if (result.count === 0) {
       return res.status(404).json({ message: 'No users found' });
     }
 
-    // Create one notification for each user (marked as global so users can't delete them)
-    // Use batch insert for better performance
-    const notificationData = users.map(user => ({
-      user_id: user.id,
-      title,
-      message,
-      is_global: true, // Mark as global notification
-      is_read: false,
-      created_at: new Date(),
-      updated_at: new Date()
-    }));
-
-    // Batch insert all notifications at once
-    const insertedIds = await db('notifications').insert(notificationData).returning('id');
-    
-    // Get first notification for response
-    const sampleNotification = await db('notifications')
-      .where({ id: insertedIds[0]?.id || insertedIds[0] })
-      .first();
-
-    // Broadcast to all connected users via Socket.io
-    if (global.io) {
-      global.io.emit('broadcast_notification', {
-        title,
-        message,
-        timestamp: new Date()
-      });
-    }
-
-    // Send push notifications asynchronously (don't wait for completion)
-    const pushTokens = users
-      .filter(user => user.push_token)
-      .map(user => user.push_token);
-    
-    if (pushTokens.length > 0) {
-      // Send push notifications in background without blocking response
-      sendPushNotificationBatch(pushTokens, {
-        title,
-        body: message,
-        data: { type: 'broadcast' }
-      })
-      .then(() => {
-        console.log(`📱 Push notifications sent to ${pushTokens.length} devices`);
-      })
-      .catch(pushError => {
-        console.error('⚠️ Batch push notification failed:', pushError.message);
-      });
-    }
-
     res.status(201).json({
-      message: `Notification sent to ${users.length} users`,
-      count: users.length,
-      sample: sampleNotification // Return first notification as sample
+      message: `Notification sent to ${result.count} users`,
+      count: result.count,
+      sample: result.sampleNotification,
     });
   } catch (error) {
     console.error('Send to all users error:', error);

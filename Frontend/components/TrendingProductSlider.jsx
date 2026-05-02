@@ -4,10 +4,10 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  Dimensions,
   ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTheme } from "../utils/ThemeContext";
 import { useLanguage } from "../utils/LanguageContext";
@@ -16,13 +16,13 @@ import { getProductImageUrl } from "../utils/productImages";
 import { Text } from "./ui/Text";
 import apiService from "../services/apiService";
 import SectionBanner from "./SectionBanner";
+import { useResponsiveLayout } from "../utils/useResponsiveLayout";
 
-const { width: screenWidth } = Dimensions.get("window");
-const CARD_WIDTH = screenWidth * 0.38;
 const PAGE_SIZE = 12;
 
 export default function TrendingProductSlider() {
   const { theme } = useTheme();
+  const layout = useResponsiveLayout();
   const router = useRouter();
 
   const [trendingProducts, setTrendingProducts] = useState([]);
@@ -33,68 +33,91 @@ export default function TrendingProductSlider() {
   const [error, setError] = useState(null);
   const didInitialLoad = useRef(false);
 
-  const fetchTrendingProducts = useCallback(async (append = false) => {
-    if (append) {
-      if (loading || loadingMore || !hasMore) return;
-      setLoadingMore(true);
-    } else {
-      setLoading(true);
-      setError(null);
-      setOffset(0);
-      setHasMore(true);
-    }
-
-    const requestOffset = append ? offset : 0;
-    try {
-      const response = await apiService.get("/api/products", {
-        params: {
-          is_trend: 1,
-          limit: PAGE_SIZE,
-          offset: requestOffset,
-        },
-      });
-      const rawProducts = response.data?.data || response.data || [];
-
-      // Filter to ensure only trending products (is_trend === 1)
-      const trendingOnly = rawProducts.filter(
-        (p) => p.is_trend === 1 || p.is_trend === true,
-      );
-
+  const fetchTrendingProducts = useCallback(
+    async (append = false) => {
       if (append) {
-        setTrendingProducts((prev) => {
-          const existingIds = new Set(prev.map((item) => String(item.id)));
-          const nextItems = trendingOnly.filter(
-            (item) => !existingIds.has(String(item.id)),
-          );
-          return nextItems.length > 0 ? [...prev, ...nextItems] : prev;
+        if (loading || loadingMore || !hasMore) return;
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+        setError(null);
+        setOffset(0);
+        setHasMore(true);
+      }
+
+      const requestOffset = append ? offset : 0;
+
+      try {
+        const response = await apiService.get("/api/products", {
+          params: {
+            is_trend: 1,
+            limit: PAGE_SIZE,
+            offset: requestOffset,
+          },
         });
-      } else {
-        setTrendingProducts(trendingOnly);
+        const rawProducts = response?.data?.data || response?.data || [];
+        const trendingOnly = rawProducts.filter(
+          (product) =>
+            product?.is_trend === 1 || product?.is_trend === true,
+        );
+
+        if (append) {
+          setTrendingProducts((prev) => {
+            const existingIds = new Set(prev.map((item) => String(item.id)));
+            const nextItems = trendingOnly.filter(
+              (item) => !existingIds.has(String(item.id)),
+            );
+
+            return nextItems.length > 0 ? [...prev, ...nextItems] : prev;
+          });
+        } else {
+          setTrendingProducts(trendingOnly);
+        }
+
+        setOffset(requestOffset + rawProducts.length);
+        setHasMore(rawProducts.length >= PAGE_SIZE);
+        setError(null);
+      } catch (fetchError) {
+        console.error(
+          "Error details:",
+          fetchError?.response?.data || fetchError?.message,
+        );
+        setError(fetchError?.message || "Failed to load trending products");
+
+        if (!append) {
+          setTrendingProducts([]);
+          setHasMore(false);
+        }
+      } finally {
+        if (append) {
+          setLoadingMore(false);
+        } else {
+          setLoading(false);
+        }
       }
-      setOffset(requestOffset + rawProducts.length);
-      setHasMore(rawProducts.length >= PAGE_SIZE);
-      setError(null);
-    } catch (error) {
-      console.error("Error details:", error.response?.data || error.message);
-      setError(error.message || "Failed to load trending products");
-      if (!append) {
-        setTrendingProducts([]);
-        setHasMore(false);
-      }
-    } finally {
-      if (append) {
-        setLoadingMore(false);
-      } else {
-        setLoading(false);
-      }
-    }
-  }, [loading, loadingMore, hasMore, offset]);
+    },
+    [hasMore, loading, loadingMore, offset],
+  );
 
   useEffect(() => {
     if (didInitialLoad.current) return;
     didInitialLoad.current = true;
     fetchTrendingProducts(false);
   }, [fetchTrendingProducts]);
+
+  const featuredColumns = layout.isTablet
+    ? layout.getGridColumns(2, 3, 4, 5)
+    : 2;
+  const cardGap = layout.cardGap;
+  const cardWidth = layout.getCardWidth(featuredColumns, cardGap);
+  const imageHeight = layout.isTablet
+    ? Math.max(164, Math.round(cardWidth * 0.82))
+    : layout.isSmallPhone
+      ? 100
+      : layout.isMediumPhone
+        ? 112
+        : 124;
+  const sectionTopInset = layout.sectionBannerOffset;
 
   if (loading) {
     return (
@@ -106,11 +129,12 @@ export default function TrendingProductSlider() {
       </View>
     );
   }
+
   if (error) {
     return (
       <View style={[styles.loadingContainer, { padding: 20 }]}>
         <Text style={{ color: "#EF4444", fontSize: 14, textAlign: "center" }}>
-          ⚠️ {error}
+          {error}
         </Text>
         <Pressable
           onPress={() => fetchTrendingProducts(false)}
@@ -128,8 +152,6 @@ export default function TrendingProductSlider() {
     );
   }
 
-  //
-  // Hide section if no trending products
   if (trendingProducts.length === 0) {
     return null;
   }
@@ -146,15 +168,22 @@ export default function TrendingProductSlider() {
         horizontal
         keyExtractor={(item) => String(item.id)}
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingHorizontal: layout.horizontalPadding },
+        ]}
         decelerationRate="fast"
-        style={{ marginTop: 70 }}
-        snapToInterval={CARD_WIDTH + 16}
+        style={{ marginTop: sectionTopInset }}
+        snapToInterval={cardWidth + cardGap}
         renderItem={({ item, index }) => (
           <TrendingProductCard
             product={item}
             theme={theme}
             isLast={index === trendingProducts.length - 1}
+            cardWidth={cardWidth}
+            imageHeight={imageHeight}
+            cardGap={cardGap}
+            layout={layout}
             onPress={() => router.push(`/product/${item.id}`)}
           />
         )}
@@ -172,8 +201,17 @@ export default function TrendingProductSlider() {
   );
 }
 
-function TrendingProductCard({ product, onPress, theme, isLast }) {
-  const { isRTL, locale } = useLanguage();
+function TrendingProductCard({
+  product,
+  onPress,
+  theme,
+  isLast,
+  cardWidth,
+  imageHeight,
+  cardGap,
+  layout,
+}) {
+  const { isRTL, locale, t } = useLanguage();
 
   const getLocalizedText = (field) => {
     const lang = locale || "en";
@@ -182,88 +220,176 @@ function TrendingProductCard({ product, onPress, theme, isLast }) {
 
   const imageUrl = getProductImageUrl(
     product,
-    "https://via.placeholder.com/300",
+    "https://via.placeholder.com/400",
   );
-
-  // Price calculation
   const sell = Number(product?.sell_price) || 0;
   const discount = Number(product?.discount) || 0;
-  let finalPrice = sell;
-
+  const commission = Number(product?.commission_price) || 0;
+  const ratingValue = Number(product?.average_rating ?? product?.rating) || 0;
+  const reviewCount = Number(product?.review_count) || 0;
   const type = (product?.discount_type || "").toLowerCase();
   const isPercentage =
     type === "percentage" || type === "parsentage" || type === "percent";
   const isFixed = type === "fixed";
+  let finalPrice = sell;
+  let badgeText = "";
 
   if (discount > 0) {
     if (isPercentage) {
-      const savedAmount = (sell * discount) / 100;
-      finalPrice = sell - savedAmount;
+      finalPrice = sell - (sell * discount) / 100;
+      badgeText = `-${Math.round(discount)}%`;
     } else if (isFixed) {
       finalPrice = sell - discount;
+      badgeText = `-${Math.round(discount).toLocaleString(locale || undefined)}`;
     }
   }
 
   finalPrice = Math.max(0, finalPrice);
+
+  const formatCurrency = (value) =>
+    `${Math.round(Number(value) || 0).toLocaleString(locale || undefined)} ${
+      t("currency") || "IQD"
+    }`;
   const displayPrice = Math.round(finalPrice);
   const originalPrice = Math.round(sell);
+  const leadingBadgePosition = isRTL ? { right: 10 } : { left: 10 };
+  const trailingBadgePosition = isRTL ? { left: 10 } : { right: 10 };
 
   return (
     <Pressable
-      style={[
+      style={({ pressed }) => [
         styles.card,
         {
           backgroundColor: theme.colors.card,
-          marginRight: isLast ? 0 : 16,
-          borderColor: theme.colors.primary + "30",
+          width: cardWidth,
+          borderColor: theme.colors.border || "#E5E7EB",
+          marginRight: isRTL ? 0 : isLast ? 0 : cardGap,
+          marginLeft: isRTL ? (isLast ? 0 : cardGap) : 0,
         },
+        pressed && styles.cardPressed,
       ]}
       onPress={onPress}
     >
-      <View style={styles.imageContainer}>
+      <View style={[styles.imageContainer, { height: imageHeight }]}>
         <Image
           source={{ uri: imageUrl }}
           style={styles.image}
           contentFit="cover"
           transition={200}
+          cachePolicy="memory-disk"
         />
+
+        {commission > 0 ? (
+          <View
+            style={[
+              styles.bonusTag,
+              { backgroundColor: "#16A34A" },
+              leadingBadgePosition,
+            ]}
+          >
+            <Text style={styles.bonusTagText}>+{formatCurrency(commission)}</Text>
+          </View>
+        ) : null}
+
+        {badgeText ? (
+          <View
+            style={[
+              styles.discountBadge,
+              trailingBadgePosition,
+            ]}
+          >
+            <View style={styles.discountBadgeContent}>
+              <Ionicons
+                name="pricetag-outline"
+                size={layout.isTablet ? 12 : 11}
+                color="#fff"
+              />
+              <Text style={styles.discountBadgeText}>{badgeText}</Text>
+            </View>
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.trendingBadge,
+              trailingBadgePosition,
+            ]}
+          >
+            <Ionicons
+              name="flame-outline"
+              size={layout.isTablet ? 14 : 13}
+              color="#fff"
+            />
+          </View>
+        )}
       </View>
 
-      <View style={styles.info}>
+      <View
+        style={[
+          styles.info,
+          {
+            padding: 10,
+          },
+        ]}
+      >
         <Text
-          style={[styles.name, { color: theme.colors.text }]}
+          style={[
+            styles.name,
+            {
+              color: theme.colors.text,
+              fontSize: layout.productNameSize,
+              minHeight: layout.isTablet ? 38 : 32,
+            },
+          ]}
           numberOfLines={2}
         >
           {getLocalizedText("name")}
         </Text>
 
-        {/* Rating */}
-        {product.rating > 0 && (
+        {ratingValue > 0 ? (
           <View style={styles.ratingRow}>
-            <Star size={12} color="#FFA500" fill="#FFA500" />
+            <Star size={12} color="#F59E0B" fill="#F59E0B" />
             <Text
               style={[styles.rating, { color: theme.colors.textSecondary }]}
             >
-              {Number(product.rating).toFixed(1)}
+              {ratingValue.toFixed(1)}
             </Text>
+            {reviewCount > 0 ? (
+              <Text
+                style={[
+                  styles.reviewCount,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
+                ({reviewCount})
+              </Text>
+            ) : null}
           </View>
-        )}
+        ) : null}
 
-        {/* Price */}
-        <View style={styles.priceRow}>
-          <Text style={[styles.price, { color: theme.colors.primary }]}>
-            {displayPrice.toLocaleString()} {isRTL ? "دینار" : "IQD"}
-          </Text>
-          {discount > 0 && (
+        <View style={styles.bottomRow}>
+          <View style={styles.priceColumn}>
             <Text
               style={[
-                styles.originalPrice,
-                { color: theme.colors.textSecondary },
+                styles.price,
+                {
+                  color: theme.colors.primary,
+                  fontSize: layout.productPriceSize,
+                },
               ]}
             >
-              {originalPrice.toLocaleString()}
+              {formatCurrency(displayPrice)}
             </Text>
-          )}
+            {originalPrice > displayPrice ? (
+              <Text
+                style={[
+                  styles.originalPrice,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
+                {formatCurrency(originalPrice)}
+              </Text>
+            ) : null}
+          </View>
         </View>
       </View>
     </Pressable>
@@ -279,27 +405,11 @@ const styles = StyleSheet.create({
   container: {
     marginTop: 0,
     marginVertical: 0,
-    paddingVertical: 10,
-  },
-  header: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  titleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  accentBar: {
-    width: 4,
-    height: 24,
-    borderRadius: 2,
-    marginRight: 8,
-  },
-  title: {
-    fontSize: 20,
+    paddingTop: 10,
+    paddingBottom: 0,
   },
   scrollContent: {
-    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
   listFooter: {
     justifyContent: "center",
@@ -307,57 +417,78 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   card: {
-    width: CARD_WIDTH,
-    borderRadius: 12,
+    backgroundColor: "#fff",
     overflow: "hidden",
-  },
-  trendingBadge: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    zIndex: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    position: "relative",
+    borderWidth: 1,
     borderRadius: 20,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
-  trendingText: {
-    color: "#fff",
-    fontSize: 11,
-
-    letterSpacing: 0.5,
-  },
-  discountBadge: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    zIndex: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  discountText: {
-    color: "#fff",
-    fontSize: 12,
+  cardPressed: {
+    transform: [{ scale: 0.97 }],
   },
   imageContainer: {
     width: "100%",
-    height: 140,
-    backgroundColor: "#f3f4f6",
+    backgroundColor: "#f9f9f9",
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   image: {
     width: "100%",
     height: "100%",
   },
+  bonusTag: {
+    position: "absolute",
+    top: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  bonusTagText: {
+    color: "#fff",
+    fontSize: 8,
+  },
+  trendingBadge: {
+    position: "absolute",
+    top: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#F97316",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  discountBadge: {
+    position: "absolute",
+    top: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: "#F97316",
+  },
+  discountBadgeContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  discountBadgeText: {
+    color: "#fff",
+    fontSize: 8,
+  },
   info: {
-    padding: 10,
+    flex: 1,
+    justifyContent: "space-between",
   },
   name: {
-    fontSize: 13,
-    fontWeight: "500",
-    marginBottom: 6,
+    marginBottom: 8,
+    lineHeight: 16,
   },
   ratingRow: {
     flexDirection: "row",
@@ -368,26 +499,24 @@ const styles = StyleSheet.create({
   rating: {
     fontSize: 12,
   },
-  priceRow: {
+  reviewCount: {
+    fontSize: 11,
+    marginLeft: 2,
+  },
+  bottomRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginBottom: 6,
+    justifyContent: "space-between",
+    marginTop: "auto",
+  },
+  priceColumn: {
+    gap: 3,
   },
   price: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 16,
   },
   originalPrice: {
     fontSize: 11,
-
     textDecorationLine: "line-through",
-  },
-  commissionRow: {
-    marginTop: 4,
-  },
-  commission: {
-    fontSize: 11,
-    fontWeight: "500",
   },
 });

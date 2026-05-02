@@ -5,10 +5,19 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 // Fetch all orders
 export const fetchOrders = createAsyncThunk(
   'orders/fetchOrders',
-  async (_, { rejectWithValue }) => {
+  async (params = {}, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`${API_URL}/orders`, {
+      const searchParams = new URLSearchParams();
+
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          searchParams.append(key, String(value));
+        }
+      });
+
+      const queryString = searchParams.toString();
+      const response = await fetch(`${API_URL}/orders${queryString ? `?${queryString}` : ''}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -128,6 +137,12 @@ const ordersSlice = createSlice({
   initialState: {
     items: [],
     currentOrder: null,
+    pagination: {
+      page: 1,
+      limit: 20,
+      total: 0,
+      totalPages: 0,
+    },
     loading: false,
     error: null,
   },
@@ -155,6 +170,15 @@ const ordersSlice = createSlice({
           state.items = action.payload;
         } else {
           state.items = [];
+        }
+
+        if (action.payload.pagination) {
+          state.pagination = {
+            page: action.payload.pagination.page || 1,
+            limit: action.payload.pagination.limit || 20,
+            total: action.payload.pagination.total || 0,
+            totalPages: action.payload.pagination.totalPages || 0,
+          };
         }
       })
       .addCase(fetchOrders.rejected, (state, action) => {

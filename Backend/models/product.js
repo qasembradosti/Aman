@@ -26,6 +26,38 @@ const filterSupportedFields = async (payload) => {
   );
 };
 
+const normalizeTinyIntFilter = (value) => {
+  if (value === undefined || value === null || value === '') {
+    return value;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+
+  if (
+    value === true ||
+    value === 1 ||
+    normalized === '1' ||
+    normalized === 'true' ||
+    normalized === 'on' ||
+    normalized === 'yes'
+  ) {
+    return 1;
+  }
+
+  if (
+    value === false ||
+    value === 0 ||
+    normalized === '0' ||
+    normalized === 'false' ||
+    normalized === 'off' ||
+    normalized === 'no'
+  ) {
+    return 0;
+  }
+
+  return value;
+};
+
 const normalizeJsonListField = (payload, field) => {
   if (!hasOwn(payload, field)) {
     return;
@@ -115,9 +147,9 @@ const Product = {
       category_id,
       brand_id,
       store_id,
-      in_stock,
-      is_trend,
-      is_important,
+      in_stock: rawInStock,
+      is_trend: rawIsTrend,
+      is_important: rawIsImportant,
       has_discount,
       min_price,
       max_price,
@@ -126,6 +158,9 @@ const Product = {
       limit = 20,
       offset = 0,
     } = filters;
+    const in_stock = normalizeTinyIntFilter(rawInStock);
+    const is_trend = normalizeTinyIntFilter(rawIsTrend);
+    const is_important = normalizeTinyIntFilter(rawIsImportant);
 
     const query = db('products')
       .leftJoin('brands', 'products.brand_id', 'brands.id')
@@ -142,12 +177,17 @@ const Product = {
     // Search filter
     if (q) {
       query.where(function () {
-        this.whereILike('products.name_en', `%${q}%`)
+        this.whereILike('products.name', `%${q}%`)
+          .orWhereILike('products.name_en', `%${q}%`)
           .orWhereILike('products.name_ku', `%${q}%`)
           .orWhereILike('products.name_ar', `%${q}%`)
+          .orWhereILike('products.description', `%${q}%`)
           .orWhereILike('products.description_en', `%${q}%`)
           .orWhereILike('products.description_ku', `%${q}%`)
           .orWhereILike('products.description_ar', `%${q}%`)
+          .orWhereILike('products.key_features_en', `%${q}%`)
+          .orWhereILike('products.key_features_ku', `%${q}%`)
+          .orWhereILike('products.key_features_ar', `%${q}%`)
       });
     }
 

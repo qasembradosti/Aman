@@ -1,9 +1,8 @@
 import Product from '../../models/product.js';
 import ProductImage from '../../models/productImage.js';
 import ProductVideo from '../../models/productVideo.js';
-import Notification from '../../models/notification.js';
-import db from '../../config/knex.js';
 import { isStoreAdmin } from '../../middleware/adminPanelMiddleware.js';
+import { deliverBroadcastNotification } from '../../services/notificationDeliveryService.js';
 
 const getBaseUrl = (req) => {
   const forwardedProto = req.headers['x-forwarded-proto'];
@@ -304,7 +303,6 @@ export const updateProduct = async (req, res) => {
 
     if (newDiscount > 0 && newDiscount !== oldDiscount) {
       try {
-        const users = await db('users').select('id');
         const discountText =
           updateData.discount_type === 'fixed'
             ? `IQD ${newDiscount} off`
@@ -313,25 +311,18 @@ export const updateProduct = async (req, res) => {
         const title = 'New Discount Available!';
         const message = `${product.name_en} now has ${discountText}! Don't miss out on this deal.`;
 
-        for (const user of users) {
-          await Notification.create({
-            user_id: user.id,
-            title,
-            message,
-            is_global: true,
-          });
-        }
-
-        if (global.io) {
-          global.io.emit('broadcast_notification', {
-            title,
-            message,
-            product_id: product.id,
+        await deliverBroadcastNotification({
+          title,
+          message,
+          isGlobal: true,
+          data: {
+            route: `/product/${product.id}`,
+            type: 'product-discount',
+            productId: product.id,
             discount: newDiscount,
             discount_type: updateData.discount_type || 'percentage',
-            timestamp: new Date(),
-          });
-        }
+          },
+        });
       } catch (notifError) {
         console.error('Failed to send discount notifications:', notifError);
       }

@@ -20,10 +20,7 @@ import {
   fetchNotifications,
   fetchUnreadCount,
   markAsRead,
-  markAllAsRead,
-  deleteNotification,
 } from "../store/slices/notificationsSlice";
-import { useNotificationSocket } from "../utils/NotificationSocketProvider";
 
 // Custom Text component with font
 const Text = ({ style, ...props }) => {
@@ -49,7 +46,6 @@ export default function Notifications() {
   const [selectedNotificationId, setSelectedNotificationId] = useState(null);
 
   const { items: notifications, loading } = useSelector((state) => state.notifications);
-  const { isConnected } = useNotificationSocket();
 
   // Get the selected notification from Redux state (always up-to-date)
   const selectedNotification = selectedNotificationId 
@@ -76,14 +72,6 @@ export default function Notifications() {
     } catch (error) {
       console.error('❌ Mark as read failed:', error);
     }
-  };
-
-  const handleMarkAllAsRead = () => {
-    dispatch(markAllAsRead());
-  };
-
-  const handleDelete = (id) => {
-    dispatch(deleteNotification(id));
   };
 
   const formatTime = (dateString) => {

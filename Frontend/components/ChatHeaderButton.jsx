@@ -1,13 +1,11 @@
 import React from "react";
-import { TouchableOpacity, View, Text, StyleSheet } from "react-native";
+import { TouchableOpacity, View, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
 import { useTheme } from "../utils/ThemeContext";
-import { useLanguage } from "../utils/LanguageContext";
 
 export default function ChatHeaderButton({ onPress }) {
   const { theme } = useTheme();
-  const { isRTL } = useLanguage();
   const { activeConversationId } = useSelector((state) => state.chat);
 
   if (!activeConversationId) return null;

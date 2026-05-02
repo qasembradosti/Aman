@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   FlatList,
@@ -17,7 +17,7 @@ import { useLanguage } from "../utils/LanguageContext";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchCategories } from "../store/slices/categoriesSlice";
 import { getApiBaseUrl } from "../utils/apiConfig";
-import Text from "@/components/ui/Text";
+import { Text } from "../components/ui/Text";
 
 const { width } = Dimensions.get("window");
 const HORIZONTAL_PADDING = 16;
@@ -37,14 +37,19 @@ export default function CategoriesScreen() {
   const { items: categories, loading } = useSelector((s) => s.categories);
 
   // Helper function to get localized category name
-  const getLocalizedName = (category) => {
-    const lang = locale || "en";
-    return category[`name_${lang}`] || category.name || "";
-  };
+  const getLocalizedName = useCallback(
+    (category) => {
+      const lang = locale || "en";
+      return category[`name_${lang}`] || category.name || "";
+    },
+    [locale],
+  );
 
   useEffect(() => {
-    dispatch(fetchCategories({}));
-  }, [dispatch]);
+    if (!categories.length && !loading) {
+      dispatch(fetchCategories({}));
+    }
+  }, [categories.length, dispatch, loading]);
 
   useEffect(() => {
     // Filter to parent categories only
@@ -61,7 +66,7 @@ export default function CategoriesScreen() {
     } else {
       setFilteredCategories(parentCategories);
     }
-  }, [searchQuery, categories, locale]);
+  }, [searchQuery, categories, getLocalizedName]);
 
   const resolveCategoryImageUri = (category) => {
     const imageUrl = category?.image_url || category?.image;
@@ -158,7 +163,7 @@ export default function CategoriesScreen() {
           ]}
         >
           <Ionicons
-            name={isRTL ? "arrow-forward" : "arrow-back"}
+            name={ "arrow-back"}
             size={22}
             color={theme.colors.text}
           />

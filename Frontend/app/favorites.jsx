@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -10,7 +10,7 @@ import {
   Dimensions,
   Share,
 } from "react-native";
-import { Image } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -76,7 +76,6 @@ export default function Favorites() {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
   const layout = useResponsiveLayout();
   const navigationInProgress = useRef(false);
 
@@ -92,33 +91,27 @@ export default function Favorites() {
     return product[localizedField] || product[field] || "";
   };
 
-  const loadFavorites = async (showRefreshing = false) => {
+  const loadFavorites = useCallback(async (showRefreshing = false) => {
     try {
       if (showRefreshing) {
         setRefreshing(true);
       } else {
         setLoading(true);
       }
-      setError(null);
 
       const response = await favoriteService.getUserFavorites({ limit: 100 });
       setFavorites(response.data || []);
     } catch (err) {
       console.error("Load favorites error:", err);
-      setError(
-        err?.response?.data?.message ||
-          t("errorLoadingFavorites") ||
-          "Failed to load favorites",
-      );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadFavorites();
-  }, []);
+  }, [loadFavorites]);
 
   const handleShareProduct = async (productId, name) => {
     try {

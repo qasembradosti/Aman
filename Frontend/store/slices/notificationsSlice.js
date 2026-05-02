@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/apiService';
+import { logout, loadTokenFromStorage } from './authSlice';
 
 // Async thunks
 export const fetchNotifications = createAsyncThunk(
@@ -134,7 +135,9 @@ const notificationsSlice = createSlice({
       .addCase(markAsRead.fulfilled, (state, action) => {
         const notificationId = action.payload?.id;
         if (notificationId) {
-          const notification = state.items.find(n => n.id == notificationId);
+          const notification = state.items.find(
+            (n) => String(n.id) === String(notificationId),
+          );
           if (notification && !notification.is_read) {
             notification.is_read = true;
             state.unreadCount = Math.max(0, state.unreadCount - 1);
@@ -161,6 +164,18 @@ const notificationsSlice = createSlice({
         if (!action.payload.is_read) {
           state.unreadCount += 1;
         }
+      })
+      .addCase(logout.fulfilled, (state) => {
+        state.items = [];
+        state.unreadCount = 0;
+        state.loading = false;
+        state.error = null;
+      })
+      .addCase(loadTokenFromStorage.rejected, (state) => {
+        state.items = [];
+        state.unreadCount = 0;
+        state.loading = false;
+        state.error = null;
       });
   },
 });

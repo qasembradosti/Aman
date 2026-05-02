@@ -126,10 +126,10 @@ export const createUser = async (req, res) => {
       });
     }
 
-    const validRoles = ['seller', 'admin'];
+    const validRoles = ['seller', 'admin', 'delivery_company'];
     if (!validRoles.includes(resolvedRole)) {
       return res.status(400).json({
-        message: 'Invalid role. Must be one of: seller, admin',
+        message: 'Invalid role. Must be one of: seller, admin, delivery_company',
       });
     }
 
@@ -296,10 +296,11 @@ export const updateUser = async (req, res) => {
     }
 
     if (role !== undefined) {
-      const validRoles = ['superadmin', 'seller', 'admin'];
+      const validRoles = ['superadmin', 'seller', 'admin', 'delivery_company'];
       if (!validRoles.includes(role)) {
         return res.status(400).json({
-          message: 'Invalid role. Must be one of: superadmin, seller, admin',
+          message:
+            'Invalid role. Must be one of: superadmin, seller, admin, delivery_company',
         });
       }
     }

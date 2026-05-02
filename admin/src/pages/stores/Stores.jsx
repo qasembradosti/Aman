@@ -12,6 +12,8 @@ import {
   Pencil,
   Trash2,
   Loader2,
+  Eye,
+  Package,
   Store as StoreIcon,
   ShoppingBag,
   MapPin,
@@ -83,11 +85,14 @@ const Stores = () => {
   const [showOrdersModal, setShowOrdersModal] = useState(false);
   const [selectedStoreForOrders, setSelectedStoreForOrders] = useState(null);
   const [storeOrders, setStoreOrders] = useState([]);
+  const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
+  const [selectedStoreOrder, setSelectedStoreOrder] = useState(null);
   const [ordersSummary, setOrdersSummary] = useState({
     total_orders: 0,
     total_amount: 0,
   });
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [loadingOrderDetail, setLoadingOrderDetail] = useState(false);
   const [orderDateFilter, setOrderDateFilter] = useState({
     startDate: "",
     endDate: "",
@@ -241,6 +246,35 @@ const Stores = () => {
     return `${Number(amount || 0).toLocaleString()} IQD`;
   };
 
+  const getStoreOrderItemDisplayPrice = (item) =>
+    Number(item?.base_price ?? item?.price ?? 0);
+
+  const normalizeStoreOrderDetails = (order) => {
+    const scopedItems = Array.isArray(order?.items) ? order.items : [];
+    const storeItemsCount = scopedItems.reduce(
+      (sum, item) => sum + Number(item.quantity || 0),
+      0,
+    );
+    const storeTotalAmount = scopedItems.reduce(
+      (sum, item) =>
+        sum + Number(item.quantity || 0) * getStoreOrderItemDisplayPrice(item),
+      0,
+    );
+
+    return {
+      ...order,
+      items: scopedItems,
+      store_items_count: storeItemsCount,
+      store_total_amount: Number(order?.store_total_amount || storeTotalAmount),
+    };
+  };
+
+  const closeStoreOrderDetail = () => {
+    setShowOrderDetailModal(false);
+    setSelectedStoreOrder(null);
+    setLoadingOrderDetail(false);
+  };
+
   const isWithinDateRange = (dateValue, filters) => {
     if (!dateValue) return false;
     const orderDate = new Date(dateValue);
@@ -257,6 +291,31 @@ const Stores = () => {
     }
 
     return true;
+  };
+
+  const fetchStoreOrdersFromApi = async (storeId, filters = orderDateFilter) => {
+    const response = await api.get(`/stores/${storeId}/orders`, {
+      params: {
+        start_date: filters.startDate || undefined,
+        end_date: filters.endDate || undefined,
+      },
+    });
+
+    const orders = Array.isArray(response.data?.orders)
+      ? response.data.orders.map((order) => ({
+          ...order,
+          store_items_count: Number(order.store_items_count || 0),
+          store_total_amount: Number(order.store_total_amount || 0),
+        }))
+      : [];
+
+    const summary = response.data?.summary || {};
+
+    setStoreOrders(orders);
+    setOrdersSummary({
+      total_orders: Number(summary.total_orders || orders.length || 0),
+      total_amount: Number(summary.total_amount || 0),
+    });
   };
 
   const fetchStoreOrdersFallback = async (storeId, filters = orderDateFilter) => {
@@ -329,7 +388,7 @@ const Stores = () => {
         );
         const storeTotalAmount = storeItems.reduce(
           (sum, item) =>
-            sum + Number(item.quantity || 0) * Number(item.price || 0),
+            sum + Number(item.quantity || 0) * getStoreOrderItemDisplayPrice(item),
           0,
         );
 
@@ -364,11 +423,16 @@ const Stores = () => {
   const fetchStoreOrders = async (storeId, filters = orderDateFilter) => {
     setLoadingOrders(true);
     try {
-      await fetchStoreOrdersFallback(storeId, filters);
-    } catch (err) {
-      console.error("Fallback store-orders fetch failed:", err);
+      try {
+        await fetchStoreOrdersFromApi(storeId, filters);
+      } catch (err) {
+        console.error("Store-orders API fetch failed, falling back:", err);
+        await fetchStoreOrdersFallback(storeId, filters);
+      }
+    } catch (fallbackErr) {
+      console.error("Fallback store-orders fetch failed:", fallbackErr);
       toast.error(
-        err.response?.data?.message || "Failed to load store orders",
+        fallbackErr.response?.data?.message || "Failed to load store orders",
       );
       setStoreOrders([]);
       setOrdersSummary({ total_orders: 0, total_amount: 0 });
@@ -386,11 +450,43 @@ const Stores = () => {
   };
 
   const closeStoreOrders = () => {
+    closeStoreOrderDetail();
     setShowOrdersModal(false);
     setSelectedStoreForOrders(null);
     setStoreOrders([]);
     setOrdersSummary({ total_orders: 0, total_amount: 0 });
     setOrderDateFilter({ startDate: "", endDate: "" });
+  };
+
+  const openStoreOrderDetail = async (order) => {
+    if (!selectedStoreForOrders?.id) return;
+
+    setShowOrderDetailModal(true);
+    setLoadingOrderDetail(true);
+
+    try {
+      const detailResponse = await api.get(`/orders/${order.id}`, {
+        params: {
+          store_id: selectedStoreForOrders.id,
+        },
+      });
+      const fullOrder = detailResponse.data?.order || detailResponse.data;
+      const scopedOrder = normalizeStoreOrderDetails(fullOrder);
+
+      if (!scopedOrder.items.length) {
+        throw new Error("No items found for this store in the selected order");
+      }
+
+      setSelectedStoreOrder(scopedOrder);
+    } catch (err) {
+      console.error("Failed to load store order details:", err);
+      toast.error(
+        err.response?.data?.message || err.message || "Failed to load order details",
+      );
+      closeStoreOrderDetail();
+    } finally {
+      setLoadingOrderDetail(false);
+    }
   };
 
   const applyDateFilter = async () => {
@@ -692,6 +788,7 @@ const Stores = () => {
                       <TableHead>Status</TableHead>
                       <TableHead>Items</TableHead>
                       <TableHead className="text-right">Store Total</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -722,6 +819,18 @@ const Stores = () => {
                         <TableCell className="text-right font-medium">
                           {formatCurrency(order.store_total_amount)}
                         </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openStoreOrderDetail(order)}
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            title="View order details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -731,6 +840,131 @@ const Stores = () => {
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={closeStoreOrders}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showOrderDetailModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeStoreOrderDetail();
+          } else {
+            setShowOrderDetailModal(true);
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl!">
+          <DialogHeader>
+            <DialogTitle>
+              Order Details #{selectedStoreOrder?.id || ""}
+            </DialogTitle>
+          </DialogHeader>
+          <DialogBody className="space-y-5 max-h-[75vh] overflow-y-auto">
+            {loadingOrderDetail ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : selectedStoreOrder ? (
+              <>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="rounded-lg border bg-gray-50 p-4 space-y-2">
+                    <h4 className="font-medium text-gray-900">Store Summary</h4>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Store</span>
+                      <span className="font-medium text-gray-900">
+                        {selectedStoreForOrders?.name || "N/A"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Date</span>
+                      <span className="font-medium text-gray-900">
+                        {formatDate(selectedStoreOrder.created_at)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Status</span>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 capitalize">
+                        {selectedStoreOrder.status || "pending"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Store Items</span>
+                      <span className="font-medium text-gray-900">
+                        {selectedStoreOrder.store_items_count || 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedStoreOrder.notes && (
+                  <div className="rounded-lg border p-4">
+                    <h4 className="font-medium text-gray-900 mb-2">Notes</h4>
+                    <p className="text-sm text-gray-600 whitespace-pre-wrap">
+                      {selectedStoreOrder.notes}
+                    </p>
+                  </div>
+                )}
+
+                <div className="rounded-lg border overflow-hidden">
+                  <div className="border-b bg-gray-50 px-4 py-3">
+                    <h4 className="font-medium text-gray-900">Store Items</h4>
+                  </div>
+                  <div className="divide-y">
+                    {selectedStoreOrder.items?.map((item, index) => (
+                      <div
+                        key={item.id || `${item.product_id}-${index}`}
+                        className="flex items-start justify-between gap-4 p-4"
+                      >
+                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                          <div className="w-16 h-16 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center shrink-0">
+                            {item.image ? (
+                              <img
+                                src={
+                                  item.image.startsWith("http")
+                                    ? item.image
+                                    : `${API_BASE}${item.image}`
+                                }
+                                alt={item.product_name || "Product"}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Package className="w-5 h-5 text-gray-400" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-gray-900">
+                              {item.product_name || "N/A"}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Qty: {Number(item.quantity || 0)}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Base Price:{" "}
+                              {formatCurrency(getStoreOrderItemDisplayPrice(item))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                No order details available
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeStoreOrderDetail}
+              >
                 Close
               </Button>
             </DialogFooter>

@@ -13,12 +13,41 @@ import { ConnectivityProvider } from "../utils/ConnectivityContext";
 import { NotificationSocketProvider } from "../utils/NotificationSocketProvider";
 import { Provider, useDispatch, useSelector } from "react-redux";
 import { store } from "../store/store";
-import { loadTokenFromStorage } from "../store/slices/authSlice";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import * as Font from "expo-font";
 import SplashScreen from "../components/SplashScreen";
-import authEvents from "../utils/authEvents";
-import { logout } from "../store/slices/authSlice";
+import { authEvents } from "../utils/authEvents";
+import { loadTokenFromStorage, logout } from "../store/slices/authSlice";
+
+const PUBLIC_TAB_ROUTES = new Set(["home", "search", "rank"]);
+const PUBLIC_TOP_LEVEL_ROUTES = new Set([
+  "products",
+  "product",
+  "brands",
+  "brand",
+  "categories",
+  "category",
+  "about",
+  "help-support",
+]);
+
+const isPublicGuestRoute = (segments = []) => {
+  const [rootSegment, leafSegment] = segments || [];
+
+  if (!rootSegment) {
+    return true;
+  }
+
+  if (rootSegment === "(auth)") {
+    return true;
+  }
+
+  if (rootSegment === "(tabs)") {
+    return PUBLIC_TAB_ROUTES.has(leafSegment);
+  }
+
+  return PUBLIC_TOP_LEVEL_ROUTES.has(rootSegment);
+};
 
 // Auth initialization component
 function AuthInitializer({ children }) {
@@ -29,7 +58,7 @@ function AuthInitializer({ children }) {
     const initAuth = async () => {
       try {
         await dispatch(loadTokenFromStorage()).unwrap();
-      } catch (error) {
+      } catch {
         // console.log("ℹ️ No token found or token invalid");
       } finally {
         setAuthLoaded(true);
@@ -94,8 +123,14 @@ function AuthGate({ children }) {
   const inAuthGroup = rootSegment === "(auth)";
   const onVerifyPhone = inAuthGroup && leafSegment === "verify-phone";
 
-  // Stabilize segment changes to avoid re-running the effect on every render due to array identity.
-  const segmentKey = Array.isArray(segments) ? segments.join("/") : "";
+  const isGuestRouteAllowed = useMemo(
+    () => isPublicGuestRoute(segments),
+    [segments],
+  );
+  const shouldRedirectGuestToLogin = !isAuthenticated && !isGuestRouteAllowed;
+  const shouldRedirectToVerify = isAuthenticated && needsActivation && !onVerifyPhone;
+  const shouldRedirectAuthenticatedAwayFromAuth =
+    isAuthenticated && !needsActivation && inAuthGroup;
 
   const safeReplace = useCallback(
     (target) => {
@@ -109,61 +144,66 @@ function AuthGate({ children }) {
   useEffect(() => {
     if (!isNavigationReady) return;
 
-    // 1. Not authenticated: permit staying in auth group only.
-    if (!isAuthenticated) {
-      if (!inAuthGroup) {
-        safeReplace("/(auth)/login");
-      }
+    // 1. Not authenticated: allow public browsing only.
+    if (shouldRedirectGuestToLogin) {
+      safeReplace("/(auth)/login");
       return;
     }
 
     // 2. Authenticated but not activated: force verify screen.
-    if (needsActivation) {
-      if (!onVerifyPhone) {
-        safeReplace("/(auth)/verify-phone");
-      }
+    if (shouldRedirectToVerify) {
+      safeReplace("/(auth)/verify-phone");
       return;
     }
 
     // 3. Active & verified: leave auth group.
-    if (inAuthGroup) {
+    if (shouldRedirectAuthenticatedAwayFromAuth) {
       safeReplace("/(tabs)/home");
     }
   }, [
     isNavigationReady,
-    isAuthenticated,
-    needsActivation,
-    inAuthGroup,
-    onVerifyPhone,
-    segmentKey,
+    shouldRedirectGuestToLogin,
+    shouldRedirectToVerify,
+    shouldRedirectAuthenticatedAwayFromAuth,
     safeReplace,
   ]);
+
+  if (
+    !isNavigationReady ||
+    shouldRedirectGuestToLogin ||
+    shouldRedirectToVerify ||
+    shouldRedirectAuthenticatedAwayFromAuth
+  ) {
+    return null;
+  }
 
   return children;
 }
 
 export default function RootLayout() {
-  const [fontsLoaded, setFontsLoaded] = useState(false);
   const [isAppReady, setIsAppReady] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
+
     async function loadFonts() {
       try {
         await Font.loadAsync({
           "Kurdish-Regular": require("../assets/fonts/kurdish.ttf"),
         });
-
-        setFontsLoaded(true);
-      } catch (error) {
-        setFontsLoaded(true);
+      } catch {
       } finally {
-        setTimeout(() => {
+        if (mounted) {
           setIsAppReady(true);
-        }, 4000);
+        }
       }
     }
 
     loadFonts();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Show splash screen while fonts are loading and minimum time hasn't passed

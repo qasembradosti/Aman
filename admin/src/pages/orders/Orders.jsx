@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import {
@@ -45,7 +45,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "../../components/ui/popover";
-import { isStoreAdmin } from "../../lib/access";
+import { isDeliveryCompany, isStoreAdmin } from "../../lib/access";
 
 const API_BASE =
   import.meta.env.VITE_API_URL?.replace("/api", "") ;
@@ -60,23 +60,74 @@ const statusColors = {
 
 const Orders = () => {
   const dispatch = useDispatch();
-  const { items, loading, error } = useSelector((state) => state.orders);
+  const { items, loading, error, pagination } = useSelector((state) => state.orders);
   const currentUser = useSelector((state) => state.auth.user);
   const storeAdmin = isStoreAdmin(currentUser);
+  const deliveryCompany = isDeliveryCompany(currentUser);
+  const readOnlyOrdersAccess = deliveryCompany;
 
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState(null);
   const [dateTo, setDateTo] = useState(null);
   const [sortBy, setSortBy] = useState("date_desc");
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
-    dispatch(fetchOrders());
-  }, [dispatch]);
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [
+    debouncedSearchQuery,
+    statusFilter,
+    paymentStatusFilter,
+    dateFrom,
+    dateTo,
+    sortBy,
+  ]);
+
+  useEffect(() => {
+    dispatch(
+      fetchOrders({
+        page,
+        limit: pagination.limit || 20,
+        search: debouncedSearchQuery || undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        payment_status:
+          paymentStatusFilter !== "all" ? paymentStatusFilter : undefined,
+        start_date: dateFrom ? format(dateFrom, "yyyy-MM-dd") : undefined,
+        end_date: dateTo ? format(dateTo, "yyyy-MM-dd") : undefined,
+        sort_by: sortBy,
+      }),
+    );
+  }, [
+    dateFrom,
+    dateTo,
+    debouncedSearchQuery,
+    dispatch,
+    page,
+    pagination.limit,
+    paymentStatusFilter,
+    sortBy,
+    statusFilter,
+  ]);
+
+  useEffect(() => {
+    if (pagination.totalPages > 0 && page > pagination.totalPages) {
+      setPage(pagination.totalPages);
+    }
+  }, [page, pagination.totalPages]);
 
   useEffect(() => {
     // Add print styles when component mounts
@@ -151,11 +202,29 @@ const Orders = () => {
   };
 
   const handleStatusChange = async (orderId, newStatus) => {
+    if (readOnlyOrdersAccess) {
+      toast.error("Delivery company users have read-only order access.");
+      return;
+    }
+
     try {
       const result = await dispatch(
         updateOrderStatus({ id: orderId, status: newStatus }),
       ).unwrap();
       console.log("Status update result:", result);
+      await dispatch(
+        fetchOrders({
+          page,
+          limit: pagination.limit || 20,
+          search: debouncedSearchQuery || undefined,
+          status: statusFilter !== "all" ? statusFilter : undefined,
+          payment_status:
+            paymentStatusFilter !== "all" ? paymentStatusFilter : undefined,
+          start_date: dateFrom ? format(dateFrom, "yyyy-MM-dd") : undefined,
+          end_date: dateTo ? format(dateTo, "yyyy-MM-dd") : undefined,
+          sort_by: sortBy,
+        }),
+      );
       toast.success("Order status updated successfully");
     } catch (error) {
       console.error("Failed to update order status:", error);
@@ -164,7 +233,7 @@ const Orders = () => {
   };
 
   const handleWithdrawCommission = async () => {
-    if (!selectedOrder || storeAdmin) return;
+    if (!selectedOrder || storeAdmin || readOnlyOrdersAccess) return;
 
     try {
       const result = await dispatch(
@@ -192,108 +261,16 @@ const Orders = () => {
 
   const handleClearFilters = () => {
     setSearchQuery("");
+    setDebouncedSearchQuery("");
     setStatusFilter("all");
     setPaymentStatusFilter("all");
     setDateFrom(null);
     setDateTo(null);
     setSortBy("date_desc");
+    setPage(1);
   };
 
-  const filteredOrders = useMemo(() => {
-    const normalizedSearch = searchQuery.trim().toLowerCase();
-    const fromDate = dateFrom
-      ? new Date(
-          dateFrom.getFullYear(),
-          dateFrom.getMonth(),
-          dateFrom.getDate(),
-          0,
-          0,
-          0,
-          0,
-        )
-      : null;
-    const toDate = dateTo
-      ? new Date(
-          dateTo.getFullYear(),
-          dateTo.getMonth(),
-          dateTo.getDate(),
-          23,
-          59,
-          59,
-          999,
-        )
-      : null;
-
-    const filtered = (Array.isArray(items) ? items : []).filter((order) => {
-      const fullName = `${order.user_first_name || ""} ${order.user_last_name || ""}`
-        .trim()
-        .toLowerCase();
-      const searchableFields = [
-        order.id,
-        order.user_phone,
-        order.user_email,
-        fullName,
-        order.status,
-        order.payment_status,
-      ]
-        .filter(Boolean)
-        .map((value) => String(value).toLowerCase());
-
-      const matchesSearch =
-        !normalizedSearch ||
-        searchableFields.some((value) => value.includes(normalizedSearch));
-      const matchesStatus =
-        statusFilter === "all" || order.status === statusFilter;
-      const matchesPaymentStatus =
-        paymentStatusFilter === "all" ||
-        (order.payment_status || "").toLowerCase() === paymentStatusFilter;
-
-      const createdAt = order.created_at ? new Date(order.created_at) : null;
-      const matchesDateFrom = !fromDate || (createdAt && createdAt >= fromDate);
-      const matchesDateTo = !toDate || (createdAt && createdAt <= toDate);
-
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesPaymentStatus &&
-        matchesDateFrom &&
-        matchesDateTo
-      );
-    });
-
-    filtered.sort((a, b) => {
-      const aDate = new Date(a.created_at || 0).getTime();
-      const bDate = new Date(b.created_at || 0).getTime();
-      const aTotal = Number(a.total_amount || 0);
-      const bTotal = Number(b.total_amount || 0);
-
-      switch (sortBy) {
-        case "date_asc":
-          return aDate - bDate;
-        case "total_desc":
-          return bTotal - aTotal;
-        case "total_asc":
-          return aTotal - bTotal;
-        case "id_desc":
-          return Number(b.id || 0) - Number(a.id || 0);
-        case "id_asc":
-          return Number(a.id || 0) - Number(b.id || 0);
-        case "date_desc":
-        default:
-          return bDate - aDate;
-      }
-    });
-
-    return filtered;
-  }, [
-    items,
-    searchQuery,
-    statusFilter,
-    paymentStatusFilter,
-    dateFrom,
-    dateTo,
-    sortBy,
-  ]);
+  const displayedOrders = Array.isArray(items) ? items : [];
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -308,6 +285,14 @@ const Orders = () => {
 
   const formatCurrency = (amount) => {
     return `${Number(amount || 0).toLocaleString()} IQD`;
+  };
+
+  const getOrderItemDisplayPrice = (item) => {
+    if (storeAdmin) {
+      return Number(item?.base_price ?? item?.price ?? 0);
+    }
+
+    return Number(item?.price ?? 0);
   };
 
   const handlePrint = () => {
@@ -427,7 +412,7 @@ const Orders = () => {
         </div>
       )}
       <div className="text-sm text-gray-500">
-        Showing {filteredOrders.length} of {Array.isArray(items) ? items.length : 0} orders
+        Showing {displayedOrders.length} of {pagination.total || 0} orders
       </div>
 
       {error && (
@@ -442,7 +427,7 @@ const Orders = () => {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
           </div>
-        ) : filteredOrders.length === 0 ? (
+        ) : displayedOrders.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
             <p>{storeAdmin ? "No orders found for your store" : "No orders found"}</p>
@@ -462,7 +447,7 @@ const Orders = () => {
                     Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Total
+                    {storeAdmin ? "Base Price Total" : "Total"}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Items
@@ -476,7 +461,7 @@ const Orders = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredOrders.map((order) => (
+                {displayedOrders.map((order) => (
                   <tr key={order.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <span className="text-sm font-medium text-gray-900">
@@ -512,7 +497,16 @@ const Orders = () => {
                       {order.items_count || order.items?.length || 0} items
                     </td>
                     <td className="px-6 py-4">
-                      {storeAdmin ? (
+                      {readOnlyOrdersAccess ? (
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                            statusColors[order.status] ||
+                            "bg-gray-100 text-gray-600"
+                          }`}
+                        >
+                          {order.status}
+                        </span>
+                      ) : storeAdmin ? (
                         order.status === "pending" ? (
                           <Button
                             type="button"
@@ -572,6 +566,37 @@ const Orders = () => {
             </table>
           </div>
         )}
+
+        {pagination.totalPages > 1 && (
+          <div className="border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-gray-700">
+                Page <span className="font-medium">{page}</span> of{" "}
+                <span className="font-medium">{pagination.totalPages}</span>
+              </p>
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={page === 1 || loading}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setPage((prev) =>
+                      Math.min(prev + 1, pagination.totalPages || prev + 1),
+                    )
+                  }
+                  disabled={page >= pagination.totalPages || loading}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Order Detail Modal */}
@@ -599,16 +624,18 @@ const Orders = () => {
               <h2 className="text-2xl font-bold text-gray-900">INVOICE</h2>
             </div>
             
-            <div className="grid grid-cols-2 gap-8">
-              <div>
-                <h3 className="text-xs font-bold text-gray-700 uppercase mb-2">Invoice To:</h3>
-                <p className="text-sm font-semibold text-gray-900">
-                  {selectedOrder?.user_first_name && selectedOrder?.user_last_name
-                    ? `${selectedOrder.user_first_name} ${selectedOrder.user_last_name}`
-                    : "N/A"}
-                </p>
-                <p className="text-sm text-gray-600">{selectedOrder?.user_email || "N/A"}</p>
-              </div>
+            <div className={`grid gap-8 ${storeAdmin ? "grid-cols-1" : "grid-cols-2"}`}>
+              {!storeAdmin && (
+                <div>
+                  <h3 className="text-xs font-bold text-gray-700 uppercase mb-2">Invoice To:</h3>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {selectedOrder?.user_first_name && selectedOrder?.user_last_name
+                      ? `${selectedOrder.user_first_name} ${selectedOrder.user_last_name}`
+                      : "N/A"}
+                  </p>
+                  <p className="text-sm text-gray-600">{selectedOrder?.user_email || "N/A"}</p>
+                </div>
+              )}
               <div className="text-right">
                 <h3 className="text-xs font-bold text-gray-700 uppercase mb-2">Invoice Details:</h3>
                 <p className="text-sm text-gray-900">
@@ -656,116 +683,115 @@ const Orders = () => {
                     </div>
                   </div>
 
-                  {/* Customer Info */}
-                  <div className="border-t pt-4 print-section">
-                    <h4 className="font-medium text-gray-900 mb-3">
-                      Customer Information
-                    </h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-gray-500">Name</Label>
-                        <p className="text-sm font-medium">
-                          {selectedOrder.user_first_name &&
-                          selectedOrder.user_last_name
-                            ? `${selectedOrder.user_first_name} ${selectedOrder.user_last_name}`
-                            : "N/A"}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-gray-500">Email</Label>
-                        <p className="text-sm font-medium">
-                          {selectedOrder.user_email || "N/A"}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-gray-500">Phone</Label>
-                        <p className="text-sm font-medium">
-                          {(() => {
-                            try {
-                              const addr =
-                                typeof selectedOrder.shipping_address ===
-                                "string"
-                                  ? JSON.parse(selectedOrder.shipping_address)
-                                  : selectedOrder.shipping_address;
-                              return (
-                                addr?.phone || selectedOrder.phone || "N/A"
-                              );
-                            } catch {
-                              return selectedOrder.phone || "N/A";
-                            }
-                          })()}
-                        </p>
-                      </div>
-                      <div className="col-span-2">
-                        <Label className="text-gray-500">
-                          Shipping Address
-                        </Label>
-                        <p className="text-sm font-medium">
-                          {(() => {
-                            try {
-                              const addr =
-                                typeof selectedOrder.shipping_address ===
-                                "string"
-                                  ? JSON.parse(selectedOrder.shipping_address)
-                                  : selectedOrder.shipping_address;
-                              return addr
-                                ? `${addr.city}, ${addr.address}`
-                                : "N/A";
-                            } catch {
-                              return "N/A";
-                            }
-                          })()}
-                        </p>
-                      </div>
-
-                      {/* Location Map */}
-                      <div className="col-span-2 mt-3 print:hidden">
-                        {(() => {
-                          try {
-                            const addr =
-                              typeof selectedOrder.shipping_address === "string"
-                                ? JSON.parse(selectedOrder.shipping_address)
-                                : selectedOrder.shipping_address;
-
-                            if (addr?.location_points) {
-                              const coords = addr.location_points.split(",");
-                              const lat = parseFloat(coords[0]?.trim());
-                              const lng = parseFloat(coords[1]?.trim());
-
-                              if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+                  {!storeAdmin && (
+                    <div className="border-t pt-4 print-section">
+                      <h4 className="font-medium text-gray-900 mb-3">
+                        Customer Information
+                      </h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-gray-500">Name</Label>
+                          <p className="text-sm font-medium">
+                            {selectedOrder.user_first_name &&
+                            selectedOrder.user_last_name
+                              ? `${selectedOrder.user_first_name} ${selectedOrder.user_last_name}`
+                              : "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <Label className="text-gray-500">Email</Label>
+                          <p className="text-sm font-medium">
+                            {selectedOrder.user_email || "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <Label className="text-gray-500">Phone</Label>
+                          <p className="text-sm font-medium">
+                            {(() => {
+                              try {
+                                const addr =
+                                  typeof selectedOrder.shipping_address ===
+                                  "string"
+                                    ? JSON.parse(selectedOrder.shipping_address)
+                                    : selectedOrder.shipping_address;
                                 return (
-                                  <>
-                                    <Label className="text-gray-500 mb-2 block">
-                                      Delivery Location
-                                    </Label>
-                                    <div className="bg-gray-50 rounded-lg border-2 border-gray-200 overflow-hidden">
-                                      <div className="relative bg-gray-100 h-60">
-                                        <iframe
-                                          title="Delivery Location Map"
-                                          width="100%"
-                                          height="100%"
-                                          frameBorder="0"
-                                          className="select-none"
-                                          style={{ border: 0 }}
-                                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}&layer=mapnik&marker=${lat},${lng}`}
-                                          allowFullScreen
-                                        />
-                                      </div>
-                                    </div>
-                                  </>
+                                  addr?.phone || selectedOrder.phone || "N/A"
                                 );
+                              } catch {
+                                return selectedOrder.phone || "N/A";
                               }
+                            })()}
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <Label className="text-gray-500">
+                            Shipping Address
+                          </Label>
+                          <p className="text-sm font-medium">
+                            {(() => {
+                              try {
+                                const addr =
+                                  typeof selectedOrder.shipping_address ===
+                                  "string"
+                                    ? JSON.parse(selectedOrder.shipping_address)
+                                    : selectedOrder.shipping_address;
+                                return addr
+                                  ? `${addr.city}, ${addr.address}`
+                                  : "N/A";
+                              } catch {
+                                return "N/A";
+                              }
+                            })()}
+                          </p>
+                        </div>
+
+                        {/* Location Map */}
+                        <div className="col-span-2 mt-3 print:hidden">
+                          {(() => {
+                            try {
+                              const addr =
+                                typeof selectedOrder.shipping_address === "string"
+                                  ? JSON.parse(selectedOrder.shipping_address)
+                                  : selectedOrder.shipping_address;
+
+                              if (addr?.location_points) {
+                                const coords = addr.location_points.split(",");
+                                const lat = parseFloat(coords[0]?.trim());
+                                const lng = parseFloat(coords[1]?.trim());
+
+                                if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+                                  return (
+                                    <>
+                                      <Label className="text-gray-500 mb-2 block">
+                                        Delivery Location
+                                      </Label>
+                                      <div className="bg-gray-50 rounded-lg border-2 border-gray-200 overflow-hidden">
+                                        <div className="relative bg-gray-100 h-60">
+                                          <iframe
+                                            title="Delivery Location Map"
+                                            width="100%"
+                                            height="100%"
+                                            frameBorder="0"
+                                            className="select-none"
+                                            style={{ border: 0 }}
+                                            src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}&layer=mapnik&marker=${lat},${lng}`}
+                                            allowFullScreen
+                                          />
+                                        </div>
+                                      </div>
+                                    </>
+                                  );
+                                }
+                              }
+                            } catch (error) {
+                              console.error("Error parsing location:", error);
                             }
-                          } catch (error) {
-                            console.error("Error parsing location:", error);
-                          }
-                          return null;
-                        })()}
+                            return null;
+                          })()}
+                        </div>
                       </div>
-
-
                     </div>
-                  </div>
+                  )}
 
                   {/* Order Items */}
                   <div className="border-t pt-4 print-section">
@@ -800,15 +826,30 @@ const Orders = () => {
                               <p className="text-sm font-medium text-gray-900 wrap-break-word leading-tight mb-1">
                                 {item.product_name}
                               </p>
-                              <p className="text-xs text-gray-500">
+                              {storeAdmin ? (
+                                <>
+                                  <p className="text-xs text-gray-500">
+                                    Qty: {item.quantity}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    Base Price: {formatCurrency(getOrderItemDisplayPrice(item))}
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="text-xs text-gray-500">
                                 Qty: {item.quantity} ×{" "}
-                                {formatCurrency(item.price)}
-                              </p>
+                                {formatCurrency(getOrderItemDisplayPrice(item))}
+                                </p>
+                              )}
                             </div>
                           </div>
-                          <p className="text-sm font-medium text-gray-900 shrink-0 whitespace-nowrap">
-                            {formatCurrency(item.quantity * item.price)}
-                          </p>
+                          {!storeAdmin && (
+                            <p className="text-sm font-medium text-gray-900 shrink-0 whitespace-nowrap">
+                              {formatCurrency(
+                                Number(item.quantity || 0) * getOrderItemDisplayPrice(item),
+                              )}
+                            </p>
+                          )}
                         </div>
                       )) || (
                         <p className="text-sm text-gray-500">
@@ -824,8 +865,12 @@ const Orders = () => {
                           <tr className="border-b-2 border-gray-900">
                             <th className="text-left py-2 font-semibold text-gray-900">Product</th>
                             <th className="text-center py-2 font-semibold text-gray-900">Quantity</th>
-                            <th className="text-right py-2 font-semibold text-gray-900">Unit Price</th>
-                            <th className="text-right py-2 font-semibold text-gray-900">Total</th>
+                            <th className="text-right py-2 font-semibold text-gray-900">
+                              {storeAdmin ? "Base Price" : "Unit Price"}
+                            </th>
+                            {!storeAdmin && (
+                              <th className="text-right py-2 font-semibold text-gray-900">Total</th>
+                            )}
                           </tr>
                         </thead>
                         <tbody>
@@ -833,8 +878,16 @@ const Orders = () => {
                             <tr key={index} className="border-b border-gray-200">
                               <td className="py-3 text-sm">{item.product_name}</td>
                               <td className="py-3 text-sm text-center">{item.quantity}</td>
-                              <td className="py-3 text-sm text-right">{formatCurrency(item.price)}</td>
-                              <td className="py-3 text-sm text-right font-medium">{formatCurrency(item.quantity * item.price)}</td>
+                              <td className="py-3 text-sm text-right">
+                                {formatCurrency(getOrderItemDisplayPrice(item))}
+                              </td>
+                              {!storeAdmin && (
+                                <td className="py-3 text-sm text-right font-medium">
+                                  {formatCurrency(
+                                    Number(item.quantity || 0) * getOrderItemDisplayPrice(item),
+                                  )}
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -842,45 +895,48 @@ const Orders = () => {
                     </div>
                   </div>
 
-                  {/* Order Summary */}
-                  <div className="border-t pt-4 print-section print:mb-20">
-                    <div className="space-y-2 max-w-md ml-auto">
-                      <div className="flex justify-between text-sm py-1">
-                        <span className="text-gray-600">Subtotal:</span>
-                        <span className="font-medium text-gray-900">
-                          {formatCurrency(
-                            selectedOrder.subtotal ||
-                              selectedOrder.total_amount,
-                          )}
-                        </span>
-                      </div>
-                      {selectedOrder.shipping_cost > 0 && (
+                  {!storeAdmin && (
+                    <div className="border-t pt-4 print-section print:mb-20">
+                      <div className="space-y-2 max-w-md ml-auto">
                         <div className="flex justify-between text-sm py-1">
-                          <span className="text-gray-600">Shipping:</span>
+                          <span className="text-gray-600">Subtotal:</span>
                           <span className="font-medium text-gray-900">
-                            {formatCurrency(selectedOrder.shipping_cost)}
+                            {formatCurrency(
+                              selectedOrder.subtotal ||
+                                selectedOrder.total_amount,
+                            )}
                           </span>
                         </div>
-                      )}
-                      {selectedOrder.discount > 0 && (
-                        <div className="flex justify-between text-sm py-1">
-                          <span className="text-gray-600">Discount:</span>
-                          <span className="font-medium text-green-600">
-                            -{formatCurrency(selectedOrder.discount)}
+                        {selectedOrder.shipping_cost > 0 && (
+                          <div className="flex justify-between text-sm py-1">
+                            <span className="text-gray-600">Shipping:</span>
+                            <span className="font-medium text-gray-900">
+                              {formatCurrency(selectedOrder.shipping_cost)}
+                            </span>
+                          </div>
+                        )}
+                        {selectedOrder.discount > 0 && (
+                          <div className="flex justify-between text-sm py-1">
+                            <span className="text-gray-600">Discount:</span>
+                            <span className="font-medium text-green-600">
+                              -{formatCurrency(selectedOrder.discount)}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-lg font-bold border-t-2 border-gray-900 pt-3 mt-2">
+                          <span className="text-gray-900">Total Amount:</span>
+                          <span className="text-gray-900">
+                            {formatCurrency(selectedOrder.total_amount)}
                           </span>
                         </div>
-                      )}
-                      <div className="flex justify-between text-lg font-bold border-t-2 border-gray-900 pt-3 mt-2">
-                        <span className="text-gray-900">Total Amount:</span>
-                        <span className="text-gray-900">
-                          {formatCurrency(selectedOrder.total_amount)}
-                        </span>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Commission Section */}
-                  {!storeAdmin && calculateTotalCommission(selectedOrder) > 0 && (
+                  {!storeAdmin &&
+                    !readOnlyOrdersAccess &&
+                    calculateTotalCommission(selectedOrder) > 0 && (
                     <div className="border-t pt-4 print-section print:hidden">
                       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">

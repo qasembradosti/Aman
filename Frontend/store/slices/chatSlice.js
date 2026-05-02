@@ -1,4 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
+import { logout, loadTokenFromStorage } from './authSlice';
 
 const initialState = {
   activeConversationId: null,
@@ -24,6 +25,17 @@ const chatSlice = createSlice({
     clearUnreadCount: (state) => {
       state.unreadCount = 0;
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(logout.fulfilled, (state) => {
+        state.activeConversationId = null;
+        state.unreadCount = 0;
+      })
+      .addCase(loadTokenFromStorage.rejected, (state) => {
+        state.activeConversationId = null;
+        state.unreadCount = 0;
+      });
   },
 });
 

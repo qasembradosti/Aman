@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   FlatList,
@@ -14,9 +14,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../utils/ThemeContext";
 import { useLanguage } from "../utils/LanguageContext";
-import api from "../services/apiService";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchBrands } from "../store/slices/brandsSlice";
 import { getApiBaseUrl } from "../utils/apiConfig";
-import Text from "@/components/ui/Text";
+import { Text } from "../components/ui/Text";
 
 const { width } = Dimensions.get("window");
 const HORIZONTAL_PADDING = 16;
@@ -25,45 +26,31 @@ const COLUMNS = 3;
 const CARD_WIDTH = (width - (HORIZONTAL_PADDING * 2) - (CARD_GAP * (COLUMNS - 1))) / COLUMNS;
 
 export default function BrandsScreen() {
-  const [brands, setBrands] = useState([]);
-  const [filteredBrands, setFilteredBrands] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
+  const dispatch = useDispatch();
   const { theme } = useTheme();
   const { t, isRTL } = useLanguage();
   const API_BASE_URL = getApiBaseUrl();
+  const { items: brands, loading } = useSelector((state) => state.brands);
 
   useEffect(() => {
-    fetchBrands();
-  }, []);
-
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      const filtered = brands.filter((brand) =>
-        brand.name.toLowerCase().includes(searchQuery.toLowerCase()),
-      );
-      setFilteredBrands(filtered);
-    } else {
-      setFilteredBrands(brands);
+    if (!brands.length && !loading) {
+      dispatch(fetchBrands({ is_active: "true" }));
     }
-  }, [searchQuery, brands]);
+  }, [brands.length, dispatch, loading]);
 
-  const fetchBrands = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get("/api/brands", {
-        params: { is_active: "true" },
-      });
-      const brandsData = response.data.data || [];
-      setBrands(brandsData);
-      setFilteredBrands(brandsData);
-    } catch (error) {
-      console.error("Error fetching brands:", error);
-    } finally {
-      setLoading(false);
+  const filteredBrands = useMemo(() => {
+    const trimmedQuery = searchQuery.trim().toLowerCase();
+
+    if (!trimmedQuery) {
+      return brands;
     }
-  };
+
+    return brands.filter((brand) =>
+      String(brand?.name || "").toLowerCase().includes(trimmedQuery),
+    );
+  }, [brands, searchQuery]);
 
   const resolveBrandImageUri = (brand) => {
     const imageUrl = brand?.logo_url || brand?.logo || brand?.image;

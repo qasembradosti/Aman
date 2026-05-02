@@ -1,24 +1,45 @@
 import Order from '../models/order.js';
 import User from '../models/user.js';
 import Wallet from '../models/wallet.js';
-import { isStoreAdmin, isSuperAdmin } from '../middleware/adminPanelMiddleware.js';
+import {
+  isDeliveryCompany,
+  isStoreAdmin,
+  isSuperAdmin,
+} from '../middleware/adminPanelMiddleware.js';
+import { deliverNotificationToUser } from '../services/notificationDeliveryService.js';
 
 // Get all orders with pagination and filters
 export const getOrders = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, search, user_id: requestedUserId } = req.query;
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      search,
+      user_id: requestedUserId,
+      start_date,
+      end_date,
+      sort_by,
+      payment_status,
+    } = req.query;
     const userId = req.user?.userId; // Get user ID from JWT token
+    const normalizedPage = Math.max(parseInt(page, 10) || 1, 1);
+    const normalizedLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
     
     const filters = {
-      page: parseInt(page, 10) || 1,
-      limit: parseInt(limit, 10) || 20,
+      page: normalizedPage,
+      limit: normalizedLimit,
       status,
-      search
+      search,
+      start_date,
+      end_date,
+      sort_by,
+      payment_status,
     };
     
     if (isStoreAdmin(req.user)) {
       filters.store_id = Number(req.user.store_id);
-    } else if (isSuperAdmin(req.user)) {
+    } else if (isSuperAdmin(req.user) || isDeliveryCompany(req.user)) {
       if (requestedUserId) {
         filters.user_id = Number(requestedUserId);
       }
@@ -38,10 +59,14 @@ export const getOrders = async (req, res) => {
 export const getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
+    const requestedStoreId = Number(req.query?.store_id);
+    const hasRequestedStoreId = Number.isFinite(requestedStoreId) && requestedStoreId > 0;
     let order = null;
 
     if (isStoreAdmin(req.user)) {
       order = await Order.getById(id, { store_id: Number(req.user.store_id) });
+    } else if (isSuperAdmin(req.user) && hasRequestedStoreId) {
+      order = await Order.getById(id, { store_id: requestedStoreId });
     } else {
       order = await Order.getById(id);
     }
@@ -56,7 +81,11 @@ export const getOrderById = async (req, res) => {
       image: item.image,
     })));
 
-    if (!isSuperAdmin(req.user) && !isStoreAdmin(req.user)) {
+    if (
+      !isSuperAdmin(req.user) &&
+      !isStoreAdmin(req.user) &&
+      !isDeliveryCompany(req.user)
+    ) {
       if (Number(order.user_id) !== Number(req.user?.userId)) {
         return res.status(404).json({ message: 'Order not found' });
       }
@@ -202,6 +231,30 @@ export const updateOrderStatus = async (req, res) => {
         console.error('❌ Error processing commission:', err);
         // Continue to return response even if commission fails
       }
+    }
+
+    try {
+      const statusLabels = {
+        pending: 'Pending',
+        processing: 'Processing',
+        shipped: 'Shipped',
+        delivered: 'Delivered',
+        cancelled: 'Cancelled',
+      };
+
+      await deliverNotificationToUser({
+        userId: order.user_id,
+        title: 'Order Status Updated',
+        message: `Your order #${order.id} is now ${statusLabels[status] || status}.`,
+        data: {
+          route: `/order/${order.id}`,
+          type: 'order-status',
+          orderId: order.id,
+          status,
+        },
+      });
+    } catch (notificationError) {
+      console.error('Failed to deliver order status notification:', notificationError);
     }
 
     res.json({ message: 'Order status updated successfully', order });

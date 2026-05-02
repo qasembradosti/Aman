@@ -147,7 +147,7 @@ const Store = {
         'users.phone as user_phone',
         'users.email as user_email',
         db.raw('SUM(order_items.quantity) as store_items_count'),
-        db.raw('SUM(order_items.quantity * order_items.price) as store_total_amount')
+        db.raw('SUM(order_items.quantity * COALESCE(order_items.base_price, order_items.price)) as store_total_amount')
       )
       .groupBy(
         'orders.id',

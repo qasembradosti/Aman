@@ -187,7 +187,7 @@ export default function About() {
           onPress={() =>
             router.canGoBack()
               ? router.back()
-              : router.replace("/(tabs)/profile")
+              : router.replace("/(tabs)/home")
           }
           style={styles.backButton}
         >

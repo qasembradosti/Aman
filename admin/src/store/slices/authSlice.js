@@ -34,7 +34,7 @@ export const loginAdmin = createAsyncThunk(
       
       if (!canAccessAdminPanel(user)) {
         return rejectWithValue(
-          'Access denied. Only superadmin users or admin users assigned to a store can access the admin panel.',
+          'Access denied. Only superadmin users, delivery company users, or admin users assigned to a store can access the admin panel.',
         );
       }
       

@@ -4,14 +4,8 @@ import { useLanguage } from '../../utils/LanguageContext';
 
 // Custom Text that respects language fonts but never crashes when provider is missing
 export const Text = ({ style, children, ...props }) => {
-  let fontFamilyName;
-  try {
-    const { fontFamily } = useLanguage();
-    fontFamilyName = fontFamily?.regular;
-  } catch (_e) {
-    // If used outside provider (e.g., during boot), gracefully fallback
-    fontFamilyName = undefined;
-  }
+  const { fontFamily } = useLanguage();
+  const fontFamilyName = fontFamily?.regular;
 
   const textStyle = [
     fontFamilyName ? { fontFamily: fontFamilyName } : null,

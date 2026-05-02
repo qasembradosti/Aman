@@ -18,7 +18,7 @@ import Input from "../../components/ui/Input";
 import { useLanguage } from "../../utils/LanguageContext";
 import { useTheme } from "../../utils/ThemeContext";
 import { useResponsiveLayout } from "../../utils/useResponsiveLayout";
-import InfoDialog from "@/components/InfoDialog";
+import InfoDialog from "../../components/InfoDialog";
 
 // Custom Text component with font
 const Text = ({ style, ...props }) => {
@@ -48,9 +48,7 @@ export default function Login() {
   const usernameRef = useRef(null);
   const passwordRef = useRef(null);
 
-  const { loading, error, isAuthenticated, user } = useSelector(
-    (state) => state.auth
-  );
+  const { loading, error } = useSelector((state) => state.auth);
 
   useEffect(() => {
     dispatch(clearError());
@@ -65,7 +63,7 @@ export default function Login() {
       setErrorDialogVisible(true);
       dispatch(clearError());
     }
-  }, [error]);
+  }, [dispatch, error]);
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -75,7 +73,7 @@ export default function Login() {
     }
     try {
       await dispatch(login({ username, password })).unwrap();
-    } catch (e) {
+    } catch (_e) {
       // handled by error effect
     }
   };
@@ -84,6 +82,65 @@ export default function Login() {
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
+      <View
+        style={[
+          styles.header,
+          {
+            paddingHorizontal: layout.containerPadding,
+            paddingVertical: layout.spacing.sm,
+            backgroundColor: theme.colors.background,
+            flexDirection: isRTL ? "row-reverse" : "row",
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() =>
+            router.canGoBack?.()
+              ? router.back()
+              : router.replace("/(tabs)/home")
+          }
+          style={[
+            styles.backButton,
+            {
+              backgroundColor: isDark
+                ? "rgba(255,255,255,0.08)"
+                : "rgba(0,0,0,0.05)",
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={t("back") || "Back"}
+        >
+          <Ionicons
+            name={isRTL ? "arrow-forward" : "arrow-back"}
+            size={20}
+            color={theme.colors.text}
+          />
+        </TouchableOpacity>
+
+        <View style={styles.headerBrand}>
+          <Image
+            source={require("../../assets/images/aman-app.png")}
+            style={styles.headerLogo}
+            resizeMode="contain"
+            accessible
+            accessibilityLabel="App logo"
+          />
+          <Text
+            style={[
+              styles.headerTitle,
+              {
+                color: theme.colors.text,
+                textAlign: isRTL ? "right" : "left",
+              },
+            ]}
+          >
+            Amanly
+          </Text>
+        </View>
+
+        <View style={styles.headerSpacer} />
+      </View>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.mainArea}
@@ -283,16 +340,43 @@ export default function Login() {
               ]}
               onPress={handleLogin}
               disabled={loading || !username || !password}
-            >
-              <Text
-                style={{
-                  color: "#fff",
-                  fontSize: layout.typography.md,
+              >
+                <Text
+                  style={{
+                    color: "#fff",
+                    fontSize: layout.typography.md,
 
                   letterSpacing: 0.5,
                 }}
               >
                 {loading ? t("loading") || "Loading..." : t("login")}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.button,
+                {
+                  backgroundColor: theme.colors.card,
+                  borderColor: theme.colors.border,
+                  borderWidth: 1,
+                  borderRadius: 16,
+                  paddingVertical: layout.spacing.md,
+                  minHeight: layout.touchTargets.lg,
+                  justifyContent: "center",
+                  marginTop: layout.spacing.sm,
+                },
+              ]}
+              onPress={() => router.replace("/(tabs)/home")}
+            >
+              <Text
+                style={{
+                  color: theme.colors.text,
+                  fontSize: layout.typography.md,
+                  letterSpacing: 0.3,
+                }}
+              >
+                {t("continueAsGuest") || "Continue as Guest"}
               </Text>
             </TouchableOpacity>
 
@@ -375,6 +459,36 @@ export default function Login() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  header: {
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerBrand: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  headerLogo: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+  },
+  headerTitle: {
+    fontSize: 18,
+  },
+  headerSpacer: {
+    width: 42,
+    height: 42,
   },
   mainArea: {
     flex: 1,

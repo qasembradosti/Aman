@@ -5,7 +5,19 @@ import * as Updates from "expo-updates";
 import { translations } from "./translations";
 import { getFontFamily } from "./fonts";
 
-const LanguageContext = createContext();
+const defaultLocale = "en";
+const defaultFonts = getFontFamily(defaultLocale);
+
+export const defaultLanguageContextValue = {
+  locale: defaultLocale,
+  changeLanguage: async () => {},
+  t: (key) => translations[defaultLocale]?.[key] || key,
+  isRTL: false,
+  fontFamily: defaultFonts,
+  fontFamilyName: defaultFonts?.regular,
+};
+
+export const LanguageContext = createContext(defaultLanguageContextValue);
 
 export const LanguageProvider = ({ children }) => {
   const [locale, setLocale] = useState("en");
@@ -126,9 +138,5 @@ export const LanguageProvider = ({ children }) => {
 };
 
 export const useLanguage = () => {
-  const context = useContext(LanguageContext);
-  if (!context) {
-    throw new Error("useLanguage must be used within LanguageProvider");
-  }
-  return context;
+  return useContext(LanguageContext);
 };

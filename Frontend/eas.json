@@ -32,7 +32,9 @@
         "buildType": "app-bundle",
         "autoIncrement": "versionCode"
       },
-      "ios": {}
+      "ios": {
+        "autoIncrement": "buildNumber"
+      }
     }
   },
   "submit": {

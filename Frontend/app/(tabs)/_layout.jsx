@@ -1,13 +1,25 @@
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { Ionicons, FontAwesome6 } from "@expo/vector-icons";
 import { useTheme } from "../../utils/ThemeContext";
 import { LayoutGrid } from "lucide-react-native";
 import { useLanguage } from "../../utils/LanguageContext";
 import { Platform } from "react-native";
+import { useSelector } from "react-redux";
 
 export default function TabLayout() {
+  const router = useRouter();
   const { t, isRTL, fontFamilyName } = useLanguage();
   const { theme, isDark } = useTheme();
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+
+  const protectedTabListeners = {
+    tabPress: (event) => {
+      if (isAuthenticated) return;
+      event.preventDefault();
+      router.push("/(auth)/login");
+    },
+  };
+
   return (
     <Tabs
       screenOptions={{
@@ -84,6 +96,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="orders"
+        listeners={protectedTabListeners}
         options={{
           title: t("orders"),
           tabBarIcon: ({ color, focused }) => (
@@ -97,6 +110,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="profile"
+        listeners={protectedTabListeners}
         options={{
           title: t("profile"),
           tabBarIcon: ({ color, focused }) => (

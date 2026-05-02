@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -14,12 +14,12 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import io from "socket.io-client";
+import socketIoClient from "socket.io-client";
 import { useLanguage } from "../utils/LanguageContext";
 import { useTheme } from "../utils/ThemeContext";
 import { useSelector, useDispatch } from "react-redux";
 import { setActiveConversation, clearActiveConversation } from "../store/slices/chatSlice";
-import { createOrGetConversation, sendMessage as sendMessageAPI, reopenConversation, getUserConversations, getConversationMessages } from "../services/chatService";
+import { createOrGetConversation, sendMessage as sendMessageAPI, getUserConversations, getConversationMessages } from "../services/chatService";
 import { getApiBaseUrl } from "../utils/apiConfig";
 
 const API_BASE_URL = getApiBaseUrl();
@@ -52,12 +52,139 @@ export default function ChatSupport({ visible, onClose, orderId = null, existing
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const socketRef = useRef(null);
 
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  }, []);
+
+  const loadConversation = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = {
+        order_id: orderId || undefined,
+        subject: orderId ? `Order #${orderId} Support` : "General Support",
+      };
+
+      console.log("Frontend: Loading conversation with data:", {
+        ...data,
+        orderId_raw: orderId,
+        orderId_type: typeof orderId,
+        orderId_is_null: orderId === null || orderId === undefined,
+      });
+
+      const result = await createOrGetConversation(token, data);
+
+      if (result.success) {
+        console.log("Conversation loaded:", {
+          id: result.conversation.id,
+          status: result.conversation.status,
+          order_id: result.conversation.order_id,
+          message_count: result.messages?.length || 0,
+          is_existing: result.messages?.length > 0,
+        });
+
+        setConversationId(result.conversation.id);
+        dispatch(setActiveConversation(result.conversation.id));
+        setConversationStatus(result.conversation.status || "open");
+
+        if (result.messages && result.messages.length > 0) {
+          const formattedMessages = result.messages.map((msg) => ({
+            id: msg.id,
+            text: msg.message,
+            sender: msg.sender_type === "user" ? "user" : "support",
+            timestamp: new Date(msg.created_at).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          }));
+          setMessages(formattedMessages);
+        } else {
+          const welcomeMessage = {
+            id: Date.now(),
+            text: orderId
+              ? `${t("hello") || "Hello"} ${user?.first_name || ""}! ${t("howCanWeHelp") || "How can we help you with order"} #${orderId}?`
+              : `${t("hello") || "Hello"} ${user?.first_name || ""}! ${t("howCanWeHelp") || "How can we help you today?"}`,
+            sender: "support",
+            timestamp: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          };
+          setMessages([welcomeMessage]);
+        }
+
+        scrollToBottom();
+      }
+    } catch (error) {
+      console.error("Failed to load conversation:", error);
+      Alert.alert(t("error") || "Error", error.message || "Failed to load chat");
+    } finally {
+      setLoading(false);
+    }
+  }, [dispatch, orderId, scrollToBottom, t, token, user?.first_name]);
+
+  const loadExistingConversation = useCallback(async (convId) => {
+    try {
+      setLoading(true);
+
+      console.log("Frontend: Loading existing conversation by ID:", convId);
+
+      const conversationsResult = await getUserConversations(token);
+      const currentConv = conversationsResult.conversations?.find(
+        (conversation) => conversation.id === convId,
+      );
+
+      console.log("Found conversation data:", {
+        id: currentConv?.id,
+        status: currentConv?.status,
+        order_id: currentConv?.order_id,
+        subject: currentConv?.subject,
+      });
+
+      if (!currentConv) {
+        console.log("Conversation is missing, loading a new one instead");
+        await loadConversation();
+        return;
+      }
+
+      setConversationId(convId);
+      dispatch(setActiveConversation(convId));
+      setConversationStatus(currentConv.status || "open");
+
+      const result = await getConversationMessages(token, convId);
+
+      if (result.success && result.messages && result.messages.length > 0) {
+        const formattedMessages = result.messages.map((msg) => ({
+          id: msg.id,
+          text: msg.message,
+          sender: msg.sender_type === "user" ? "user" : "support",
+          timestamp: new Date(msg.created_at).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        }));
+        setMessages(formattedMessages);
+      }
+
+      scrollToBottom();
+    } catch (error) {
+      console.error("Failed to load existing conversation:", error);
+      Alert.alert(
+        t("error") || "Error",
+        error.message || "Failed to load conversation",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [dispatch, loadConversation, scrollToBottom, t, token]);
+
   // Socket.IO connection setup
   useEffect(() => {
     if (!visible || !token || !conversationId) return;
 
     // Connect to Socket.IO
-    const socket = io(API_BASE_URL, {
+    const socket = socketIoClient(API_BASE_URL, {
       auth: { token },
       transports: ['websocket', 'polling'],
     });
@@ -117,7 +244,7 @@ export default function ChatSupport({ visible, onClose, orderId = null, existing
       }
       socket.disconnect();
     };
-  }, [visible, token, conversationId]);
+  }, [conversationId, scrollToBottom, token, visible]);
 
   // Load conversation when chat opens
   useEffect(() => {
@@ -140,123 +267,15 @@ export default function ChatSupport({ visible, onClose, orderId = null, existing
       setConversationStatus("open");
       setMessages([]);
     }
-  }, [visible, orderId, token, existingConversationId]);
+  }, [
+    existingConversationId,
+    fadeAnim,
+    loadConversation,
+    loadExistingConversation,
+    token,
+    visible,
+  ]);
 
-  const loadConversation = async () => {
-    try {
-      setLoading(true);
-      const data = {
-        order_id: orderId || undefined,
-        subject: orderId ? `Order #${orderId} Support` : 'General Support',
-      };
-      
-      console.log('📤 Frontend: Loading conversation with data:', {
-        ...data,
-        orderId_raw: orderId,
-        orderId_type: typeof orderId,
-        orderId_is_null: orderId === null || orderId === undefined
-      });
-      
-      const result = await createOrGetConversation(token, data);
-      
-      if (result.success) {
-        console.log('Conversation loaded:', {
-          id: result.conversation.id,
-          status: result.conversation.status,
-          order_id: result.conversation.order_id,
-          message_count: result.messages?.length || 0,
-          is_existing: result.messages?.length > 0
-        });
-        
-        setConversationId(result.conversation.id);
-        // Set active conversation in Redux
-        dispatch(setActiveConversation(result.conversation.id));
-        // Set conversation status
-        setConversationStatus(result.conversation.status || "open");
-        
-        // Load existing messages
-        if (result.messages && result.messages.length > 0) {
-          const formattedMessages = result.messages.map(msg => ({
-            id: msg.id,
-            text: msg.message,
-            sender: msg.sender_type === 'user' ? 'user' : 'support',
-            timestamp: new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          }));
-          setMessages(formattedMessages);
-        } else {
-          // Add welcome message if no existing messages
-          const welcomeMessage = {
-            id: Date.now(),
-            text: orderId
-              ? `${t("hello") || "Hello"} ${user?.first_name || ""}! ${t("howCanWeHelp") || "How can we help you with order"} #${orderId}?`
-              : `${t("hello") || "Hello"} ${user?.first_name || ""}! ${t("howCanWeHelp") || "How can we help you today?"}`,
-            sender: "support",
-            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          };
-          setMessages([welcomeMessage]);
-        }
-        
-        scrollToBottom();
-      }
-    } catch (error) {
-      console.error('Failed to load conversation:', error);
-      Alert.alert(t("error") || "Error", error.message || "Failed to load chat");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadExistingConversation = async (convId) => {
-    try {
-      setLoading(true);
-      
-      console.log('📥 Frontend: Loading existing conversation by ID:', convId);
-      
-      // Get conversation status first
-      const conversationsResult = await getUserConversations(token);
-      const currentConv = conversationsResult.conversations?.find(c => c.id === convId);
-      
-      console.log('📋 Found conversation data:', {
-        id: currentConv?.id,
-        status: currentConv?.status,
-        order_id: currentConv?.order_id,
-        subject: currentConv?.subject
-      });
-      
-      if (!currentConv) {
-        console.log('?? Conversation is missing, loading a new one instead');
-        await loadConversation();
-        return;
-      }
-      
-      // Set the conversation ID
-      setConversationId(convId);
-      dispatch(setActiveConversation(convId));
-      setConversationStatus(currentConv.status || "open");
-      
-      // Load messages for this conversation
-      const result = await getConversationMessages(token, convId);
-      
-      if (result.success) {
-        if (result.messages && result.messages.length > 0) {
-          const formattedMessages = result.messages.map(msg => ({
-            id: msg.id,
-            text: msg.message,
-            sender: msg.sender_type === 'user' ? 'user' : 'support',
-            timestamp: new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          }));
-          setMessages(formattedMessages);
-        }
-        
-        scrollToBottom();
-      }
-    } catch (error) {
-      console.error('Failed to load existing conversation:', error);
-      Alert.alert(t("error") || "Error", error.message || "Failed to load conversation");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSend = async () => {
     if (message.trim() && conversationId && !sending && conversationStatus !== "closed") {
@@ -304,11 +323,6 @@ export default function ChatSupport({ visible, onClose, orderId = null, existing
     }
   };
 
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  };
 
   const handleClose = () => {
     setMessages([]);

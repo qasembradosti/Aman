@@ -7,12 +7,12 @@ import {
   Text as RNText,
   TextInput,
   Modal,
-  I18nManager,
   ActivityIndicator,
   RefreshControl,
   Share,
   Platform,
 } from "react-native";
+import { Image } from "expo-image";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,7 +26,6 @@ import {
   fetchOrderById,
 } from "../../store/slices/ordersSlice";
 import { getApiBaseUrl } from "../../utils/apiConfig";
-import { Image } from "react-native";
 import InfoDialog from "../../components/InfoDialog";
 import ChatSupport from "../../components/ChatSupport";
 import { getUserConversations } from "../../services/chatService";
@@ -489,7 +488,7 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
     if (currentOrder && selectedOrder && currentOrder.id === selectedOrder.id) {
       setSelectedOrder(currentOrder);
     }
-  }, [currentOrder]);
+  }, [currentOrder, selectedOrder]);
 
   // Helper functions for filters
   const clearAllFilters = () => {
@@ -512,7 +511,7 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
         month: 'short',
         day: 'numeric',
       });
-    } catch (error) {
+    } catch (_error) {
       return dateString;
     }
   };
@@ -1682,24 +1681,6 @@ ${t("total") || "Total"}: ${formatCurrency(total)}
                       icon: "checkmark-done",
                     },
                   ].map((step, index) => {
-                    const isActive =
-                      [
-                        "pending",
-                        "processing",
-                        "shipped",
-                        "delivered",
-                      ].includes(selectedOrder.status) &&
-                      (index === 0 ||
-                        (index === 1 &&
-                          ["processing", "shipped", "delivered"].includes(
-                            selectedOrder.status,
-                          )) ||
-                        (index === 2 &&
-                          ["shipped", "delivered"].includes(
-                            selectedOrder.status,
-                          )) ||
-                        (index === 3 && selectedOrder.status === "delivered"));
-
                     const isCompleted =
                       index === 0 ||
                       (index === 1 &&

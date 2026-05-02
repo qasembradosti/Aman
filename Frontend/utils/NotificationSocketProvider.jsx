@@ -1,18 +1,36 @@
-import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import {
+  Animated,
+  AppState,
+  Dimensions,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import io from 'socket.io-client';
+import socketIoClient from 'socket.io-client';
 import Constants from 'expo-constants';
-import { useRouter } from 'expo-router';
+import { useRootNavigationState, useRouter } from 'expo-router';
 import { Bell } from 'lucide-react-native';
-import { fetchNotifications, fetchUnreadCount, markAsRead } from '../store/slices/notificationsSlice';
+import {
+  fetchNotifications,
+  fetchUnreadCount,
+  markAsRead,
+} from '../store/slices/notificationsSlice';
 import { getApiBaseUrl } from './apiConfig';
 import { useTheme } from './ThemeContext';
 import { Text } from '../components/ui/Text';
 import { registerPushToken as savePushTokenToBackend } from '../services/pushTokenService';
 
-// Check if running in Expo Go - if so, skip expo-notifications entirely
 const isExpoGo = Constants.appOwnership === 'expo';
+const DEFAULT_NOTIFICATION_ROUTE = '/notifications';
 
 const NotificationSocketContext = createContext({
   socket: null,
@@ -20,67 +38,209 @@ const NotificationSocketContext = createContext({
   expoPushToken: null,
 });
 
+const getNotificationContent = (source) =>
+  source?.notification?.request?.content || source?.request?.content || source?.content || source;
+
+const getNotificationData = (source) => {
+  const content = getNotificationContent(source);
+  return content?.data || source?.data || {};
+};
+
+const normalizeNotificationPayload = (source) => {
+  if (!source) {
+    return null;
+  }
+
+  const content = getNotificationContent(source);
+  const data = getNotificationData(source);
+  const title = content?.title || source?.title || 'New Notification';
+  const body =
+    content?.body ||
+    source?.message ||
+    source?.body ||
+    'You have a new notification';
+  const notificationId = source?.id || data?.notificationId || data?.notification_id || null;
+  const requestId =
+    source?.request?.identifier ||
+    source?.notification?.request?.identifier ||
+    null;
+  const route = data?.route || data?.path || null;
+
+  return {
+    ...source,
+    id: notificationId,
+    title,
+    message: body,
+    body,
+    data,
+    route,
+    key:
+      notificationId ||
+      requestId ||
+      `${title}:${body}:${route || data?.productId || data?.product_id || data?.orderId || data?.order_id || ''}`,
+  };
+};
+
+const resolveNotificationRoute = (notification) => {
+  const payload = normalizeNotificationPayload(notification);
+  const data = payload?.data || {};
+  const route = payload?.route || data?.route || data?.path;
+
+  if (route) {
+    return route;
+  }
+
+  const orderId = data?.orderId || data?.order_id;
+  if (orderId) {
+    return `/order/${orderId}`;
+  }
+
+  const productId = data?.productId || data?.product_id;
+  if (productId) {
+    return `/product/${productId}`;
+  }
+
+  return DEFAULT_NOTIFICATION_ROUTE;
+};
+
 export function useNotificationSocket() {
   return useContext(NotificationSocketContext);
 }
 
-// Show a native push notification
-async function showLocalNotification(notification) {
-  const title = notification?.title || 'New Notification';
-  const body = notification?.message || notification?.body || 'You have a new notification';
-
-  // Skip in Expo Go - push notifications only work in development/production builds
-  if (isExpoGo) {
-    console.log('📱 Notification (Expo Go - no push):', title, '-', body);
-    return;
-  }
-
-  // In development/production builds, show native push notification
-  try {
-    const Notifications = require('expo-notifications');
-    const Platform = require('react-native').Platform;
-    
-    const notificationContent = {
-      title,
-      body,
-      sound: 'default',
-      data: notification,
-    };
-
-    // Add Android-specific config
-    if (Platform.OS === 'android') {
-      notificationContent.priority = Notifications.AndroidNotificationPriority.MAX;
-      notificationContent.channelId = 'important';
-      notificationContent.vibrate = [0, 500, 500, 500];
-    }
-
-    await Notifications.scheduleNotificationAsync({
-      content: notificationContent,
-      trigger: null, // Show immediately
-    });
-  } catch (error) {
-    console.log('❌ Failed to show notification:', error.message);
-  }
-}
-
 export function NotificationSocketProvider({ children }) {
   const socketRef = useRef(null);
+  const appStateRef = useRef(AppState.currentState);
+  const recentNotificationKeysRef = useRef(new Map());
+  const handledResponseKeysRef = useRef(new Set());
+  const pendingRouteRef = useRef(null);
   const [expoPushToken, setExpoPushToken] = useState(null);
   const [inAppNotification, setInAppNotification] = useState(null);
-  
+
   const { isAuthenticated } = useSelector((state) => state.auth);
   const token = useSelector((state) => state.auth.token);
   const dispatch = useDispatch();
+  const router = useRouter();
+  const navigationState = useRootNavigationState();
 
-  // Callback to show in-app notification (for Expo Go)
   const showInAppNotification = useCallback((notification) => {
-    console.log('🔔 Showing in-app notification:', notification);
     setInAppNotification(notification);
   }, []);
 
-  // Setup push notifications only in development builds (not Expo Go)
   useEffect(() => {
-    if (!isAuthenticated || isExpoGo) return;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      appStateRef.current = nextState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  const refreshNotifications = useCallback(() => {
+    dispatch(fetchNotifications({ limit: 50 }));
+    dispatch(fetchUnreadCount());
+  }, [dispatch]);
+
+  const rememberNotificationKey = useCallback((key) => {
+    if (!key) {
+      return false;
+    }
+
+    const now = Date.now();
+    const recentKeys = recentNotificationKeysRef.current;
+
+    for (const [existingKey, timestamp] of recentKeys.entries()) {
+      if (now - timestamp > 15000) {
+        recentKeys.delete(existingKey);
+      }
+    }
+
+    if (recentKeys.has(key)) {
+      return true;
+    }
+
+    recentKeys.set(key, now);
+    return false;
+  }, []);
+
+  const navigateFromNotification = useCallback(
+    (notification) => {
+      const route = resolveNotificationRoute(notification);
+
+      if (!navigationState?.key) {
+        pendingRouteRef.current = route;
+        return;
+      }
+
+      pendingRouteRef.current = null;
+      router.push(route);
+    },
+    [navigationState?.key, router],
+  );
+
+  useEffect(() => {
+    if (!navigationState?.key || !pendingRouteRef.current) {
+      return;
+    }
+
+    const route = pendingRouteRef.current;
+    pendingRouteRef.current = null;
+    router.push(route);
+  }, [navigationState?.key, router]);
+
+  const handleNotificationResponse = useCallback(
+    async (response, NotificationsModule = null) => {
+      const payload = normalizeNotificationPayload(response);
+
+      if (!payload?.key || handledResponseKeysRef.current.has(payload.key)) {
+        return;
+      }
+
+      handledResponseKeysRef.current.add(payload.key);
+
+      if (payload.id) {
+        dispatch(markAsRead(payload.id));
+      }
+
+      refreshNotifications();
+      navigateFromNotification(payload);
+
+      if (
+        NotificationsModule &&
+        typeof NotificationsModule.clearLastNotificationResponseAsync === 'function'
+      ) {
+        try {
+          await NotificationsModule.clearLastNotificationResponseAsync();
+        } catch {}
+      }
+    },
+    [dispatch, navigateFromNotification, refreshNotifications],
+  );
+
+  const handleIncomingNotification = useCallback(
+    (notification) => {
+      const payload = normalizeNotificationPayload(notification);
+
+      if (!payload) {
+        return;
+      }
+
+      refreshNotifications();
+
+      const isActive = appStateRef.current === 'active';
+      const isDuplicate = rememberNotificationKey(payload.key);
+
+      if (isActive && !isDuplicate) {
+        showInAppNotification(payload);
+      }
+    },
+    [refreshNotifications, rememberNotificationKey, showInAppNotification],
+  );
+
+  useEffect(() => {
+    if (!isAuthenticated || isExpoGo) {
+      return undefined;
+    }
 
     let notificationListener = null;
     let responseListener = null;
@@ -89,19 +249,17 @@ export function NotificationSocketProvider({ children }) {
       try {
         const Notifications = require('expo-notifications');
         const Device = require('expo-device');
+        const { Platform } = require('react-native');
 
-        // Configure notification handler
         Notifications.setNotificationHandler({
-          handleNotification: async (notification) => ({
-            shouldShowAlert: true,
-            shouldPlaySound: true,
+          handleNotification: async () => ({
+            shouldShowAlert: false,
+            shouldPlaySound: false,
             shouldSetBadge: true,
-            priority: Notifications.AndroidNotificationPriority.MAX,
           }),
         });
 
-        // Setup Android channel with high priority
-        if (require('react-native').Platform.OS === 'android') {
+        if (Platform.OS === 'android') {
           await Notifications.setNotificationChannelAsync('default', {
             name: 'Default Notifications',
             importance: Notifications.AndroidImportance.MAX,
@@ -113,7 +271,6 @@ export function NotificationSocketProvider({ children }) {
             lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
           });
 
-          // Create high priority channel
           await Notifications.setNotificationChannelAsync('important', {
             name: 'Important Notifications',
             importance: Notifications.AndroidImportance.MAX,
@@ -126,7 +283,6 @@ export function NotificationSocketProvider({ children }) {
           });
         }
 
-        // Request permissions
         if (Device.isDevice) {
           const { status: existingStatus } = await Notifications.getPermissionsAsync();
           let finalStatus = existingStatus;
@@ -137,36 +293,40 @@ export function NotificationSocketProvider({ children }) {
           }
 
           if (finalStatus === 'granted') {
-            const tokenData = await Notifications.getExpoPushTokenAsync({
-              projectId: Constants.expoConfig?.extra?.eas?.projectId,
-            });
+            const projectId =
+              Constants.expoConfig?.extra?.eas?.projectId ||
+              Constants.easConfig?.projectId;
+            const tokenData = projectId
+              ? await Notifications.getExpoPushTokenAsync({ projectId })
+              : await Notifications.getExpoPushTokenAsync();
             const pushToken = tokenData.data;
+
             setExpoPushToken(pushToken);
-            
-            // Register push token with backend
+
             try {
               await savePushTokenToBackend(pushToken);
-            } catch (err) {
-              console.error('⚠️ Failed to save push token to backend:', err);
-              // Don't fail the whole setup if backend registration fails
+            } catch (error) {
+              console.error('Failed to save push token to backend:', error);
             }
           }
         }
 
-        // Setup listeners
         notificationListener = Notifications.addNotificationReceivedListener((notification) => {
-          console.log('📬 Notification received:', notification);
+          handleIncomingNotification(notification);
         });
 
         responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
-          console.log('👆 Notification tapped:', response);
+          handleNotificationResponse(response, Notifications);
         });
+
+        const initialResponse = await Notifications.getLastNotificationResponseAsync();
+        if (initialResponse) {
+          await handleNotificationResponse(initialResponse, Notifications);
+        }
       } catch (error) {
-        // Silently skip push notification setup in Expo Go or without build
-        // Push notifications only work in standalone builds (not Expo Go)
         if (!isExpoGo && error.message?.includes('Firebase')) {
-          console.log('ℹ️ Push notifications will be available after building the app');
-          console.log('   Run: eas build -p android --profile preview');
+          console.log('Push notifications will be available after building the app');
+          console.log('Run: eas build -p android --profile preview');
         }
       }
     };
@@ -178,36 +338,33 @@ export function NotificationSocketProvider({ children }) {
         try {
           const Notifications = require('expo-notifications');
           Notifications.removeNotificationSubscription(notificationListener);
-        } catch (e) {}
+        } catch {}
       }
+
       if (responseListener) {
         try {
           const Notifications = require('expo-notifications');
           Notifications.removeNotificationSubscription(responseListener);
-        } catch (e) {}
+        } catch {}
       }
     };
-  }, [isAuthenticated]);
+  }, [handleIncomingNotification, handleNotificationResponse, isAuthenticated]);
 
-  // Socket connection
   useEffect(() => {
     if (!isAuthenticated || !token) {
       if (socketRef.current) {
-        console.log('🔌 Auth lost, disconnecting socket...');
         socketRef.current.disconnect();
         socketRef.current = null;
       }
-      return;
+      return undefined;
     }
 
     if (socketRef.current?.connected) {
-      return;
+      return undefined;
     }
 
-    const API_URL = getApiBaseUrl();
-    console.log('🔌 Global Socket: Connecting to:', API_URL);
-    
-    const socket = io(API_URL, {
+    const apiUrl = getApiBaseUrl();
+    const socket = socketIoClient(apiUrl, {
       auth: { token },
       reconnection: true,
       reconnectionDelay: 2000,
@@ -222,81 +379,52 @@ export function NotificationSocketProvider({ children }) {
     });
 
     socket.on('connect', () => {
-      console.log(' Global Socket connected!');
+      console.log('Global notification socket connected');
     });
 
     socket.on('connected', (data) => {
       console.log('Connected to notification service:', data);
     });
 
-    // New notification event
-    socket.on('new_notification', async (notification) => {
-      console.log('📢 New notification received:', notification);
-      dispatch(fetchNotifications({ limit: 50 }));
-      dispatch(fetchUnreadCount());
-      
-      // Show native push notification (works in background/foreground)
-      await showLocalNotification(notification);
-      
-      // Show in-app notification dialog (only in Expo Go or when app is in foreground)
-      showInAppNotification(notification);
+    socket.on('new_notification', (notification) => {
+      handleIncomingNotification(notification);
     });
 
-    socket.on('notification_read', (data) => {
-      console.log('📖 Notification marked as read:', data);
-      dispatch(fetchNotifications({ limit: 50 }));
-      dispatch(fetchUnreadCount());
+    socket.on('notification_read', () => {
+      refreshNotifications();
     });
 
     socket.on('all_notifications_read', () => {
-      console.log('📖 All notifications marked as read');
-      dispatch(fetchNotifications({ limit: 50 }));
-      dispatch(fetchUnreadCount());
+      refreshNotifications();
     });
 
-    socket.on('notification_deleted', (data) => {
-      console.log('🗑️ Notification deleted:', data);
-      dispatch(fetchNotifications({ limit: 50 }));
+    socket.on('notification_deleted', () => {
+      refreshNotifications();
     });
 
-    socket.on('broadcast_notification', async (notification) => {
-      console.log('📡 Broadcast notification received:', notification);
-      dispatch(fetchNotifications({ limit: 50 }));
-      dispatch(fetchUnreadCount());
-      await showLocalNotification(notification);
+    socket.on('broadcast_notification', (notification) => {
+      handleIncomingNotification(notification);
     });
 
-    socket.on('reconnect_attempt', (attemptNumber) => {
-      console.log(`🔄 Reconnection attempt #${attemptNumber}`);
-    });
-
-    socket.on('reconnect', (attemptNumber) => {
-      console.log(`🔄 Reconnected after ${attemptNumber} attempts`);
-      dispatch(fetchNotifications({ limit: 50 }));
-      dispatch(fetchUnreadCount());
-    });
-
-    socket.on('reconnect_failed', () => {
-      console.warn('⚠️ Reconnection attempts taking longer than expected, but will continue trying...');
+    socket.on('reconnect', () => {
+      refreshNotifications();
     });
 
     socket.on('connect_error', (error) => {
-      const errorMsg = error.message || 'Unknown error';
-      if (!errorMsg.includes('timeout')) {
-        console.error('❌ Socket connection error:', errorMsg);
-      } else {
-        console.warn('⏱️ Socket timeout, will retry...', errorMsg);
+      const errorMessage = error?.message || 'Unknown error';
+      if (!errorMessage.includes('timeout')) {
+        console.error('Socket connection error:', errorMessage);
       }
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('❌ Disconnected from notification service:', reason);
+      console.log('Disconnected from notification service:', reason);
     });
 
     socket.on('error', (error) => {
-      const errorMsg = error?.message || error || 'Unknown error';
-      if (!errorMsg.toString().toLowerCase().includes('timeout')) {
-        console.error('⚠️ Socket error:', errorMsg);
+      const errorMessage = error?.message || error || 'Unknown error';
+      if (!String(errorMessage).toLowerCase().includes('timeout')) {
+        console.error('Socket error:', errorMessage);
       }
     });
 
@@ -308,7 +436,7 @@ export function NotificationSocketProvider({ children }) {
         socketRef.current = null;
       }
     };
-  }, [isAuthenticated, token, dispatch, showInAppNotification]);
+  }, [dispatch, handleIncomingNotification, isAuthenticated, refreshNotifications, token]);
 
   const value = {
     socket: socketRef.current,
@@ -320,15 +448,14 @@ export function NotificationSocketProvider({ children }) {
     <NotificationSocketContext.Provider value={value}>
       <View style={styles.providerContainer}>
         {children}
-        {/* In-app notification toast - shows for new WebSocket notifications */}
-        {inAppNotification && (
+        {inAppNotification ? (
           <View style={styles.toastOverlay} pointerEvents="box-none">
             <InAppNotificationToast
               notification={inAppNotification}
               onDismiss={() => setInAppNotification(null)}
             />
           </View>
-        )}
+        ) : null}
       </View>
     </NotificationSocketContext.Provider>
   );
@@ -349,7 +476,6 @@ const styles = StyleSheet.create({
   },
 });
 
-// Beautiful in-app notification toast component
 function InAppNotificationToast({ notification, onDismiss }) {
   const { theme } = useTheme();
   const router = useRouter();
@@ -358,8 +484,22 @@ function InAppNotificationToast({ notification, onDismiss }) {
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const { width } = Dimensions.get('window');
 
+  const dismissNotification = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: -150,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => onDismiss());
+  }, [onDismiss, opacityAnim, slideAnim]);
+
   useEffect(() => {
-    // Slide in
     Animated.parallel([
       Animated.spring(slideAnim, {
         toValue: 0,
@@ -374,39 +514,20 @@ function InAppNotificationToast({ notification, onDismiss }) {
       }),
     ]).start();
 
-    // Auto dismiss after 4 seconds
     const timeout = setTimeout(() => {
       dismissNotification();
     }, 4000);
 
     return () => clearTimeout(timeout);
-  }, []);
-
-  const dismissNotification = () => {
-    Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: -150,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-    ]).start(() => onDismiss());
-  };
+  }, [dismissNotification, opacityAnim, slideAnim]);
 
   const handleNotificationPress = () => {
-    console.log('👆 Notification toast pressed!', notification);
-    // Mark as read if notification has an ID and is unread
-    if (notification?.id && notification?.is_read === false) {
-      console.log('📖 Marking notification as read:', notification.id);
+    if (notification?.id) {
       dispatch(markAsRead(notification.id));
     }
-    // Navigate to notifications page
+
     dismissNotification();
-    router.push('/notifications');
+    router.push(resolveNotificationRoute(notification));
   };
 
   const title = notification?.title || 'New Notification';
@@ -431,7 +552,7 @@ function InAppNotificationToast({ notification, onDismiss }) {
         onPress={handleNotificationPress}
         activeOpacity={0.9}
       >
-        <View style={[toastStyles.iconContainer, { backgroundColor: theme.colors.primary + '20' }]}>
+        <View style={[toastStyles.iconContainer, { backgroundColor: `${theme.colors.primary}20` }]}>
           <Bell size={24} color={theme.colors.primary} />
         </View>
         <View style={toastStyles.textContainer}>

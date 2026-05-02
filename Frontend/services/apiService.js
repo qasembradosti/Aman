@@ -51,7 +51,6 @@ apiService.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`;
       } else if (!isPublicEndpoint) {
         // Only warn about missing token for protected endpoints
-        console.warn('⚠️ No token found for request:', config.url);
       }
     } catch (error) {
       console.error('❌ Error getting token from storage:', error);

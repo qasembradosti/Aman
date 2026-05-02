@@ -8,8 +8,10 @@ const Notification = {
       user_id,
       title,
       message,
+      is_global,
       is_read: false,
-      created_at: db.fn.now()
+      created_at: db.fn.now(),
+      updated_at: db.fn.now(),
     });
     return this.findById(id);
   },

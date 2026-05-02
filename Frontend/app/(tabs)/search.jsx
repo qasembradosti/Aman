@@ -1,4 +1,12 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, {
+  startTransition,
+  useDeferredValue,
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import {
   View,
   StyleSheet,
@@ -6,28 +14,34 @@ import {
   TouchableOpacity,
   Text as RNText,
   Pressable,
-  ActivityIndicator,
   Share,
 } from "react-native";
-import { Image } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Star, Heart, Share2, Grid3x3, List } from "lucide-react-native";
+import { Star, Heart, Grid3x3, List } from "lucide-react-native";
 import { toggleFavorite } from "../../services/favoriteService";
 import { useLanguage } from "../../utils/LanguageContext";
 import { useTheme } from "../../utils/ThemeContext";
-import { fetchProducts } from "../../store/slices/productsSlice";
+import {
+  buildProductCollectionKey,
+  fetchProducts,
+} from "../../store/slices/productsSlice";
 import { fetchCategories } from "../../store/slices/categoriesSlice";
 import { fetchBrands } from "../../store/slices/brandsSlice";
 import Input from "../../components/ui/Input";
 import { getProductImageUrl } from "../../utils/productImages";
 import { getApiBaseUrl } from "../../utils/apiConfig";
+import apiService from "../../services/apiService";
+import { buildPublicProductUrl } from "../../utils/productLinks";
 
 const STORAGE_KEY = 'recent_searches';
 const MAX_RECENT_SEARCHES = 10;
+const SEARCH_RESULT_LIMIT = 40;
+const DEFAULT_PRODUCT_COLLECTION_KEY = buildProductCollectionKey({});
 
 // Custom Text component with font
 const Text = ({ style, ...props }) => {
@@ -56,12 +70,25 @@ export default function Search() {
   const [favorites, setFavorites] = useState({});
   const [viewMode, setViewMode] = useState("grid"); // 'grid' or 'list'
   const navigationInProgress = useRef(false);
+  const activeSearchRequest = useRef(0);
+  const searchCacheRef = useRef(new Map());
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   
   // Redux state
-  const { items: products, loading: productsLoading } = useSelector((state) => state.products);
+  const {
+    items: products,
+    loading: productsLoading,
+    lastCollectionKey,
+  } = useSelector((state) => state.products);
   const { items: categories, loading: categoriesLoading } = useSelector((state) => state.categories);
   const { items: brands, loading: brandsLoading } = useSelector((state) => state.brands);
-  const { user } = useSelector((state) => state.auth);
+  const { isAuthenticated } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setFavorites({});
+    }
+  }, [isAuthenticated]);
 
   // Helper function to get localized product name
   const getLocalizedProductName = (product) => {
@@ -125,6 +152,11 @@ export default function Search() {
     }));
 
   const handleToggleFavorite = async (productId) => {
+    if (!isAuthenticated) {
+      router.push("/(auth)/login");
+      return;
+    }
+
     try {
       const result = await toggleFavorite(productId);
       setFavorites((prev) => ({
@@ -136,13 +168,12 @@ export default function Search() {
     }
   };
 
-  const handleShareProduct = async (id, name) => {
+  const handleShareProduct = async (id, name, storeId) => {
     try {
-      const userId = user?.id || "unknown";
-      const checkoutUrl = `https://checkout.aman-store.com/checkout?userId=${userId}&productId=${id}`;
+      const productUrl = buildPublicProductUrl(id);
       await Share.share({
         title: name,
-        message: `${name}\n\n${checkoutUrl}`,
+        message: `${name}\n\n${productUrl}`,
       });
     } catch (error) {
       console.error("Error sharing product:", error);
@@ -156,10 +187,31 @@ export default function Search() {
 
   // Fetch featured products, categories and brands on mount
   useEffect(() => {
-    dispatch(fetchProducts({ limit: 100 }));
-    dispatch(fetchCategories({})); // Fetch all categories
-    dispatch(fetchBrands({ limit: 100 })); // Fetch all brands
-  }, [dispatch]);
+    if (
+      (products.length === 0 ||
+        lastCollectionKey !== DEFAULT_PRODUCT_COLLECTION_KEY) &&
+      !productsLoading
+    ) {
+      dispatch(fetchProducts({ limit: 100, offset: 0 }));
+    }
+
+    if (!categories.length && !categoriesLoading) {
+      dispatch(fetchCategories({}));
+    }
+
+    if (!brands.length && !brandsLoading) {
+      dispatch(fetchBrands({ limit: 100 }));
+    }
+  }, [
+    brands.length,
+    brandsLoading,
+    categories.length,
+    categoriesLoading,
+    dispatch,
+    lastCollectionKey,
+    products.length,
+    productsLoading,
+  ]);
 
   const loadRecentSearches = async () => {
     try {
@@ -199,43 +251,114 @@ export default function Search() {
     }
   };
 
-  const handleSearch = (query) => {
+  const searchableProducts = useMemo(
+    () =>
+      products.map((product) => ({
+        product,
+        searchIndex: [
+          product?.name,
+          product?.name_en,
+          product?.name_ar,
+          product?.name_ku,
+          product?.description,
+          product?.description_en,
+          product?.description_ar,
+          product?.description_ku,
+          product?.key_features,
+          product?.key_features_en,
+          product?.key_features_ar,
+          product?.key_features_ku,
+        ]
+          .flatMap((value) => {
+            if (Array.isArray(value)) {
+              return value;
+            }
+
+            return value == null ? [] : [String(value)];
+          })
+          .join(" ")
+          .toLowerCase(),
+      })),
+    [products],
+  );
+
+  const filterProductsLocally = useCallback(
+    (query) => {
+      const q = query.trim().toLowerCase();
+      if (!q) return [];
+
+      return searchableProducts
+        .filter(({ searchIndex }) => searchIndex.includes(q))
+        .slice(0, SEARCH_RESULT_LIMIT)
+        .map(({ product }) => product);
+    },
+    [searchableProducts],
+  );
+
+  const handleSearch = useCallback(async (query) => {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {
-      setSearchResults([]);
+      activeSearchRequest.current += 1;
+      startTransition(() => setSearchResults([]));
       setIsSearching(false);
       return;
     }
 
+    const cacheKey = trimmedQuery.toLowerCase();
+    const localResults = filterProductsLocally(trimmedQuery);
+    const cachedResults = searchCacheRef.current.get(cacheKey);
+
+    if (cachedResults) {
+      startTransition(() => setSearchResults(cachedResults));
+      setIsSearching(false);
+      return;
+    }
+
+    if (localResults.length > 0) {
+      startTransition(() => setSearchResults(localResults));
+    }
+
+    const requestId = activeSearchRequest.current + 1;
+    activeSearchRequest.current = requestId;
     setIsSearching(true);
 
-    // Filter products based on search query (schema-aligned: name/description/features)
-    const q = trimmedQuery.toLowerCase();
-    const filtered = products.filter((p) => {
-      // Search across all localized name fields
-      const nameEn = (p.name_en || '').toLowerCase();
-      const nameAr = (p.name_ar || '').toLowerCase();
-      const nameKu = (p.name_ku || '').toLowerCase();
-      
-      // Search across all localized description fields
-      const descEn = (p.description_en || '').toLowerCase();
-      const descAr = (p.description_ar || '').toLowerCase();
-      const descKu = (p.description_ku || '').toLowerCase();
-      
-      const features = Array.isArray(p.key_features)
-        ? p.key_features.join(' ').toLowerCase()
-        : typeof p.key_features === 'string'
-          ? p.key_features.toLowerCase()
-          : '';
-      
-      return nameEn.includes(q) || nameAr.includes(q) || nameKu.includes(q) ||
-             descEn.includes(q) || descAr.includes(q) || descKu.includes(q) ||
-             features.includes(q);
-    });
+    try {
+      const response = await apiService.get("/api/products", {
+        params: {
+          q: trimmedQuery,
+          limit: SEARCH_RESULT_LIMIT,
+          offset: 0,
+        },
+      });
 
-    setSearchResults(filtered);
-    setIsSearching(false);
-  };
+      const responseData = response?.data;
+      const remoteResults = Array.isArray(responseData?.data)
+        ? responseData.data
+        : Array.isArray(responseData)
+          ? responseData
+          : [];
+      const nextResults =
+        remoteResults.length > 0 ? remoteResults : localResults;
+
+      if (requestId !== activeSearchRequest.current) {
+        return;
+      }
+
+      searchCacheRef.current.set(cacheKey, nextResults);
+      startTransition(() => setSearchResults(nextResults));
+    } catch (error) {
+      if (requestId !== activeSearchRequest.current) {
+        return;
+      }
+
+      console.error("Search request failed:", error);
+      startTransition(() => setSearchResults(localResults));
+    } finally {
+      if (requestId === activeSearchRequest.current) {
+        setIsSearching(false);
+      }
+    }
+  }, [filterProductsLocally]);
 
   const handleSearchSubmit = () => {
     const trimmedQuery = searchQuery.trim();
@@ -247,17 +370,18 @@ export default function Search() {
 
   // Real-time search as user types
   useEffect(() => {
-    if (searchQuery.trim()) {
+    if (deferredSearchQuery.trim()) {
       const timeoutId = setTimeout(() => {
-        handleSearch(searchQuery);
+        handleSearch(deferredSearchQuery);
       }, 300); // Debounce search by 300ms
 
       return () => clearTimeout(timeoutId);
     } else {
-      setSearchResults([]);
+      activeSearchRequest.current += 1;
+      startTransition(() => setSearchResults([]));
       setIsSearching(false);
     }
-  }, [searchQuery, products]);
+  }, [deferredSearchQuery, handleSearch]);
 
   const handleRecentSearchClick = (query) => {
     setSearchQuery(query);
@@ -286,39 +410,8 @@ export default function Search() {
   // Get random 20 products
   const randomProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
-    const shuffled = [...products].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 20);
+    return products.slice(0, 20);
   }, [products]);
-
-  const featuredProducts = products.slice(0, 8);
-
-  const renderStars = (rating) => {
-    const stars = [];
-    const full = Math.floor(rating);
-    const hasHalf = rating - full >= 0.5;
-    for (let i = 0; i < full; i++) {
-      stars.push(
-        <Ionicons key={`full-${i}`} name="star" size={12} color="#FFB800" />
-      );
-    }
-    if (hasHalf) {
-      stars.push(
-        <Ionicons key="half" name="star-half" size={12} color="#FFB800" />
-      );
-    }
-    const remaining = 5 - stars.length;
-    for (let i = 0; i < remaining; i++) {
-      stars.push(
-        <Ionicons
-          key={`empty-${i}`}
-          name="star-outline"
-          size={12}
-          color="#FFB800"
-        />
-      );
-    }
-    return stars;
-  };
 
   return (
     <SafeAreaView
@@ -363,8 +456,10 @@ export default function Search() {
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => {
+                activeSearchRequest.current += 1;
                 setSearchQuery("");
                 setSearchResults([]);
+                setIsSearching(false);
               }}>
                 <Ionicons
                   name="close-circle"
@@ -513,7 +608,11 @@ export default function Search() {
                           ]}
                           onPress={(e) => {
                             e.stopPropagation();
-                            handleShareProduct(product.id, getLocalizedProductName(product));
+                            handleShareProduct(
+                              product.id,
+                              getLocalizedProductName(product),
+                              product.store_id,
+                            );
                           }}
                         >
                           <Ionicons name="share-outline" size={16} color="#fff" />
@@ -812,7 +911,11 @@ export default function Search() {
                           ]}
                           onPress={(e) => {
                             e.stopPropagation();
-                            handleShareProduct(product.id, getLocalizedProductName(product));
+                            handleShareProduct(
+                              product.id,
+                              getLocalizedProductName(product),
+                              product.store_id,
+                            );
                           }}
                         >
                           <Ionicons name="share-outline" size={16} color="#fff" />
@@ -924,7 +1027,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 12,
   },
-  productInfo: {
+  legacyProductInfo: {
     flex: 1,
   },
   productName: {

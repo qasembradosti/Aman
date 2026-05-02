@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/apiService';
+import { logout, loadTokenFromStorage } from './authSlice';
 
 // Async thunks - wallet fetch, withdraw and history
 export const fetchWallet = createAsyncThunk(
@@ -142,6 +143,22 @@ const walletSlice = createSlice({
       .addCase(createWithdrawalRequest.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+      .addCase(logout.fulfilled, (state) => {
+        state.id = null;
+        state.balance = 0;
+        state.currency = 'IQD';
+        state.history = [];
+        state.loading = false;
+        state.error = null;
+      })
+      .addCase(loadTokenFromStorage.rejected, (state) => {
+        state.id = null;
+        state.balance = 0;
+        state.currency = 'IQD';
+        state.history = [];
+        state.loading = false;
+        state.error = null;
       });
   },
 });

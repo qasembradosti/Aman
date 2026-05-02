@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -9,13 +9,11 @@ import {
   Dimensions,
   RefreshControl,
   TextInput,
-  Modal,
 } from "react-native";
-import { Image } from "react-native";
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../../utils/ThemeContext";
 import { useLanguage } from "../../utils/LanguageContext";
 import { Text } from "../../components/ui/Text";
@@ -25,7 +23,7 @@ import { getProductImageUrl } from "../../utils/productImages";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function BrandProductsScreen() {
-  const { id, name } = useLocalSearchParams();
+  const { id } = useLocalSearchParams();
   const [brand, setBrand] = useState(null);
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
@@ -33,7 +31,6 @@ export default function BrandProductsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("name"); // name, price_low, price_high, newest
-  const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState("grid"); // grid, list
   const router = useRouter();
   const { theme } = useTheme();
@@ -47,15 +44,7 @@ export default function BrandProductsScreen() {
   const cardWidth =
     viewMode === "grid" ? (SCREEN_WIDTH - 48) / 2 : SCREEN_WIDTH - 32;
 
-  useEffect(() => {
-    fetchBrandProducts();
-  }, [id]);
-
-  useEffect(() => {
-    applyFiltersAndSort();
-  }, [products, searchQuery, sortBy]);
-
-  const fetchBrandProducts = async () => {
+  const fetchBrandProducts = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.get(`/api/brands/${id}/products`);
@@ -66,7 +55,11 @@ export default function BrandProductsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchBrandProducts();
+  }, [fetchBrandProducts]);
   // Helper function to get localized text
   const getLocalizedText = (product, field) => {
     if (!product) return "";
@@ -79,7 +72,7 @@ export default function BrandProductsScreen() {
     return product[localizedField] || product[field] || "";
   };
 
-  const applyFiltersAndSort = () => {
+  const applyFiltersAndSort = useCallback(() => {
     let filtered = [...products];
 
     // Apply search
@@ -122,7 +115,11 @@ export default function BrandProductsScreen() {
     }
 
     setFilteredProducts(filtered);
-  };
+  }, [products, searchQuery, sortBy]);
+
+  useEffect(() => {
+    applyFiltersAndSort();
+  }, [applyFiltersAndSort]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -170,9 +167,6 @@ export default function BrandProductsScreen() {
       </View>
     );
   }
-
-  const inStockCount = products.filter((p) => p.in_stock).length;
-  const outOfStockCount = products.length - inStockCount;
 
   return (
     <>
@@ -721,8 +715,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
     overflow: "hidden",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderWidth:0.5
+    borderWidth: 0.5,
   },
   productCardList: {
     borderRadius: 16,

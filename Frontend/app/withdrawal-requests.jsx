@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   View,
@@ -48,11 +48,7 @@ export default function WithdrawalRequestsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    fetchRequests();
-  }, []);
-
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     if (!user?.id) {
       setLoading(false);
       setRefreshing(false);
@@ -77,7 +73,11 @@ export default function WithdrawalRequestsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
 
   const onRefresh = () => {
     setRefreshing(true);

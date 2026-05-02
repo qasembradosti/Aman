@@ -25,8 +25,13 @@ const Order = {
     search,
     user_id,
     store_id,
+    start_date,
+    end_date,
+    sort_by = 'date_desc',
+    payment_status,
   } = {}) => {
     const offset = (page - 1) * limit;
+    const hasPaymentStatusColumn = await db.schema.hasColumn('orders', 'payment_status');
     
     let query = db('orders')
       .select(
@@ -49,11 +54,11 @@ const Order = {
             ),
         store_id
           ? db.raw(
-              `(SELECT COALESCE(SUM(order_items.quantity * order_items.price), 0)
+              `(SELECT COALESCE(SUM(order_items.quantity * COALESCE(order_items.base_price, order_items.price)), 0)
                 FROM order_items
                 JOIN products ON products.id = order_items.product_id
                WHERE order_items.order_id = orders.id
-                 AND products.store_id = ?) as scoped_total_amount`,
+                  AND products.store_id = ?) as scoped_total_amount`,
               [Number(store_id)],
             )
           : db.raw(
@@ -79,15 +84,39 @@ const Order = {
         this.where('orders.id', 'like', `%${search}%`)
           .orWhere('users.first_name', 'like', `%${search}%`)
           .orWhere('users.last_name', 'like', `%${search}%`)
-          .orWhere('users.phone', 'like', `%${search}%`);
+          .orWhere('users.phone', 'like', `%${search}%`)
+          .orWhere('users.email', 'like', `%${search}%`);
       });
+    }
+
+    if (hasPaymentStatusColumn && payment_status && payment_status !== 'all') {
+      query = query.where('orders.payment_status', payment_status);
+    }
+
+    if (start_date) {
+      query = query.whereRaw('DATE(orders.created_at) >= ?', [start_date]);
+    }
+
+    if (end_date) {
+      query = query.whereRaw('DATE(orders.created_at) <= ?', [end_date]);
     }
 
     const totalRow = await query.clone().clearSelect().count({ total: '*' }).first();
     const total = parseInt(totalRow.total);
 
+    const sortMap = {
+      date_desc: store_id ? 'orders.created_at desc' : 'orders.created_at desc',
+      date_asc: store_id ? 'orders.created_at asc' : 'orders.created_at asc',
+      total_desc: store_id ? 'scoped_total_amount desc' : 'orders.total_amount desc',
+      total_asc: store_id ? 'scoped_total_amount asc' : 'orders.total_amount asc',
+      id_desc: store_id ? 'orders.id desc' : 'orders.id desc',
+      id_asc: store_id ? 'orders.id asc' : 'orders.id asc',
+    };
+
+    const sortClause = sortMap[sort_by] || sortMap.date_desc;
+
     const orders = await query
-      .orderBy('orders.created_at', 'desc')
+      .orderByRaw(sortClause)
       .limit(limit)
       .offset(offset);
 
@@ -95,6 +124,7 @@ const Order = {
       ? orders.map(({ scoped_total_amount, ...order }) => ({
           ...order,
           total_amount: Number(scoped_total_amount || 0),
+          store_total_amount: Number(scoped_total_amount || 0),
           commission_total: 0,
         }))
       : orders;
@@ -133,6 +163,7 @@ const Order = {
     const itemsQuery = db('order_items')
       .select(
         'order_items.*',
+        'products.store_id as store_id',
         'products.name_en',
         'products.name_ku',
         'products.name_ar',
@@ -157,8 +188,9 @@ const Order = {
     items.forEach(item => {
       item.product_name = item.name_ku || item.name_en || item.name_ar || 'N/A';
       item.product_description = item.description_ku || item.description_en || item.description_ar || '';
+      item.base_price = Number(item.base_price ?? item.price ?? 0);
       if (store_id) {
-        item.price = Number(item.price ?? 0);
+        item.price = Number(item.base_price ?? item.price ?? 0);
         item.commission_price = 0;
       }
     });
@@ -187,7 +219,8 @@ const Order = {
 
     if (store_id) {
       const scopedTotal = items.reduce(
-        (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+        (sum, item) =>
+          sum + Number(item.base_price || item.price || 0) * Number(item.quantity || 0),
         0,
       );
 
@@ -196,6 +229,7 @@ const Order = {
         items,
         subtotal: scopedTotal,
         total_amount: scopedTotal,
+        store_total_amount: scopedTotal,
         shipping_cost: 0,
         discount: 0,
         commission_total: 0,
@@ -226,12 +260,16 @@ const Order = {
       // Create order items with commission_price from products table to be secure
       const orderItems = [];
       for (const item of items) {
-        const product = await trx('products').select('commission_price').where('id', item.product_id).first();
+        const product = await trx('products')
+          .select('commission_price', 'base_price')
+          .where('id', item.product_id)
+          .first();
         orderItems.push({
           order_id: orderId,
           product_id: item.product_id,
           quantity: item.quantity,
           price: item.price,
+          base_price: product?.base_price ?? item.price,
           commission_price: product?.commission_price || 0
         });
       }

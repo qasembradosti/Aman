@@ -19,7 +19,7 @@ import {
   TextInput,
   Modal,
 } from "react-native";
-import { Image } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -32,6 +32,7 @@ import { fetchCategories } from "../store/slices/categoriesSlice";
 import InfoDialog from "../components/InfoDialog";
 import { getProductImageUrl } from "../utils/productImages";
 import { ListFilter } from "lucide-react-native";
+import { buildPublicProductUrl } from "../utils/productLinks";
 
 // Custom Text component with font
 const Text = ({ style, ...props }) => {
@@ -114,9 +115,10 @@ export default function Products() {
     brand: routeBrand,
     is_trend: routeIsTrend,
     trending: routeTrending,
+    is_important: routeIsImportant,
   } = useLocalSearchParams();
   const dispatch = useDispatch();
-  const { t, isRTL, language, locale } = useLanguage();
+  const { t, isRTL, locale } = useLanguage();
   const { theme } = useTheme();
   const layout = useResponsiveLayout();
   const navigationInProgress = useRef(false);
@@ -145,18 +147,17 @@ export default function Products() {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const trendingOnly =
     normalizeBooleanParam(routeIsTrend) || normalizeBooleanParam(routeTrending);
+  const importantOnly = normalizeBooleanParam(routeIsImportant);
 
   const { items: products, loading: productsLoading } = useSelector(
     (state) => state.products,
   );
-  const { items: brands, loading: brandsLoading } = useSelector(
+  const { items: brands } = useSelector(
     (state) => state.brands,
   );
-  const { items: categories, loading: categoriesLoading } = useSelector(
+  const { items: categories } = useSelector(
     (state) => state.categories,
   );
-  const { user } = useSelector((state) => state.auth);
-
   useEffect(() => {
     const nextBrand = normalizeFilterValue(routeBrand);
     const nextCategory = normalizeFilterValue(routeCategory);
@@ -191,6 +192,10 @@ export default function Products() {
         fetchParams.is_trend = 1;
       }
 
+      if (importantOnly) {
+        fetchParams.is_important = 1;
+      }
+
       return fetchParams;
     },
     [
@@ -199,6 +204,7 @@ export default function Products() {
       selectedCategory,
       selectedBrand,
       trendingOnly,
+      importantOnly,
     ],
   );
 
@@ -299,14 +305,13 @@ export default function Products() {
     }
   };
 
-  const handleShareProduct = async (id, name) => {
+  const handleShareProduct = async (id, name, storeId) => {
     try {
-      const userId = user?.id || "unknown";
-      const checkoutUrl = `https://checkout.aman-store.com/checkout?userId=${userId}&productId=${id}`;
+      const productUrl = buildPublicProductUrl(id);
 
       await Share.share({
         title: name,
-        message: `${name}\n\n${checkoutUrl}`,
+        message: `${name}\n\n${productUrl}`,
       });
     } catch (_e) {
       setDialog({
@@ -389,9 +394,21 @@ export default function Products() {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((product) => {
-        const name = getLocalizedProductName(product, "name").toLowerCase();
-        const description = (product.description || "").toLowerCase();
-        return name.includes(query) || description.includes(query);
+        const searchableText = [
+          product?.name,
+          product?.name_en,
+          product?.name_ar,
+          product?.name_ku,
+          product?.description,
+          product?.description_en,
+          product?.description_ar,
+          product?.description_ku,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return searchableText.includes(query);
       });
     }
 
@@ -410,35 +427,7 @@ export default function Products() {
     }
 
     return filtered;
-  }, [products, searchQuery, sortBy, language, selectedSubcategory]);
-
-  const renderStars = (rating) => {
-    const stars = [];
-    const full = Math.floor(rating);
-    const hasHalf = rating - full >= 0.5;
-    for (let i = 0; i < full; i++) {
-      stars.push(
-        <Ionicons key={`full-${i}`} name="star" size={12} color="#FFB800" />,
-      );
-    }
-    if (hasHalf) {
-      stars.push(
-        <Ionicons key="half" name="star-half" size={12} color="#FFB800" />,
-      );
-    }
-    const remaining = 5 - stars.length;
-    for (let i = 0; i < remaining; i++) {
-      stars.push(
-        <Ionicons
-          key={`empty-${i}`}
-          name="star-outline"
-          size={12}
-          color="#FFB800"
-        />,
-      );
-    }
-    return stars;
-  };
+  }, [products, searchQuery, sortBy]);
 
   return (
     <SafeAreaView
@@ -772,6 +761,7 @@ export default function Products() {
                         handleShareProduct(
                           product.id,
                           getLocalizedProductName(product, "name"),
+                          product.store_id,
                         );
                       }}
                     >

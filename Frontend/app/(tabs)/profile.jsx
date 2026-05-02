@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, Octicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../store/slices/authSlice";
 import { fetchWallet } from "../../store/slices/walletSlice";
@@ -22,7 +22,6 @@ import LanguageSelector from "../../components/LanguageSelector";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import ChatSupport from "../../components/ChatSupport";
 import ChatHeaderButton from "../../components/ChatHeaderButton";
-import { History } from "lucide-react-native";
 import { getUserConversations } from "../../services/chatService";
 // Use theme.colors.primary instead of direct constant
 
@@ -52,26 +51,15 @@ export default function Profile() {
   const [showChat, setShowChat] = useState(false);
   const [selectedConversationId, setSelectedConversationId] = useState(null);
   const [conversations, setConversations] = useState([]);
-  const [loadingConversations, setLoadingConversations] = useState(false);
   const API_BASE_URL = getApiBaseUrl();
 
   // Get auth state from Redux
-  const { isAuthenticated, user, loading, token } = useSelector((state) => state.auth);
-  const { balance: walletBalance, loading: walletLoading } = useSelector((state) => state.wallet);
-  const { items: orders } = useSelector((state) => state.orders);
-  
-  useEffect(() => {
-    if (isAuthenticated && user?.id) {
-      dispatch(fetchWallet({ user_id: user.id }));
-      dispatch(fetchOrders({}));
-      loadConversations();
-    }
-  }, [isAuthenticated, user?.id, dispatch]);
+  const { isAuthenticated, user, token } = useSelector((state) => state.auth);
+  const { balance: walletBalance } = useSelector((state) => state.wallet);
 
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     if (!token) return;
     try {
-      setLoadingConversations(true);
       const result = await getUserConversations(token);
       if (result.success) {
         // Filter for active (open) conversations
@@ -80,15 +68,16 @@ export default function Profile() {
       }
     } catch (error) {
       console.error('Failed to load conversations:', error);
-    } finally {
-      setLoadingConversations(false);
     }
-  };
+  }, [token]);
 
-  // Calculate statistics from orders
-  const totalOrders = orders?.length || 0;
-  const pendingOrders = orders?.filter(order => order.status === 'pending')?.length || 0;
-  const totalSales = orders?.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0) || 0;
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      dispatch(fetchWallet({ user_id: user.id }));
+      dispatch(fetchOrders({}));
+      loadConversations();
+    }
+  }, [dispatch, isAuthenticated, loadConversations, user?.id]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

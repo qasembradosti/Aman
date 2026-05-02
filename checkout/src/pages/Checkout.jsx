@@ -301,6 +301,50 @@ const calculateDiscount = (product) => {
   };
 };
 
+const normalizeStockBoolean = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value > 0;
+
+  const normalized = String(value).trim().toLowerCase();
+  if (["true", "1", "yes", "on"].includes(normalized)) return true;
+  if (["false", "0", "no", "off"].includes(normalized)) return false;
+
+  return null;
+};
+
+const getProductStockLimit = (item) => {
+  const candidates = [item?.stock, item?.quantity_in_stock, item?.total_stock];
+
+  for (const candidate of candidates) {
+    const parsed = Number(candidate);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  }
+
+  return null;
+};
+
+const isProductInStock = (item) => {
+  if (!item) return false;
+
+  const explicitStockStatus = normalizeStockBoolean(
+    item?.is_instock ?? item?.isInStock ?? item?.in_stock ?? item?.inStock,
+  );
+
+  if (explicitStockStatus !== null) {
+    return explicitStockStatus;
+  }
+
+  const stockLimit = getProductStockLimit(item);
+  if (stockLimit !== null) {
+    return stockLimit > 0;
+  }
+
+  return true;
+};
+
 const FALLBACK_CONTACT_NUMBERS = ["07514747120", "0773 414120", "07814447120"];
 
 const normalizePhoneForTel = (phone) => phone.replace(/[^\d+]/g, "");
@@ -312,6 +356,7 @@ const Checkout = () => {
   const urlParams = new URLSearchParams(window.location.search);
   const productId = urlParams.get("productId");
   const userId = urlParams.get("userId");
+  const isGuestPreview = !userId;
 
   // Language state
   const [language, setLanguage] = useState(() => {
@@ -319,6 +364,24 @@ const Checkout = () => {
   });
   const t = translations[language];
   const dir = getDirection(language);
+  const guestPreviewTitle =
+    language === "ar"
+      ? "يمكنك تصفح هذا المنتج بدون حساب"
+      : language === "ku"
+        ? "دەتوانیت ئەم کاڵایە بەبێ هەژمار ببینیت"
+        : "Browse this product without an account";
+  const guestPreviewMessage =
+    language === "ar"
+      ? "يمكنك استعراض تفاصيل المنتج هنا. لتأكيد الطلب، افتح رابط المنتج من تطبيق Aman بعد تسجيل الدخول."
+      : language === "ku"
+        ? "دەتوانیت لێرە وردەکارییەکانی کاڵا ببینیت. بۆ تەواوکردنی داواکاری، بەستەری کاڵاکە لە بەرنامەی Aman دوای چوونەژوورەوە بکەرەوە."
+        : "You can view full product details here. To place the order, open this product from the Aman app after signing in.";
+  const guestPreviewButtonLabel =
+    language === "ar"
+      ? "سجّل الدخول في تطبيق Aman للطلب"
+      : language === "ku"
+        ? "لە بەرنامەی Aman بچۆ ژوورەوە بۆ داواکاری"
+        : "Sign in to Aman app to order";
 
   const [product, setProduct] = useState(null);
   const [productVideo, setProductVideo] = useState(null);
@@ -331,6 +394,7 @@ const Checkout = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6);
   const [cartError, setCartError] = useState(null);
+  const mainProductStoreIdRef = useRef(null);
 
   const [formData, setFormData] = useState({
     quantity: 1,
@@ -418,6 +482,11 @@ const Checkout = () => {
     return nameEn || legacyName || nameAr || nameKu || "Product";
   };
 
+  const showCartError = (message) => {
+    setCartError(message);
+    setTimeout(() => setCartError(null), 3000);
+  };
+
   // Calculate pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -435,7 +504,14 @@ const Checkout = () => {
     });
   };
 
-  const handleProductClick = (productIdToShow) => {
+  const handleProductClick = (productToShow) => {
+    const productIdToShow =
+      typeof productToShow === "object" ? productToShow?.id : productToShow;
+
+    if (!productIdToShow) {
+      return;
+    }
+
     // Update URL with new product ID
     const newUrl = new URL(window.location);
     newUrl.searchParams.set("productId", productIdToShow);
@@ -474,9 +550,9 @@ const Checkout = () => {
       // Don't automatically add to cart when viewing different products
       // User can manually add if they want
 
-      // Fetch related products
-      if (data.brand_id || data.category_id) {
-        fetchRelatedProducts(data.brand_id, data.category_id, data.id);
+      // Keep the rail scoped to the original checkout store, not the viewed product
+      if (data.id) {
+        fetchRelatedProducts(mainProductStoreIdRef.current, data.id);
       }
 
       setError(null);
@@ -514,17 +590,22 @@ const Checkout = () => {
         setProductVideo(null);
       }
 
-      // Add product to cart by default
-      setCart([
-        {
-          ...data,
-          quantity: 1,
-        },
-      ]);
+      // Add the product only when the backend marks it as available
+      setCart(
+        isProductInStock(data)
+          ? [
+              {
+                ...data,
+                quantity: 1,
+              },
+            ]
+          : [],
+      );
+      mainProductStoreIdRef.current = data.store_id ?? null;
 
-      // Fetch related products
-      if (data.brand_id || data.category_id) {
-        fetchRelatedProducts(data.brand_id, data.category_id, data.id);
+      // Only show products from the same store as the main product
+      if (data.id) {
+        fetchRelatedProducts(data.store_id, data.id);
       }
 
       setError(null);
@@ -536,25 +617,17 @@ const Checkout = () => {
     }
   };
 
-  const fetchRelatedProducts = async (brandId, categoryId, excludeId) => {
+  const fetchRelatedProducts = async (storeId, excludeId) => {
     try {
       setLoadingRelated(true);
-      // If product has store_id, fetch products from same store
-      const storeId = product?.store_id;
-      if (storeId) {
-        const related = await productService.getProductsByStore(
-          storeId,
-          excludeId,
-        );
-        setRelatedProducts(related);
-      } else {
-        const related = await productService.getRelatedProducts(
-          brandId,
-          categoryId,
-          excludeId,
-        );
-        setRelatedProducts(related);
+      setCurrentPage(1);
+      if (!storeId) {
+        setRelatedProducts([]);
+        return;
       }
+
+      const related = await productService.getProductsByStore(storeId, excludeId);
+      setRelatedProducts(related);
     } catch (err) {
       console.error("Failed to fetch related products:", err);
     } finally {
@@ -563,6 +636,11 @@ const Checkout = () => {
   };
 
   const addToCart = (product) => {
+    if (!isProductInStock(product)) {
+      showCartError(t.outOfStockError);
+      return;
+    }
+
     // Check if cart has items from a different store
     if (cart.length > 0) {
       const firstStoreId = cart[0].store_id;
@@ -571,21 +649,19 @@ const Checkout = () => {
         product.store_id &&
         firstStoreId !== product.store_id
       ) {
-        setCartError(
+        showCartError(
           "You can only order products from one store at a time. Please clear your cart first.",
         );
-        setTimeout(() => setCartError(null), 3000);
         return;
       }
     }
 
     const existingItem = cart.find((item) => item.id === product.id);
-    const stock = product.stock || product.quantity_in_stock || 999;
+    const stock = getProductStockLimit(product);
 
     if (existingItem) {
-      if (existingItem.quantity >= stock) {
-        setCartError(t.stockError.replace("{stock}", stock));
-        setTimeout(() => setCartError(null), 3000);
+      if (stock !== null && existingItem.quantity >= stock) {
+        showCartError(t.stockError.replace("{stock}", stock));
         return;
       }
       setCart(
@@ -613,10 +689,14 @@ const Checkout = () => {
 
     const item = cart.find((item) => item.id === productId);
     if (item) {
-      const stock = item.stock || item.quantity_in_stock || 999;
-      if (quantity > stock) {
-        setCartError(t.stockError.replace("{stock}", stock));
-        setTimeout(() => setCartError(null), 3000);
+      if (!isProductInStock(item)) {
+        showCartError(t.outOfStockError);
+        return;
+      }
+
+      const stock = getProductStockLimit(item);
+      if (stock !== null && quantity > stock) {
+        showCartError(t.stockError.replace("{stock}", stock));
         return;
       }
     }
@@ -691,9 +771,9 @@ const Checkout = () => {
       return;
     }
 
-    // Validate userId
+    // Allow public product browsing, but require an app account to place the order.
     if (!userId) {
-      toast.error("User ID is required. Please check the URL.");
+      toast.error(guestPreviewButtonLabel);
       return;
     }
 
@@ -765,8 +845,8 @@ const Checkout = () => {
     }
   };
 
-  // Check if required parameters are missing
-  if (!userId || !productId) {
+  // Product ID is required to render the public product page.
+  if (!productId) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-12 max-w-lg w-full">
@@ -790,11 +870,7 @@ const Checkout = () => {
               Page Not Found
             </h1>
             <p className="text-lg text-gray-600 mb-2">
-              {!userId && !productId
-                ? "User ID and Product ID are required."
-                : !userId
-                  ? "User ID is required."
-                  : "Product ID is required."}
+              Product ID is required.
             </p>
             <p className="text-sm text-gray-500">
               Please check the URL and try again.
@@ -1042,19 +1118,33 @@ const Checkout = () => {
 
                   {/* Stock Badge */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6">
-                    <div className="inline-flex items-center bg-green-100 text-green-800 px-4 py-2 rounded-full font-semibold text-sm">
+                    <div
+                      className={`inline-flex items-center px-4 py-2 rounded-full font-semibold text-sm ${
+                        isProductInStock(product)
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
                       <svg
                         className="w-4 h-4 mr-2"
                         fill="currentColor"
                         viewBox="0 0 20 20"
                       >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                          clipRule="evenodd"
-                        />
+                        {isProductInStock(product) ? (
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
+                        ) : (
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.536-10.95a1 1 0 00-1.414-1.414L10 8.586 7.878 6.464a1 1 0 10-1.414 1.414L8.586 10l-2.122 2.121a1 1 0 101.414 1.415L10 11.414l2.121 2.122a1 1 0 001.415-1.415L11.414 10l2.122-2.121z"
+                            clipRule="evenodd"
+                          />
+                        )}
                       </svg>
-                      {t.inStock}
+                      {isProductInStock(product) ? t.inStock : t.outOfStock}
                     </div>
                   </div>
                 </div>
@@ -1144,6 +1234,17 @@ const Checkout = () => {
               onSubmit={handleCheckout}
               className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6"
             >
+              {isGuestPreview && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
+                  <h3 className="text-base font-bold text-amber-900">
+                    {guestPreviewTitle}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-amber-800">
+                    {guestPreviewMessage}
+                  </p>
+                </div>
+              )}
+
               {/* City Select */}
               <div className="space-y-2">
                 <Label htmlFor="city" className="text-sm font-semibold text-gray-700 flex items-center gap-1">
@@ -1570,7 +1671,7 @@ const Checkout = () => {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={submitting || cart.length === 0}
+                disabled={submitting || cart.length === 0 || isGuestPreview}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 text-base sm:text-lg"
               >
                 {submitting ? (
@@ -1593,7 +1694,11 @@ const Checkout = () => {
                         d="M5 13l4 4L19 7"
                       />
                     </svg>
-                    <span>{t.completeCheckout}</span>
+                    <span>
+                      {isGuestPreview
+                        ? guestPreviewButtonLabel
+                        : t.completeCheckout}
+                    </span>
                   </>
                 )}
               </button>
@@ -1644,7 +1749,7 @@ const Checkout = () => {
                     <div
                       key={relatedProduct.id}
                       className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all transform hover:-translate-y-2 cursor-pointer flex flex-col"
-                      onClick={() => handleProductClick(relatedProduct.id)}
+                      onClick={() => handleProductClick(relatedProduct)}
                     >
                       {relatedProduct.images && relatedProduct.images[0] && (
                         <div className="aspect-4/3 overflow-hidden bg-gray-100">
@@ -1709,7 +1814,12 @@ const Checkout = () => {
                             e.stopPropagation(); // Prevent triggering the card click
                             addToCart(relatedProduct);
                           }}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center space-x-2 mt-auto"
+                          disabled={!isProductInStock(relatedProduct)}
+                          className={`w-full font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center space-x-2 mt-auto ${
+                            isProductInStock(relatedProduct)
+                              ? "bg-blue-600 hover:bg-blue-700 text-white"
+                              : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                          }`}
                         >
                           <svg
                             className="w-5 h-5"
@@ -1724,7 +1834,11 @@ const Checkout = () => {
                               d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
                             />
                           </svg>
-                          <span>{t.addToCart}</span>
+                          <span>
+                            {isProductInStock(relatedProduct)
+                              ? t.addToCart
+                              : t.outOfStock}
+                          </span>
                         </button>
                       </div>
                     </div>

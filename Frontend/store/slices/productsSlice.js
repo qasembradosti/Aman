@@ -1,6 +1,26 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/apiService';
 
+const COLLECTION_KEY_IGNORED_FIELDS = new Set(['limit', 'offset', 'append', 'force']);
+
+const normalizeCollectionKeyEntries = (filters = {}) =>
+  Object.entries(filters || {})
+    .filter(([key, value]) => {
+      if (COLLECTION_KEY_IGNORED_FIELDS.has(key)) {
+        return false;
+      }
+
+      return value !== undefined && value !== null && value !== '';
+    })
+    .map(([key, value]) => [
+      key,
+      Array.isArray(value) ? value.map((item) => String(item)) : String(value),
+    ])
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
+
+export const buildProductCollectionKey = (filters = {}) =>
+  JSON.stringify(normalizeCollectionKeyEntries(filters));
+
 // Async thunks
 export const fetchProducts = createAsyncThunk(
   'products/fetchProducts',
@@ -68,6 +88,7 @@ const productsSlice = createSlice({
   initialState: {
     items: [],
     currentProduct: null,
+    lastCollectionKey: null,
     meta: {
       total: 0,
       limit: 20,
@@ -93,6 +114,7 @@ const productsSlice = createSlice({
       })
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading = false;
+        state.lastCollectionKey = buildProductCollectionKey(action.meta?.arg || {});
         const incomingItems = action.payload.data || action.payload;
         const incomingMeta = action.payload.meta || state.meta;
         // If this fetch is for appending (pagination), append instead of replacing

@@ -3,6 +3,9 @@ export const isSuperAdmin = (user) => user?.role === 'superadmin';
 export const isStoreAdmin = (user) =>
   user?.role === 'admin' && Number(user?.store_id) > 0;
 
+export const isDeliveryCompany = (user) =>
+  user?.role === 'delivery_company';
+
 export const canAccessAdminPanel = (user) =>
   isSuperAdmin(user) || isStoreAdmin(user);
 

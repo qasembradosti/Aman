@@ -2,18 +2,16 @@ import React, { useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
-  ActivityIndicator,
   Pressable,
   Animated,
 } from "react-native";
 import { WifiOff, RefreshCcw } from "lucide-react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../utils/ThemeContext";
 import { Text } from "./ui/Text";
 
 export default function OfflineSplash({ checking = false, onRetry }) {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;

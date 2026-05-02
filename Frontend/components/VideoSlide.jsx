@@ -1,12 +1,10 @@
 // New component to handle video player lifecycles correctly
 import { useVideoPlayer, VideoView } from "expo-video";
-import { View, StyleSheet, ActivityIndicator, TouchableOpacity } from "react-native";
-import { useEffect, useState } from "react";
-import { useTheme } from "../utils/ThemeContext";
+import { View, TouchableOpacity } from "react-native";
+import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function VideoSlide({ uri, width, height }) {
-  const { theme } = useTheme();
   const [isMuted, setIsMuted] = useState(false);
   
   const player = useVideoPlayer(uri, player => {

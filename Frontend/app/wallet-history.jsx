@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
-import { Text as RNText } from "react-native";
+import { View, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Text as RNText } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";

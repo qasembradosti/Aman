@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Pressable } from "react-native";
-import { Image } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { View, StyleSheet, Pressable, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { useTheme } from "../utils/ThemeContext";
 import { useLanguage } from "../utils/LanguageContext";
 import { useSelector, useDispatch } from "react-redux";
 import { Text } from "./ui/Text";
-import { Moon, Sun, Bell, Search, Sparkles, Shield } from "lucide-react-native";
+import { Moon, Sun, Bell } from "lucide-react-native";
 import { fetchUnreadCount } from "../store/slices/notificationsSlice";
 import ChatSupport from "./ChatSupport";
 import ChatHeaderButton from "./ChatHeaderButton";
@@ -17,7 +15,7 @@ export default function HomeHeader({ onToggleTheme }) {
   const router = useRouter();
   const dispatch = useDispatch();
   const { theme, isDark } = useTheme();
-  const { isRTL, t } = useLanguage();
+  const { t } = useLanguage();
   const { isAuthenticated } = useSelector((state) => state.auth);
   const { unreadCount } = useSelector((state) => state.notifications);
   const [chatVisible, setChatVisible] = useState(false);
@@ -55,24 +53,14 @@ export default function HomeHeader({ onToggleTheme }) {
             >
               Amanly
             </Text>
-            <View style={styles.subtitleRow}>
-              <Shield
-                size={12}
-                color={isDark ? "#9CA3AF" : "#6B7280"}
-                strokeWidth={2.5}
-              />
-              <Text
-                style={[styles.subtitle, { color: theme.colors.textSecondary }]}
-              >
-                {t("welcomeBack")}
-              </Text>
-            </View>
           </View>
         </View>
         <View style={[styles.actions]}>
           <ChatHeaderButton onPress={() => setChatVisible(true)} />
           <Pressable
-            onPress={() => router.push("/notifications")}
+            onPress={() =>
+              router.push(isAuthenticated ? "/notifications" : "/(auth)/login")
+            }
             style={({ pressed }) => [
               styles.iconButton,
               {
@@ -92,7 +80,7 @@ export default function HomeHeader({ onToggleTheme }) {
             <View>
               <Bell size={22} color={theme.colors.text} strokeWidth={2} />
               {/* Notification Badge */}
-              {unreadCount > 0 && (
+              {isAuthenticated && unreadCount > 0 && (
                 <View
                   style={[
                     styles.badge,

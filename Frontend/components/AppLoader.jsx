@@ -27,7 +27,7 @@ export default function AppLoader() {
         </View>
 
         <View style={styles.textContainer}>
-          <Text style={styles.appName}>Aman</Text>
+          <Text style={styles.appName}>Amanly</Text>
           <Text style={styles.tagline}>Loading your experience...</Text>
         </View>
 

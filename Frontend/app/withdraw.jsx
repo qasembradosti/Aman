@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  I18nManager,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -43,7 +42,7 @@ export default function WithdrawScreen() {
   const layout = useResponsiveLayout();
   const dispatch = useDispatch();
 
-  const { balance: walletBalance, loading: walletLoading } = useSelector((state) => state.wallet);
+  const { balance: walletBalance } = useSelector((state) => state.wallet);
   const { user } = useSelector((state) => state.auth);
   const [balance, setBalance] = useState(0);
   const [amount, setAmount] = useState("");
@@ -63,7 +62,7 @@ export default function WithdrawScreen() {
     if (user?.id) {
       dispatch(fetchWallet({ user_id: user.id }));
     }
-  }, [user?.id]);
+  }, [dispatch, user?.id]);
 
   useEffect(() => {
     if (typeof walletBalance === "number") {
