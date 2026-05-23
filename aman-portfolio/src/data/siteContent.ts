@@ -96,39 +96,47 @@ export const siteContent = {
   ],
   privacyItems: [
     {
-      title: 'Information we collect',
+      title: 'What we collect',
       points: [
-        'Basic account details such as name, phone number, email address, and delivery information.',
-        'Order history, wishlist activity, and support requests needed to manage customer purchases.',
-        'Limited device and usage information that supports stability, security, and service improvement.',
+        'Basic account details such as name, phone number, email address, shipping information, and support messages when customers provide them.',
+        'Order history and account activity needed to manage purchases, support requests, and delivery follow-up.',
+        'Limited technical information that helps with stability, security, abuse prevention, and service maintenance.',
       ],
     },
     {
       title: 'How data is used',
       points: [
-        'To process orders, confirm payments, coordinate delivery, and provide purchase-related updates.',
-        'To respond to support issues, protect the platform from misuse, and improve the service experience.',
-        'To send operational notifications and promotional communication where customers allow it.',
+        'To create accounts, process orders, coordinate delivery, and provide purchase-related updates.',
+        'To answer support issues, protect the marketplace from misuse, and maintain service reliability.',
+        'To send operational notifications and, where allowed, promotional communication.',
       ],
     },
     {
-      title: 'Protection and retention',
+      title: 'Catalog and public product data',
       points: [
-        'Customer information is shared only where needed for platform operations and service delivery.',
-        'Operational access is limited to relevant business and support needs.',
-        'Records are stored only as long as service, legal, and support requirements make necessary.',
+        'Amanly does not sell access to third-party platforms, subscriptions, or external digital services.',
+        'Product names, packaging images, ingredient lists, brand references, and descriptive details may come from seller material, manufacturer packaging, or publicly available catalog information used to identify physical goods listed inside Amanly.',
+        'Trademark and brand rights remain with their respective owners, and rights holders can contact support to request review, correction, or removal.',
       ],
     },
     {
-      title: 'Customer choices',
+      title: 'Customer choices and deletion',
       points: [
-        'Profile details can be reviewed and updated through account settings where available.',
-        'Marketing preferences can be adjusted or disabled when that control is provided.',
-        'Privacy questions and correction requests can be sent directly to Amanly support.',
+        'Customers can review and update profile details through account settings where available.',
+        'Customers can request deletion inside the app from Profile > Delete Account after entering the current password.',
+        'Privacy questions, data correction requests, and content ownership concerns can be sent directly to Amanly support.',
       ],
     },
   ],
   policyItems: [
+    {
+      title: 'Marketplace scope',
+      points: [
+        'Amanly is a marketplace for browsing product listings and managing orders for goods offered inside the Amanly service.',
+        'The service does not resell access to third-party subscriptions, external apps, or off-platform digital services.',
+        'Listings are shown to help customers identify products available through Amanly sellers and operations.',
+      ],
+    },
     {
       title: 'Orders and availability',
       points: [
@@ -154,8 +162,9 @@ export const siteContent = {
       ],
     },
     {
-      title: 'Account conduct',
+      title: 'Content and account conduct',
       points: [
+        'Customers should understand that product reference material can include seller-provided details, packaging content, and public catalog information used to describe physical goods.',
         'Customers should provide accurate delivery, payment, and contact information.',
         'Fraud, abusive behavior, or repeated false ordering may lead to account restrictions.',
         'Support channels should be used early when disputes or policy questions appear.',

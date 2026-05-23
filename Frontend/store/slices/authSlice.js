@@ -129,6 +129,21 @@ export const changePassword = createAsyncThunk(
   }
 );
 
+export const deleteAccount = createAsyncThunk(
+  'auth/deleteAccount',
+  async ({ currentPassword }, { rejectWithValue }) => {
+    try {
+      const response = await api.delete('/api/auth/account', {
+        data: { currentPassword },
+      });
+      await AsyncStorage.multiRemove(['token', 'user']);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Account deletion failed');
+    }
+  }
+);
+
 // Request password reset (send code)
 export const requestPasswordReset = createAsyncThunk(
   'auth/requestPasswordReset',
@@ -308,6 +323,22 @@ const authSlice = createSlice({
         console.log(' Password changed successfully');
       })
       .addCase(changePassword.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // Delete Account
+      .addCase(deleteAccount.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteAccount.fulfilled, (state) => {
+        state.loading = false;
+        state.user = null;
+        state.token = null;
+        state.isAuthenticated = false;
+        state.error = null;
+      })
+      .addCase(deleteAccount.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })

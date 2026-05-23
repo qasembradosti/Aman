@@ -73,6 +73,7 @@ export default function Favorites() {
   const router = useRouter();
   const { theme } = useTheme();
   const { t, isRTL, locale } = useLanguage();
+  const currencyLabel = t("currency") || "IQD";
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -171,9 +172,7 @@ export default function Favorites() {
           {item.commission_price && (
             <View style={[styles.bonusTag, { backgroundColor: "green" }]}>
               <Text style={styles.bonusTagText}>
-                {isRTL
-                  ? `${item.commission_price} دینار `
-                  : `${item.commission_price} IQD`}
+                {`${item.commission_price} ${currencyLabel}`}
               </Text>
             </View>
           )}
@@ -207,7 +206,7 @@ export default function Favorites() {
                 },
               ]}
             >
-              {isRTL ? `${item.sell_price} دینار ` : `${item.sell_price} IQD`}
+              {`${item.sell_price} ${currencyLabel}`}
             </Text>
             <TouchableOpacity
               style={[

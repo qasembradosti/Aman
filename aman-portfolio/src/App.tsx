@@ -129,9 +129,9 @@ function App() {
         <section className="section section-panel" id="privacy">
           <SectionIntro
             kicker="Privacy Policy"
-            title="Privacy content is presented in a structured, readable format."
-            description="This portfolio section summarizes the main privacy ideas customers expect to see before trusting an ecommerce platform with their personal data."
-            note="Updated April 4, 2026"
+            title="Privacy content explains account data, catalog sources, and user controls."
+            description="This section clarifies what customer data Amanly uses, how public product information can appear in listings, and how users can request account deletion."
+            note="Updated May 20, 2026"
           />
 
           <div className="policy-grid">
@@ -144,9 +144,9 @@ function App() {
         <section className="section" id="policy">
           <SectionIntro
             kicker="Service Policy"
-            title="Operational expectations stay clear before the first order is placed."
-            description="Payment, shipping, cancellation, returns, and account conduct are grouped into reusable policy cards for cleaner reading."
-            note="Updated April 4, 2026"
+            title="Service policy keeps the marketplace scope and ordering rules explicit."
+            description="Payment, shipping, returns, listing scope, and content conduct are grouped into clear policy cards so customers and reviewers can understand how Amanly operates."
+            note="Updated May 20, 2026"
           />
 
           <div className="policy-grid">
@@ -182,8 +182,8 @@ function App() {
       <footer className="site-footer">
         <p>{siteContent.brand.name} Ecommerce Application Portfolio</p>
         <small>
-          Copyright {year} {siteContent.brand.name}. All rights reserved. Replace privacy and service policy
-          content with legally approved final copy before production launch.
+          Copyright {year} {siteContent.brand.name}. All rights reserved. Privacy and service policy
+          content applies to the Amanly marketplace and may be updated as the service changes.
         </small>
       </footer>
     </div>

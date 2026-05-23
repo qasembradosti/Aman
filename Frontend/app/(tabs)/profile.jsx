@@ -116,6 +116,12 @@ export default function Profile() {
       onPress: () => router.push("/favorites"),
     },
     {
+      icon: "shield-checkmark-outline",
+      title: t("privacySecurity"),
+      subtitle: t("managePrivacy"),
+      onPress: () => router.push("/privacy-policy"),
+    },
+    {
       icon: "language-outline",
       title: locale === "en" ? "Language" : locale === "ar" ? "اللغة" : "زمان",
       subtitle:
@@ -430,26 +436,56 @@ export default function Profile() {
 
         {/* Logout Button */}
         {isAuthenticated && (
-          <TouchableOpacity 
-            style={[
-              styles.menuItem,
-              {
-                flexDirection: isRTL ? "row-reverse" : "row",
-                marginHorizontal: 16,
-              },
-            ]} 
-            onPress={handleLogout}
-          >
-            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", flex: 1, gap: 12 }}>
-              <Ionicons name="log-out-outline" size={22} color="#FF3B30" />
-              <Text style={[styles.logoutText, { flex: 1, textAlign: isRTL ? "right" : "left" }]}>{t("logout")}</Text>
-            </View>
-            <Ionicons
-              name={isRTL ? "chevron-back" : "chevron-forward"}
-              size={18}
-              color={theme.colors.textSecondary}
-            />
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity 
+              style={[
+                styles.menuItem,
+                {
+                  flexDirection: isRTL ? "row-reverse" : "row",
+                  marginHorizontal: 16,
+                },
+              ]} 
+              onPress={handleLogout}
+            >
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", flex: 1, gap: 12 }}>
+                <Ionicons name="log-out-outline" size={22} color="#FF3B30" />
+                <Text style={[styles.logoutText, { flex: 1, textAlign: isRTL ? "right" : "left" }]}>{t("logout")}</Text>
+              </View>
+              <Ionicons
+                name={isRTL ? "chevron-back" : "chevron-forward"}
+                size={18}
+                color={theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[
+                styles.menuItem,
+                {
+                  flexDirection: isRTL ? "row-reverse" : "row",
+                  marginHorizontal: 16,
+                },
+              ]} 
+              onPress={() => router.push("/delete-account")}
+            >
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", flex: 1, gap: 12 }}>
+                <Ionicons name="trash-outline" size={22} color="#D92D20" />
+                <View style={[styles.menuTextContainer, { alignItems: isRTL ? "flex-end" : "flex-start" }]}>
+                  <Text style={[styles.deleteAccountText, { textAlign: isRTL ? "right" : "left" }]}>
+                    {t("deleteAccount")}
+                  </Text>
+                  <Text style={[styles.menuSubtitle, { textAlign: isRTL ? "right" : "left" }]}>
+                    {t("deleteAccountSubtitle")}
+                  </Text>
+                </View>
+              </View>
+              <Ionicons
+                name={isRTL ? "chevron-back" : "chevron-forward"}
+                size={18}
+                color={theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+          </>
         )}
 
         <Text style={styles.version}>Version 1.0.0</Text>
@@ -699,6 +735,10 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 15,
     color: "#FF3B30",
+  },
+  deleteAccountText: {
+    fontSize: 15,
+    color: "#D92D20",
   },
   version: {
     textAlign: "center",

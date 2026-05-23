@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.amanstore.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["remote-notification", "fetch"]
       },
       "entitlements": {
         "aps-environment": "production"
@@ -47,7 +48,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/icon.png"
     },
     "plugins": [
       "expo-router",
@@ -64,6 +65,15 @@
         }
       ],
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./assets/images/aman-app.png",
@@ -74,8 +84,11 @@
         }
       ],
       "expo-video",
+      "expo-web-browser",
       "@react-native-community/datetimepicker",
-      "expo-web-browser"
+      "expo-font",
+      "expo-image",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

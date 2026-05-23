@@ -19,6 +19,7 @@ import socketIoClient from 'socket.io-client';
 import Constants from 'expo-constants';
 import { useRootNavigationState, useRouter } from 'expo-router';
 import { Bell } from 'lucide-react-native';
+import * as Notifications from 'expo-notifications';
 import {
   fetchNotifications,
   fetchUnreadCount,
@@ -28,6 +29,16 @@ import { getApiBaseUrl } from './apiConfig';
 import { useTheme } from './ThemeContext';
 import { Text } from '../components/ui/Text';
 import { registerPushToken as savePushTokenToBackend } from '../services/pushTokenService';
+
+// Set notification handler at module level so it applies regardless of auth state
+// and is ready before any notification arrives (including background wakeup).
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 const isExpoGo = Constants.appOwnership === 'expo';
 const DEFAULT_NOTIFICATION_ROUTE = '/notifications';
@@ -247,17 +258,8 @@ export function NotificationSocketProvider({ children }) {
 
     const setupNotifications = async () => {
       try {
-        const Notifications = require('expo-notifications');
         const Device = require('expo-device');
         const { Platform } = require('react-native');
-
-        Notifications.setNotificationHandler({
-          handleNotification: async () => ({
-            shouldShowAlert: false,
-            shouldPlaySound: false,
-            shouldSetBadge: true,
-          }),
-        });
 
         if (Platform.OS === 'android') {
           await Notifications.setNotificationChannelAsync('default', {

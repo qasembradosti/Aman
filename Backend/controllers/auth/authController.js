@@ -300,7 +300,49 @@ const changePassword = async (req, res) => {
   }
 };
 
-export { register, login, getProfile, updateProfile, changePassword };
+const deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { currentPassword } = req.body || {};
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    if (!currentPassword) {
+      return res.status(400).json({
+        message: "Current password is required."
+      });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({
+        message: "Current password is incorrect."
+      });
+    }
+
+    await db.transaction(async (trx) => {
+      // Preserve review content while removing the link to the deleted user.
+      await trx("product_reviews").where({ user_id: userId }).update({ user_id: null });
+
+      // Remove financial/support data that doesn't cascade from the users table.
+      await trx("withdrawal_requests").where({ user_id: userId }).del();
+
+      const deletedRows = await trx("users").where({ id: userId }).del();
+      if (!deletedRows) {
+        throw new Error("Failed to delete user account.");
+      }
+    });
+
+    res.json({ message: "Account deleted successfully." });
+  } catch (err) {
+    res.status(500).json({ message: "Server error.", error: err.message });
+  }
+};
+
+export { register, login, getProfile, updateProfile, changePassword, deleteAccount };
 
 // --- Phone Verification & Password Reset Extensions --- //
 

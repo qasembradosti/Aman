@@ -26,7 +26,11 @@ export const orderService = {
   // Get orders by user
   getOrdersByUser: async (userId) => {
     try {
-      const response = await api.get(`/orders/user/${userId}`);
+      const response = await api.get('/orders', {
+        params: {
+          user_id: userId,
+        },
+      });
       return response.data;
     } catch (error) {
       console.error('Error fetching orders:', error);

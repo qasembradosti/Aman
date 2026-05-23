@@ -8,7 +8,10 @@ import {
   getOrderStats,
   withdrawCommission
 } from '../controllers/orderController.js';
-import { authenticateToken } from '../middleware/authMiddleware.js';
+import {
+  authenticateToken,
+  authenticateTokenIfPresent,
+} from '../middleware/authMiddleware.js';
 import {
   requireAdminPanelAccess,
   requireSuperAdminAccess,
@@ -17,7 +20,7 @@ import {
 const router = express.Router();
 
 // Create new order (public endpoint for checkout) - MUST BE FIRST
-router.post('/orders', createOrder);
+router.post('/orders', authenticateTokenIfPresent, createOrder);
 
 // Get all orders (with pagination and filters)
 router.get('/orders', authenticateToken, getOrders);

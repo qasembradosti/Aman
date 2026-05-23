@@ -4,8 +4,18 @@ import Dialog from './Dialog';
 import { Text } from './Text';
 import { useTheme } from '../../utils/ThemeContext';
 
-export default function ConfirmDialog({ visible, title, message, confirmText = 'Confirm', cancelText = 'Cancel', onConfirm, onCancel }) {
+export default function ConfirmDialog({
+  visible,
+  title,
+  message,
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+  confirmButtonColor,
+  onConfirm,
+  onCancel,
+}) {
   const { theme } = useTheme();
+  const resolvedConfirmButtonColor = confirmButtonColor || theme.colors.primary;
 
   return (
     <Dialog
@@ -18,7 +28,7 @@ export default function ConfirmDialog({ visible, title, message, confirmText = '
           <TouchableOpacity onPress={onCancel} style={[styles.btn, { borderColor: theme.colors.border }]}>
             <Text style={{ color: theme.colors.text }}>{cancelText}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={onConfirm} style={[styles.btn, { backgroundColor: theme.colors.primary }]}>
+          <TouchableOpacity onPress={onConfirm} style={[styles.btn, { backgroundColor: resolvedConfirmButtonColor }]}>
             <Text style={{ color: '#fff' }}>{confirmText}</Text>
           </TouchableOpacity>
         </View>

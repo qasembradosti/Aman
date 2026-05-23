@@ -103,25 +103,51 @@ export const createOrder = async (req, res) => {
 
   try {
     const orderData = req.body;
+    const requestedUserId = Number.parseInt(orderData.user_id, 10);
+    const authenticatedUserId = Number.parseInt(req.user?.userId, 10);
+    const effectiveUserId = Number.isInteger(authenticatedUserId) && authenticatedUserId > 0
+      ? authenticatedUserId
+      : Number.isInteger(requestedUserId) && requestedUserId > 0
+        ? requestedUserId
+        : null;
 
     // Validate required fields
-    if (!orderData.user_id || !orderData.items || !orderData.items.length) {
-      return res.status(400).json({ message: 'Missing required fields: user_id and items' });
-    }
-
-    if (!orderData.total_amount) {
-      return res.status(400).json({ message: 'Total amount is required' });
-    }
-
-    // Check if user exists
-    const user = await User.findById(orderData.user_id);
-    if (!user) {
-      return res.status(404).json({ 
-        message: `User with ID ${orderData.user_id} not found. Please provide a valid user ID.` 
+    if (!effectiveUserId || !Array.isArray(orderData.items) || orderData.items.length === 0) {
+      return res.status(400).json({
+        message: 'Missing required fields: user_id (or auth token) and items',
       });
     }
 
-    const orderId = await Order.create(orderData);
+    if (orderData.total_amount === undefined || orderData.total_amount === null) {
+      return res.status(400).json({ message: 'Total amount is required' });
+    }
+
+    if (
+      Number.isInteger(authenticatedUserId) &&
+      authenticatedUserId > 0 &&
+      Number.isInteger(requestedUserId) &&
+      requestedUserId > 0 &&
+      requestedUserId !== authenticatedUserId
+    ) {
+      console.warn(
+        `Checkout user mismatch detected. Request user_id=${requestedUserId} overridden by token user_id=${authenticatedUserId}.`,
+      );
+    }
+
+    const normalizedOrderData = {
+      ...orderData,
+      user_id: effectiveUserId,
+    };
+
+    // Check if user exists
+    const user = await User.findById(effectiveUserId);
+    if (!user) {
+      return res.status(404).json({ 
+        message: `User with ID ${effectiveUserId} not found. Please provide a valid user ID.` 
+      });
+    }
+
+    const orderId = await Order.create(normalizedOrderData);
 
     res.status(201).json({
       message: 'Order created successfully',

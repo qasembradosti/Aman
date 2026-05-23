@@ -380,6 +380,13 @@ export const translations = {
     logoutConfirm: "Are you sure you want to logout?",
     logoutSuccess: "You have been logged out successfully",
     logoutError: "Failed to logout",
+    deleteAccount: "Delete Account",
+    deleteAccountSubtitle: "Permanently remove your account and data",
+    deleteAccountConfirmTitle: "Delete Account",
+    deleteAccountConfirmMessage: "This will permanently delete your account and associated data. This action cannot be undone.",
+    deleteAccountConfirmButton: "Delete Account",
+    deleteAccountPasswordInfo: "Enter your current password to permanently delete your account. This action cannot be undone.",
+    deleteAccountFailed: "Failed to delete account",
 
     // About Page
     aboutApp: "About Aman",
@@ -924,6 +931,13 @@ export const translations = {
     logoutConfirm: "هل أنت متأكد من تسجيل الخروج؟",
     logoutSuccess: "تم تسجيل الخروج بنجاح",
     logoutError: "فشل تسجيل الخروج",
+    deleteAccount: "حذف الحساب",
+    deleteAccountSubtitle: "احذف حسابك وبياناتك بشكل نهائي",
+    deleteAccountConfirmTitle: "حذف الحساب",
+    deleteAccountConfirmMessage: "سيؤدي هذا إلى حذف حسابك والبيانات المرتبطة به نهائيًا. لا يمكن التراجع عن هذا الإجراء.",
+    deleteAccountConfirmButton: "حذف الحساب",
+    deleteAccountPasswordInfo: "أدخل كلمة المرور الحالية لحذف حسابك نهائيًا. لا يمكن التراجع عن هذا الإجراء.",
+    deleteAccountFailed: "فشل حذف الحساب",
 
     // About Page
     aboutApp: "حول أمان",
@@ -1405,8 +1419,8 @@ export const translations = {
     managePayment: "بەڕێوەبردنی هەڵبژاردەکانی پارەدان",
     notifications: "ئاگادارییەکان",
     customizeNotifications: "خوازراوکردنی ئاگادارییەکان",
-    privacySecurity: "تایبەتێتی و ئاسایش",
-    managePrivacy: "بەڕێوەبردنی ڕێکخستنەکانی تایبەتێتی",
+    privacySecurity: "تایبەتمەندی و ئاسایش",
+    managePrivacy: "بەڕێوەبردنی ڕێکخستنەکانی تایبەتمەندی",
     helpSupport: "یارمەتی و پشتگیری",
     getHelp: "وەرگرتنی یارمەتی و پەیوەندی بە پشتگیری",
     about: "دەربارە",
@@ -1468,6 +1482,13 @@ export const translations = {
     logoutConfirm: "دڵنیایت لە چوونەدەرەوە؟",
     logoutSuccess: "بە سەرکەوتوویی چوویتە دەرەوە",
     logoutError: "چوونەدەرەوە سەرکەوتوو نەبوو",
+    deleteAccount: "سڕینەوەی هەژمار",
+    deleteAccountSubtitle: "هەژمارەکەت و داتاکانت بە تەواوی بسڕەوە",
+    deleteAccountConfirmTitle: "سڕینەوەی هەژمار",
+    deleteAccountConfirmMessage: "ئەمە هەژمارەکەت و هەموو داتای پەیوەندیداری بە شێوەی هەمیشەیی دەسڕێتەوە. ناتوانرێت بگەڕێندرێتەوە.",
+    deleteAccountConfirmButton: "سڕینەوەی هەژمار",
+    deleteAccountPasswordInfo: "بۆ سڕینەوەی هەژمارەکەت بە شێوەی هەمیشەیی، تکایە وشەی نهێنیی ئێستات بنووسە. ناتوانرێت بگەڕێندرێتەوە.",
+    deleteAccountFailed: "سڕینەوەی هەژمار سەرکەوتوو نەبوو",
 
     // About Page
     aboutApp: "دەربارەی ئامان",

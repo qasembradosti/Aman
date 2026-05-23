@@ -79,6 +79,7 @@ export default function Home() {
   const router = useRouter();
   const dispatch = useDispatch();
   const { t, isRTL, locale } = useLanguage();
+  const currencyLabel = t("currency") || "IQD";
   const { theme, toggleTheme } = useTheme();
   const layout = useResponsiveLayout();
   const API_BASE_URL = getApiBaseUrl();
@@ -124,7 +125,7 @@ export default function Home() {
   const { items: brands, loading: brandsLoading } = useSelector(
     (state) => state.brands,
   );
-  const { isAuthenticated } = useSelector((state) => state.auth);
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -330,7 +331,7 @@ export default function Home() {
 
   const handleShareProduct = async (id, name) => {
     try {
-      const productUrl = buildPublicProductUrl(id);
+      const productUrl = buildPublicProductUrl(id, user?.id);
 
       const result = await Share.share({
         message: `${name}\n\n${productUrl}`,
@@ -931,9 +932,7 @@ export default function Home() {
                                 { color: theme.colors.primary },
                               ]}
                             >
-                              {isRTL
-                                ? `${product.sell_price} دينار`
-                                : `${product.sell_price} IQD`}
+                              {`${product.sell_price} ${currencyLabel}`}
                             </Text>
                           </View>
                         </Pressable>
@@ -1217,9 +1216,7 @@ export default function Home() {
                             },
                           ]}
                         >
-                          {isRTL
-                            ? `${product.sell_price} دینار `
-                            : `${product.sell_price} IQD`}
+                          {`${product.sell_price} ${currencyLabel}`}
                         </Text>
                         {product.average_rating &&
                           product.average_rating > 0 && (
@@ -1367,9 +1364,7 @@ export default function Home() {
                         style={[styles.bonusTag, { backgroundColor: "green" }]}
                       >
                         <Text style={styles.bonusTagText}>
-                          {isRTL
-                            ? `${product.commission_price} دینار `
-                            : `${product.commission_price} IQD`}
+                          {`${product.commission_price} ${currencyLabel}`}
                         </Text>
                       </View>
                     )}
@@ -1453,9 +1448,7 @@ export default function Home() {
                           },
                         ]}
                       >
-                        {isRTL
-                          ? `${product.sell_price} دینار `
-                          : `${product.sell_price} IQD`}
+                        {`${product.sell_price} ${currencyLabel}`}
                       </Text>
                       <TouchableOpacity
                         style={[

@@ -35,6 +35,7 @@ export default function BrandProductsScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const { t, isRTL, locale } = useLanguage();
+  const currencyLabel = t("currency") || "IQD";
   const navigationInProgress = useRef(false);
 
   const rowDirection = isRTL ? "row-reverse" : "row";
@@ -533,7 +534,7 @@ export default function BrandProductsScreen() {
                             ]}
                           >
                             {item.sell_price || item.base_price}{" "}
-                            {isRTL ? "دینار" : "IQD"}
+                            {currencyLabel}
                           </Text>
                           {item.base_price &&
                             item.sell_price &&
@@ -544,7 +545,7 @@ export default function BrandProductsScreen() {
                                   { color: theme.colors.textSecondary },
                                 ]}
                               >
-                                {item.base_price} {isRTL ? "دینار" : "IQD"}
+                                {item.base_price} {currencyLabel}
                               </Text>
                             )}
                         </View>

@@ -309,6 +309,29 @@ export default function About() {
             >
               {aboutText}
             </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.legalShortcut,
+                { backgroundColor: theme.colors.primary + "12" },
+              ]}
+              onPress={() => router.push("/privacy-policy")}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={20}
+                color={theme.colors.primary}
+              />
+              <Text
+                style={[
+                  styles.legalShortcutText,
+                  { color: theme.colors.primary },
+                ]}
+              >
+                {t("privacySecurity") || "Privacy & Security"}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -679,6 +702,18 @@ const styles = StyleSheet.create({
   sectionText: {
     fontSize: 15,
     lineHeight: 24,
+  },
+  legalShortcut: {
+    marginTop: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  legalShortcutText: {
+    fontSize: 14,
   },
 
   // Features Grid

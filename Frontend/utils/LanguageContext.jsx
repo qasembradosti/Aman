@@ -60,18 +60,18 @@ export const LanguageProvider = ({ children }) => {
       // Save to storage
       await AsyncStorage.setItem("@app_language", newLocale);
 
-      // Update state (this will update translations and font immediately)
-      setLocale(newLocale);
-
       const shouldBeRTL = newLocale === "ar" || newLocale === "ku";
-      setIsRTL(shouldBeRTL);
 
-      // If RTL setting needs to change, update native direction and reload app
+      // Update native RTL flag (takes full effect on next cold start,
+      // but all UI already uses the isRTL state flag so no reload needed)
       if (I18nManager.isRTL !== shouldBeRTL) {
         I18nManager.allowRTL(true);
         I18nManager.forceRTL(shouldBeRTL);
-        await reloadAppSafely();
       }
+
+      // Update state — re-renders all components with correct translations + direction
+      setLocale(newLocale);
+      setIsRTL(shouldBeRTL);
 
       console.log("Language changed successfully");
     } catch (error) {

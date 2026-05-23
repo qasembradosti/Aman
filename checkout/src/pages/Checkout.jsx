@@ -1,11 +1,16 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Plyr } from "plyr-react";
 import "plyr-react/plyr.css";
 import "../styles/plyr-custom.css";
 import { productService } from "../services/productService";
 import { orderService } from "../services/orderService";
+import {
+  extractOrderId,
+  normalizeOrderResponse,
+  persistOrderSnapshot,
+} from "../utils/checkoutSession";
 import { translations, getDirection, getAlign } from "../utils/translations";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -351,12 +356,23 @@ const normalizePhoneForTel = (phone) => phone.replace(/[^\d+]/g, "");
 
 const Checkout = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Get URL parameters
-  const urlParams = new URLSearchParams(window.location.search);
-  const productId = urlParams.get("productId");
-  const userId = urlParams.get("userId");
-  const isGuestPreview = !userId;
+  const productId =
+    (searchParams.get("productId") || searchParams.get("product_id"))?.trim() || null;
+  const rawUserId =
+    (searchParams.get("userId") || searchParams.get("user_id"))?.trim() || null;
+  const requestedQuantity = Number.parseInt(
+    searchParams.get("quantity") || "",
+    10,
+  );
+  const initialQuantity =
+    Number.isFinite(requestedQuantity) && requestedQuantity > 0
+      ? requestedQuantity
+      : 1;
+  const parsedUserId = Number.parseInt(rawUserId || "", 10);
+  const hasValidUserId = Number.isInteger(parsedUserId) && parsedUserId > 0;
 
   // Language state
   const [language, setLanguage] = useState(() => {
@@ -364,18 +380,7 @@ const Checkout = () => {
   });
   const t = translations[language];
   const dir = getDirection(language);
-  const guestPreviewTitle =
-    language === "ar"
-      ? "يمكنك تصفح هذا المنتج بدون حساب"
-      : language === "ku"
-        ? "دەتوانیت ئەم کاڵایە بەبێ هەژمار ببینیت"
-        : "Browse this product without an account";
-  const guestPreviewMessage =
-    language === "ar"
-      ? "يمكنك استعراض تفاصيل المنتج هنا. لتأكيد الطلب، افتح رابط المنتج من تطبيق Aman بعد تسجيل الدخول."
-      : language === "ku"
-        ? "دەتوانیت لێرە وردەکارییەکانی کاڵا ببینیت. بۆ تەواوکردنی داواکاری، بەستەری کاڵاکە لە بەرنامەی Aman دوای چوونەژوورەوە بکەرەوە."
-        : "You can view full product details here. To place the order, open this product from the Aman app after signing in.";
+
   const guestPreviewButtonLabel =
     language === "ar"
       ? "سجّل الدخول في تطبيق Aman للطلب"
@@ -392,12 +397,12 @@ const Checkout = () => {
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [loadingRelated, setLoadingRelated] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(6);
+  const [itemsPerPage] = useState(4);
   const [cartError, setCartError] = useState(null);
   const mainProductStoreIdRef = useRef(null);
 
   const [formData, setFormData] = useState({
-    quantity: 1,
+    quantity: initialQuantity,
     city: "",
     address: "",
     district: "",
@@ -414,9 +419,8 @@ const Checkout = () => {
   // Save language preference
   useEffect(() => {
     localStorage.setItem("language", language);
-    document.documentElement.dir = dir;
     document.documentElement.lang = language;
-  }, [language, dir]);
+  }, [language]);
 
   // Get current location
   const getCurrentLocation = () => {
@@ -513,12 +517,15 @@ const Checkout = () => {
     }
 
     // Update URL with new product ID
-    const newUrl = new URL(window.location);
-    newUrl.searchParams.set("productId", productIdToShow);
-    if (userId) {
-      newUrl.searchParams.set("userId", userId);
+    const nextParams = new URLSearchParams();
+    nextParams.set("productId", String(productIdToShow));
+    if (hasValidUserId) {
+      nextParams.set("userId", rawUserId);
     }
-    window.history.pushState({}, "", newUrl);
+    if (initialQuantity > 1) {
+      nextParams.set("quantity", String(initialQuantity));
+    }
+    setSearchParams(nextParams, { replace: false });
 
     // Scroll to top
     window.scrollTo({
@@ -571,7 +578,7 @@ const Checkout = () => {
       setError("Product ID is required");
       setLoading(false);
     }
-  }, [productId]);
+  }, [productId, initialQuantity]);
 
   const fetchProduct = async () => {
     try {
@@ -590,17 +597,27 @@ const Checkout = () => {
         setProductVideo(null);
       }
 
+      const productStockLimit = getProductStockLimit(data);
+      const cartQuantity =
+        productStockLimit !== null
+          ? Math.max(1, Math.min(initialQuantity, productStockLimit))
+          : initialQuantity;
+
       // Add the product only when the backend marks it as available
       setCart(
         isProductInStock(data)
           ? [
               {
                 ...data,
-                quantity: 1,
+                quantity: cartQuantity,
               },
             ]
           : [],
       );
+      setFormData((prev) => ({
+        ...prev,
+        quantity: cartQuantity,
+      }));
       mainProductStoreIdRef.current = data.store_id ?? null;
 
       // Only show products from the same store as the main product
@@ -771,12 +788,6 @@ const Checkout = () => {
       return;
     }
 
-    // Allow public product browsing, but require an app account to place the order.
-    if (!userId) {
-      toast.error(guestPreviewButtonLabel);
-      return;
-    }
-
     try {
       setSubmitting(true);
 
@@ -807,7 +818,6 @@ const Checkout = () => {
 
       // Create single order with all items
       const orderData = {
-        user_id: parseInt(userId, 10), // Convert to number
         items: items,
         total_amount: totalPrice,
         shipping_address: shipping_address,
@@ -816,9 +826,38 @@ const Checkout = () => {
         status: "pending",
       };
 
-      console.log("Creating order:", orderData);
+      if (hasValidUserId) {
+        orderData.user_id = parsedUserId;
+      }
+
       const response = await orderService.createOrder(orderData);
-      console.log("Order response:", response);
+      const normalizedOrder = normalizeOrderResponse(response, orderData);
+      const createdOrderId = extractOrderId(normalizedOrder);
+
+      if (!createdOrderId) {
+        throw new Error("Order created, but no order ID was returned.");
+      }
+
+      // Enrich order items with product display data (name + image) from the cart,
+      // because createOrder only returns { message, orderId } with no item details.
+      if (Array.isArray(normalizedOrder.items)) {
+        normalizedOrder.items = normalizedOrder.items.map((orderItem) => {
+          const cartItem = cart.find((c) => c.id === orderItem.product_id);
+          if (!cartItem) return orderItem;
+          const imgObj = Array.isArray(cartItem.images) && cartItem.images[0];
+          const image = imgObj ? (imgObj.url || imgObj.image_url || null) : null;
+          const product_name =
+            cartItem.name_ku ||
+            cartItem.name_en ||
+            cartItem.name_ar ||
+            cartItem.name ||
+            cartItem.title ||
+            null;
+          return { ...orderItem, product_name, image };
+        });
+      }
+
+      persistOrderSnapshot(normalizedOrder);
 
       toast.success(
         t.orderSuccess.replace(
@@ -833,12 +872,12 @@ const Checkout = () => {
 
       // Redirect to success page with order ID
       setTimeout(() => {
-        navigate(`/success?orderId=${response.orderId}`);
+        navigate(`/success?orderId=${createdOrderId}`);
       }, 1000);
     } catch (err) {
       console.error("Order creation error:", err);
-      const errorMessage =
-        err.response?.data?.message || err.message || t.orderFailed;
+      const backendMessage = err.response?.data?.message;
+      const errorMessage = backendMessage || err.message || t.orderFailed;
       toast.error(errorMessage);
     } finally {
       setSubmitting(false);
@@ -869,9 +908,6 @@ const Checkout = () => {
             <h1 className="text-3xl font-bold text-gray-800 mb-3">
               Page Not Found
             </h1>
-            <p className="text-lg text-gray-600 mb-2">
-              Product ID is required.
-            </p>
             <p className="text-sm text-gray-500">
               Please check the URL and try again.
             </p>
@@ -956,12 +992,12 @@ const Checkout = () => {
 
   return (
     <div
-      className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8"
+      className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 py-8 px-4 sm:px-6 lg:px-8"
       dir={dir}
     >
       <div className="max-w-7xl mx-auto">
         {/* Contact Panel */}
-        <div className="mb-6 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl p-4 sm:p-6 text-white shadow-lg">
+        <div className="mb-6 bg-linear-to-r from-blue-600 via-blue-700 to-indigo-700 rounded-2xl p-4 sm:p-6 text-white shadow-xl shadow-blue-500/25">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-lg sm:text-xl font-bold">
@@ -1043,7 +1079,7 @@ const Checkout = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
           {/* Product Details Card - Takes 3 columns */}
-          <div className="lg:col-span-3 bg-white rounded-2xl shadow-md overflow-hidden border border-gray-200">
+          <div className="lg:col-span-3 bg-white rounded-2xl shadow-xl shadow-gray-200/60 overflow-hidden border border-gray-100">
             <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900 border-l-4 border-blue-600 pl-3">
                 {t.productDetails}
@@ -1181,41 +1217,21 @@ const Checkout = () => {
 
                 {/* Product Features */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-blue-50 rounded-xl p-4 text-center">
-                    <svg
-                      className="w-8 h-8 mx-auto mb-2 text-blue-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
-                      />
-                    </svg>
-                    <p className="text-sm font-semibold text-blue-700">
-                      {t.freePackaging}
-                    </p>
+                  <div className="bg-linear-to-br from-blue-50 to-indigo-100 rounded-2xl p-4 text-center border border-blue-100">
+                    <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-md shadow-blue-300/40">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-bold text-blue-800">{t.freePackaging}</p>
                   </div>
-                  <div className="bg-blue-50 rounded-xl p-4 text-center">
-                    <svg
-                      className="w-8 h-8 mx-auto mb-2 text-blue-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                      />
-                    </svg>
-                    <p className="text-sm font-semibold text-blue-700">
-                      {t.securePayment}
-                    </p>
+                  <div className="bg-linear-to-br from-green-50 to-emerald-100 rounded-2xl p-4 text-center border border-green-100">
+                    <div className="w-12 h-12 bg-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-md shadow-emerald-300/40">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-bold text-emerald-800">{t.securePayment}</p>
                   </div>
                 </div>
               </div>
@@ -1223,7 +1239,7 @@ const Checkout = () => {
           </div>
 
           {/* Checkout Form Card - Takes 2 columns */}
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-md overflow-hidden border border-gray-200 lg:sticky lg:top-8 h-fit">
+          <div className="lg:col-span-2 bg-white rounded-2xl shadow-xl shadow-gray-200/60 overflow-hidden border border-gray-100 lg:sticky lg:top-8 h-fit">
             <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900 border-l-4 border-blue-600 pl-3">
                 {t.deliveryInformation}
@@ -1234,17 +1250,6 @@ const Checkout = () => {
               onSubmit={handleCheckout}
               className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6"
             >
-              {isGuestPreview && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
-                  <h3 className="text-base font-bold text-amber-900">
-                    {guestPreviewTitle}
-                  </h3>
-                  <p className="mt-2 text-sm leading-6 text-amber-800">
-                    {guestPreviewMessage}
-                  </p>
-                </div>
-              )}
-
               {/* City Select */}
               <div className="space-y-2">
                 <Label htmlFor="city" className="text-sm font-semibold text-gray-700 flex items-center gap-1">
@@ -1656,7 +1661,7 @@ const Checkout = () => {
                     </span>
                   </div>
                   <div className="pt-2 border-t border-gray-200">
-                    <div className="flex justify-between items-center bg-blue-600 text-white rounded-xl px-4 py-3 gap-2">
+                    <div className="flex justify-between items-center bg-linear-to-r from-blue-600 to-indigo-600 text-white rounded-2xl px-4 py-3 gap-2 shadow-lg shadow-blue-500/20">
                       <span className="text-base font-bold">
                         {t.total}
                       </span>
@@ -1671,8 +1676,8 @@ const Checkout = () => {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={submitting || cart.length === 0 || isGuestPreview}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 text-base sm:text-lg"
+                disabled={submitting || cart.length === 0}
+                className="w-full bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-xl shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 text-base sm:text-lg active:scale-[0.98]"
               >
                 {submitting ? (
                   <>
@@ -1694,11 +1699,7 @@ const Checkout = () => {
                         d="M5 13l4 4L19 7"
                       />
                     </svg>
-                    <span>
-                      {isGuestPreview
-                        ? guestPreviewButtonLabel
-                        : t.completeCheckout}
-                    </span>
+                    <span>{t.completeCheckout}</span>
                   </>
                 )}
               </button>
@@ -1708,16 +1709,19 @@ const Checkout = () => {
 
         {/* Related Products Section */}
         {relatedProducts.length > 0 && (
-          <div id="related-products" className="mt-12">
-            <div className="mb-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-1 border-l-4 border-blue-600 pl-3">
+          <div id="related-products" className="mt-16">
+            <div className="mb-8 text-center">
+              <span className="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-4 py-1.5 rounded-full mb-3 tracking-wide uppercase">
+                {t.showing} {indexOfFirstItem + 1}–{Math.min(indexOfLastItem, relatedProducts.length)} {t.of} {relatedProducts.length} {t.products}
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-1">
                 {t.youMayAlsoLike}
               </h2>
-              <p className="text-sm text-gray-500 pl-4">
-                {t.showing} {indexOfFirstItem + 1}-
-                {Math.min(indexOfLastItem, relatedProducts.length)} {t.of}{" "}
-                {relatedProducts.length} {t.products}
-              </p>
+              <div className="flex justify-center gap-1 mt-2">
+                <span className="w-8 h-1 bg-blue-600 rounded-full"></span>
+                <span className="w-3 h-1 bg-blue-300 rounded-full"></span>
+                <span className="w-1.5 h-1 bg-blue-200 rounded-full"></span>
+              </div>
             </div>
 
             {/* Error Notification for Related Products */}
@@ -1744,192 +1748,222 @@ const Checkout = () => {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
                   {currentProducts.map((relatedProduct) => (
                     <div
                       key={relatedProduct.id}
-                      className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all transform hover:-translate-y-2 cursor-pointer flex flex-col"
+                      className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl active:scale-95 transition-all duration-200 cursor-pointer flex flex-col border border-gray-100"
                       onClick={() => handleProductClick(relatedProduct)}
                     >
-                      {relatedProduct.images && relatedProduct.images[0] && (
-                        <div className="aspect-4/3 overflow-hidden bg-gray-100">
+                      {/* Image */}
+                      <div className="aspect-square overflow-hidden bg-gray-50 relative">
+                        {relatedProduct.images && relatedProduct.images[0] ? (
                           <img
                             src={
                               relatedProduct.images[0].url ||
                               relatedProduct.images[0].image_url
                             }
                             alt={getProductDisplayName(relatedProduct)}
-                            className="w-full h-full object-contain hover:scale-110 transition-transform duration-300"
+                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                           />
-                        </div>
-                      )}
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-300">
+                            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        )}
+                        {/* Discount badge */}
+                        {(() => {
+                          const d = calculateDiscount(relatedProduct);
+                          return d.hasDiscount ? (
+                            <span className="absolute top-2 start-2 text-[10px] sm:text-xs bg-red-500 text-white px-1.5 py-0.5 rounded-full font-bold leading-tight">
+                              {d.discountType === 'percentage' ? `-${d.discount}%` : `-${d.discount.toLocaleString()}`}
+                            </span>
+                          ) : null;
+                        })()}
+                      </div>
 
-                      <div className="p-5 flex flex-col grow">
-                        <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-2">
+                      {/* Content */}
+                      <div className="p-2.5 sm:p-4 flex flex-col grow">
+                        <h3 className="font-semibold text-xs sm:text-sm text-gray-800 mb-1.5 line-clamp-2 leading-snug">
                           {getProductDisplayName(relatedProduct)}
                         </h3>
 
+                        {/* Price */}
                         {(() => {
                           const discountInfo = calculateDiscount(relatedProduct);
                           return (
-                            <div className="mb-4">
+                            <div className="mb-2.5 mt-auto">
                               {discountInfo.hasDiscount ? (
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm text-gray-400 line-through">
-                                      {discountInfo.originalPrice.toLocaleString()}
-                                    </span>
-                                    <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full font-bold">
-                                      {discountInfo.discountType === 'percentage' 
-                                        ? `-${discountInfo.discount}%`
-                                        : `-${discountInfo.discount.toLocaleString()}`
-                                      }
-                                    </span>
-                                  </div>
-                                  <div className="flex items-baseline space-x-2">
-                                    <span className="text-2xl font-bold text-green-600">
-                                      {discountInfo.finalPrice.toLocaleString()}
-                                    </span>
-                                    <span className="text-sm text-green-700 font-medium">
-                                      {t.currency}
-                                    </span>
-                                  </div>
-                                </div>
+                                <>
+                                  <span className="text-[10px] sm:text-xs text-gray-400 line-through block">
+                                    {discountInfo.originalPrice.toLocaleString()} {t.currency}
+                                  </span>
+                                  <span className="text-sm sm:text-lg font-bold text-green-600 leading-tight">
+                                    {discountInfo.finalPrice.toLocaleString()}
+                                    <span className="text-[10px] sm:text-xs font-medium text-green-700 ms-1">{t.currency}</span>
+                                  </span>
+                                </>
                               ) : (
-                                <div className="flex items-baseline space-x-2">
-                                  <span className="text-2xl font-bold text-blue-600">
-                                    {(relatedProduct.sell_price || relatedProduct.price)?.toLocaleString()}
-                                  </span>
-                                  <span className="text-sm text-gray-600 font-medium">
-                                    {t.currency}
-                                  </span>
-                                </div>
+                                <span className="text-sm sm:text-lg font-bold text-blue-600 leading-tight">
+                                  {(relatedProduct.sell_price || relatedProduct.price)?.toLocaleString()}
+                                  <span className="text-[10px] sm:text-xs font-medium text-gray-500 ms-1">{t.currency}</span>
+                                </span>
                               )}
                             </div>
                           );
                         })()}
 
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent triggering the card click
-                            addToCart(relatedProduct);
-                          }}
-                          disabled={!isProductInStock(relatedProduct)}
-                          className={`w-full font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center space-x-2 mt-auto ${
-                            isProductInStock(relatedProduct)
-                              ? "bg-blue-600 hover:bg-blue-700 text-white"
-                              : "bg-gray-200 text-gray-500 cursor-not-allowed"
-                          }`}
-                        >
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                            />
-                          </svg>
-                          <span>
-                            {isProductInStock(relatedProduct)
-                              ? t.addToCart
-                              : t.outOfStock}
-                          </span>
-                        </button>
+                        {(() => {
+                          const cartItem = cart.find((c) => c.id === relatedProduct.id);
+                          if (cartItem) {
+                            return (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center justify-between gap-1 bg-blue-50 border border-blue-200 rounded-xl px-1.5 py-1.5"
+                              >
+                                {/* Minus / Trash */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    updateCartQuantity(relatedProduct.id, cartItem.quantity - 1);
+                                  }}
+                                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all shrink-0 ${
+                                    cartItem.quantity === 1
+                                      ? "bg-red-100 hover:bg-red-500 text-red-500 hover:text-white"
+                                      : "bg-white hover:bg-blue-600 text-blue-600 hover:text-white shadow-sm"
+                                  }`}
+                                >
+                                  {cartItem.quantity === 1 ? (
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                                    </svg>
+                                  )}
+                                </button>
+
+                                {/* Quantity */}
+                                <span className="flex-1 text-center text-sm font-bold text-blue-700 tabular-nums">
+                                  {cartItem.quantity}
+                                </span>
+
+                                {/* Plus */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    addToCart(relatedProduct);
+                                  }}
+                                  className="w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white flex items-center justify-center transition-all shrink-0 shadow-sm"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                  </svg>
+                                </button>
+                              </div>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addToCart(relatedProduct);
+                              }}
+                              disabled={!isProductInStock(relatedProduct)}
+                              className={`w-full font-semibold py-2 sm:py-2.5 px-2 rounded-xl transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm ${
+                                isProductInStock(relatedProduct)
+                                  ? "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white"
+                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              }`}
+                            >
+                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                              </svg>
+                              <span className="truncate">
+                                {isProductInStock(relatedProduct) ? t.addToCart : t.outOfStock}
+                              </span>
+                            </button>
+                          );
+                        })()}
                       </div>
                     </div>
                   ))}
                 </div>
 
                 {/* Pagination Controls */}
-                {totalPages > 1 && (
-                  <div className="flex justify-center items-center mt-10 space-x-2">
-                    {/* Previous Button */}
-                    <button
-                      onClick={() => goToPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="px-4 py-2 rounded-lg bg-white border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 19l-7-7 7-7"
-                        />
-                      </svg>
-                    </button>
+                {relatedProducts.length > 0 && (
+                  <div className="mt-10 flex flex-col items-center gap-3">
+                    {/* Page info */}
+                    <p className="text-xs text-gray-400 font-medium tracking-wide uppercase">
+                      {t.page || "Page"} <span className="text-blue-600 font-bold">{currentPage}</span> / {totalPages}
+                    </p>
 
-                    {/* Page Numbers */}
-                    <div className="flex space-x-2">
-                      {[...Array(totalPages)].map((_, index) => {
-                        const pageNumber = index + 1;
-                        // Show first page, last page, current page, and pages around current
-                        if (
-                          pageNumber === 1 ||
-                          pageNumber === totalPages ||
-                          (pageNumber >= currentPage - 1 &&
-                            pageNumber <= currentPage + 1)
-                        ) {
-                          return (
-                            <button
-                              key={pageNumber}
-                              onClick={() => goToPage(pageNumber)}
-                              className={`w-10 h-10 rounded-lg font-semibold transition-all ${
-                                currentPage === pageNumber
-                                  ? "bg-blue-600 text-white shadow-lg"
-                                  : "bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
-                              }`}
-                            >
-                              {pageNumber}
-                            </button>
-                          );
-                        } else if (
-                          pageNumber === currentPage - 2 ||
-                          pageNumber === currentPage + 2
-                        ) {
-                          return (
-                            <span
-                              key={pageNumber}
-                              className="px-2 text-gray-500"
-                            >
-                              ...
-                            </span>
-                          );
-                        }
-                        return null;
-                      })}
+                    <div className="flex items-center gap-2">
+                      {/* Prev */}
+                      <button
+                        onClick={() => goToPage(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="h-9 w-9 rounded-full flex items-center justify-center bg-white border border-gray-200 shadow-sm text-gray-500 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+
+                      {/* Page numbers */}
+                      <div className="flex items-center gap-1">
+                        {[...Array(totalPages)].map((_, index) => {
+                          const pageNumber = index + 1;
+                          const isActive = currentPage === pageNumber;
+                          const isVisible =
+                            pageNumber === 1 ||
+                            pageNumber === totalPages ||
+                            (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1);
+                          const isDot =
+                            pageNumber === currentPage - 2 ||
+                            pageNumber === currentPage + 2;
+
+                          if (isVisible) {
+                            return (
+                              <button
+                                key={pageNumber}
+                                onClick={() => goToPage(pageNumber)}
+                                className={`h-9 w-9 rounded-full text-sm font-semibold transition-all shadow-sm ${
+                                  isActive
+                                    ? "bg-blue-600 text-white shadow-blue-200 shadow-md scale-110"
+                                    : "bg-white border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600"
+                                }`}
+                              >
+                                {pageNumber}
+                              </button>
+                            );
+                          } else if (isDot) {
+                            return (
+                              <span key={pageNumber} className="w-6 text-center text-gray-300 text-lg leading-none select-none">
+                                ···
+                              </span>
+                            );
+                          }
+                          return null;
+                        })}
+                      </div>
+
+                      {/* Next */}
+                      <button
+                        onClick={() => goToPage(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="h-9 w-9 rounded-full flex items-center justify-center bg-white border border-gray-200 shadow-sm text-gray-500 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
                     </div>
-
-                    {/* Next Button */}
-                    <button
-                      onClick={() => goToPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="px-4 py-2 rounded-lg bg-white border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
-                        />
-                      </svg>
-                    </button>
                   </div>
                 )}
               </>

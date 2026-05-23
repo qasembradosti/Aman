@@ -2,13 +2,43 @@ import { getApiBaseUrl } from "./apiConfig";
 
 const ABSOLUTE_URL = /^https?:\/\//i;
 
+const normalizeMediaList = (value) => {
+  if (Array.isArray(value)) return value;
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch (_error) {
+      return [trimmed];
+    }
+  }
+
+  return value ? [value] : [];
+};
+
 const extractImageValue = (value) => {
   if (!value) return null;
+  if (Array.isArray(value)) {
+    return extractImageValue(value.find(Boolean));
+  }
   if (typeof value === "string") {
     const trimmed = value.trim();
     return trimmed.replace(/^['"]|['"]$/g, "");
   }
-  return value.url || value.image_url || value.image || null;
+  return (
+    value.url ||
+    value.image_url ||
+    value.image ||
+    value.src ||
+    value.path ||
+    value.file_path ||
+    value.filename ||
+    null
+  );
 };
 
 const joinBaseUrl = (baseUrl, path) => {
@@ -59,7 +89,7 @@ export const resolveImageUrl = (value) => {
 };
 
 export const getProductImageUrl = (product, fallback) => {
-  const images = Array.isArray(product?.images) ? product.images : [];
+  const images = normalizeMediaList(product?.images);
   const preferred = images.find((img) => img?.is_main) || images[0];
   const candidate =
     extractImageValue(preferred) ||
@@ -71,7 +101,7 @@ export const getProductImageUrl = (product, fallback) => {
 };
 
 export const getProductImageUrls = (product, fallback) => {
-  const images = Array.isArray(product?.images) ? product.images : [];
+  const images = normalizeMediaList(product?.images);
   const urls = images.map((img) => resolveImageUrl(img)).filter(Boolean);
   if (urls.length > 0) return urls;
 

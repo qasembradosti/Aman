@@ -4,11 +4,13 @@ import React, {
   useMemo,
   useRef,
   useCallback,
+  useDeferredValue,
 } from "react";
 import {
   View,
   StyleSheet,
   ScrollView,
+  FlatList,
   TouchableOpacity,
   Pressable,
   Dimensions,
@@ -26,13 +28,13 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
 import { useLanguage } from "../utils/LanguageContext";
 import { useTheme } from "../utils/ThemeContext";
-import { fetchProducts } from "../store/slices/productsSlice";
 import { fetchBrands } from "../store/slices/brandsSlice";
 import { fetchCategories } from "../store/slices/categoriesSlice";
 import InfoDialog from "../components/InfoDialog";
 import { getProductImageUrl } from "../utils/productImages";
 import { ListFilter } from "lucide-react-native";
 import { buildPublicProductUrl } from "../utils/productLinks";
+import apiService from "../services/apiService";
 
 // Custom Text component with font
 const Text = ({ style, ...props }) => {
@@ -81,6 +83,7 @@ const useResponsiveLayout = () => {
   return {
     width,
     height,
+    columns,
     isLandscape,
     isSmallPhone,
     isMediumPhone,
@@ -108,6 +111,48 @@ const normalizeBooleanParam = (value) => {
   return lowered === "1" || lowered === "true" || lowered === "yes";
 };
 
+const extractProductsResponseData = (responseData) => {
+  const items = Array.isArray(responseData?.data)
+    ? responseData.data
+    : Array.isArray(responseData)
+      ? responseData
+      : [];
+  const meta =
+    responseData?.meta && typeof responseData.meta === "object"
+      ? responseData.meta
+      : null;
+
+  return { items, meta };
+};
+
+const mergeUniqueProducts = (currentItems, nextItems) => {
+  const existingIds = new Set(currentItems.map((item) => String(item.id)));
+  const uniqueNextItems = nextItems.filter(
+    (item) => !existingIds.has(String(item.id)),
+  );
+
+  return uniqueNextItems.length > 0
+    ? [...currentItems, ...uniqueNextItems]
+    : currentItems;
+};
+
+const mergeUniqueProductsFromLists = (lists) => {
+  const mergedItems = [];
+  const seenIds = new Set();
+
+  lists.flat().forEach((item) => {
+    const itemId = String(item?.id ?? "");
+    if (!itemId || seenIds.has(itemId)) {
+      return;
+    }
+
+    seenIds.add(itemId);
+    mergedItems.push(item);
+  });
+
+  return mergedItems;
+};
+
 export default function Products() {
   const router = useRouter();
   const {
@@ -119,6 +164,7 @@ export default function Products() {
   } = useLocalSearchParams();
   const dispatch = useDispatch();
   const { t, isRTL, locale } = useLanguage();
+  const currencyLabel = t("currency") || "IQD";
   const { theme } = useTheme();
   const layout = useResponsiveLayout();
   const navigationInProgress = useRef(false);
@@ -131,6 +177,8 @@ export default function Products() {
   const closeDialog = () =>
     setDialog({ visible: false, title: "", message: "" });
   const [refreshing, setRefreshing] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -145,19 +193,62 @@ export default function Products() {
   const [selectedSubcategory, setSelectedSubcategory] = useState("all");
   const [sortBy, setSortBy] = useState("latest");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [draftBrand, setDraftBrand] = useState(() =>
+    normalizeFilterValue(routeBrand),
+  );
+  const [draftCategory, setDraftCategory] = useState(() =>
+    normalizeFilterValue(routeCategory),
+  );
+  const [draftSortBy, setDraftSortBy] = useState("latest");
   const trendingOnly =
     normalizeBooleanParam(routeIsTrend) || normalizeBooleanParam(routeTrending);
   const importantOnly = normalizeBooleanParam(routeIsImportant);
-
-  const { items: products, loading: productsLoading } = useSelector(
-    (state) => state.products,
-  );
+  const activeProductsRequest = useRef(0);
+  const loadMoreRequestInFlight = useRef(false);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const normalizedSearchQuery = deferredSearchQuery.trim();
+  const { user } = useSelector((state) => state.auth);
   const { items: brands } = useSelector(
     (state) => state.brands,
   );
   const { items: categories } = useSelector(
     (state) => state.categories,
   );
+  const topLevelCategories = useMemo(
+    () => categories.filter((category) => !category?.parent_id),
+    [categories],
+  );
+
+  const selectedCategoryGroupIds = useMemo(() => {
+    if (!selectedCategory || selectedCategory === "all") {
+      return [];
+    }
+
+    if (selectedSubcategory && selectedSubcategory !== "all") {
+      return [String(selectedSubcategory)];
+    }
+
+    const childCategoryIds = categories
+      .filter(
+        (category) =>
+          category?.parent_id &&
+          String(category.parent_id) === String(selectedCategory),
+      )
+      .map((category) => String(category.id));
+
+    return childCategoryIds.length > 0
+      ? [String(selectedCategory), ...childCategoryIds]
+      : [String(selectedCategory)];
+  }, [categories, selectedCategory, selectedSubcategory]);
+
+  const shouldExpandSelectedCategory = useMemo(
+    () =>
+      selectedCategory !== "all" &&
+      selectedSubcategory === "all" &&
+      selectedCategoryGroupIds.length > 1,
+    [selectedCategory, selectedSubcategory, selectedCategoryGroupIds.length],
+  );
+
   useEffect(() => {
     const nextBrand = normalizeFilterValue(routeBrand);
     const nextCategory = normalizeFilterValue(routeCategory);
@@ -166,8 +257,20 @@ export default function Products() {
     setSelectedCategory((prev) =>
       prev === nextCategory ? prev : nextCategory,
     );
+    setDraftBrand((prev) => (prev === nextBrand ? prev : nextBrand));
+    setDraftCategory((prev) => (prev === nextCategory ? prev : nextCategory));
     setSelectedSubcategory("all");
   }, [routeBrand, routeCategory]);
+
+  useEffect(() => {
+    if (!filterModalVisible) {
+      return;
+    }
+
+    setDraftBrand(selectedBrand);
+    setDraftCategory(selectedCategory);
+    setDraftSortBy(sortBy);
+  }, [filterModalVisible, selectedBrand, selectedCategory, sortBy]);
 
   const buildFetchParams = useCallback(
     ({ limit = pageSize, offset: currentOffset = 0, append = false } = {}) => {
@@ -196,6 +299,10 @@ export default function Products() {
         fetchParams.is_important = 1;
       }
 
+      if (normalizedSearchQuery) {
+        fetchParams.q = normalizedSearchQuery;
+      }
+
       return fetchParams;
     },
     [
@@ -205,8 +312,31 @@ export default function Products() {
       selectedBrand,
       trendingOnly,
       importantOnly,
+      normalizedSearchQuery,
     ],
   );
+
+  const buildCommonFetchParams = useCallback(() => {
+    const fetchParams = {};
+
+    if (selectedBrand && selectedBrand !== "all") {
+      fetchParams.brand_id = selectedBrand;
+    }
+
+    if (trendingOnly) {
+      fetchParams.is_trend = 1;
+    }
+
+    if (importantOnly) {
+      fetchParams.is_important = 1;
+    }
+
+    if (normalizedSearchQuery) {
+      fetchParams.q = normalizedSearchQuery;
+    }
+
+    return fetchParams;
+  }, [selectedBrand, trendingOnly, importantOnly, normalizedSearchQuery]);
 
   useEffect(() => {
     if (!brands?.length) {
@@ -218,96 +348,194 @@ export default function Products() {
     }
   }, [dispatch, brands?.length, categories?.length]);
 
-  useEffect(() => {
-    const fetchParams = buildFetchParams({ limit: pageSize, offset: 0 });
+  const fetchAllProductsForCategoryIds = useCallback(
+    async (categoryIds) => {
+      const CATEGORY_GROUP_BATCH_SIZE = 100;
+      const commonFetchParams = buildCommonFetchParams();
 
-    dispatch(fetchProducts(fetchParams))
-      .unwrap()
-      .then((response) => {
-        const dataLength = response?.data?.length || response?.length || 0;
-        setOffset(pageSize);
-        setHasMore(dataLength >= pageSize);
-      })
-      .catch((error) => {
-        console.error("Error fetching products:", error);
-        setOffset(pageSize);
-        setHasMore(false);
-      });
-  }, [dispatch, buildFetchParams, pageSize]);
+      const loadCategoryProducts = async (categoryId) => {
+        let categoryOffset = 0;
+        let hasCategoryMore = true;
+        let collectedItems = [];
+
+        while (hasCategoryMore) {
+          const response = await apiService.get("/api/products", {
+            params: {
+              ...commonFetchParams,
+              category_id: categoryId,
+              limit: CATEGORY_GROUP_BATCH_SIZE,
+              offset: categoryOffset,
+            },
+          });
+
+          const { items, meta } = extractProductsResponseData(response?.data);
+          collectedItems = [...collectedItems, ...items];
+          categoryOffset += items.length;
+
+          hasCategoryMore =
+            items.length > 0 &&
+            (typeof meta?.total === "number"
+              ? categoryOffset < meta.total
+              : items.length >= CATEGORY_GROUP_BATCH_SIZE);
+        }
+
+        return collectedItems;
+      };
+
+      const groupedResults = await Promise.all(
+        categoryIds.map((categoryId) => loadCategoryProducts(categoryId)),
+      );
+
+      return mergeUniqueProductsFromLists(groupedResults);
+    },
+    [buildCommonFetchParams],
+  );
+
+  const fetchProductsList = useCallback(async ({
+    refreshingList = false,
+  } = {}) => {
+    const fetchParams = buildFetchParams({ limit: pageSize, offset: 0 });
+    const requestId = activeProductsRequest.current + 1;
+    activeProductsRequest.current = requestId;
+    loadMoreRequestInFlight.current = false;
+    setLoadingMore(false);
+
+    if (refreshingList) {
+      setRefreshing(true);
+    } else {
+      setProductsLoading(true);
+      setProducts([]);
+      setOffset(0);
+      setHasMore(true);
+    }
+
+    try {
+      let items = [];
+      let meta = null;
+
+      if (shouldExpandSelectedCategory) {
+        items = await fetchAllProductsForCategoryIds(selectedCategoryGroupIds);
+      } else {
+        const response = await apiService.get("/api/products", {
+          params: fetchParams,
+        });
+        const extractedResponse = extractProductsResponseData(response?.data);
+        items = extractedResponse.items;
+        meta = extractedResponse.meta;
+      }
+
+      if (requestId !== activeProductsRequest.current) {
+        return;
+      }
+
+      setProducts(items);
+      setOffset(items.length);
+      setHasMore(
+        shouldExpandSelectedCategory
+          ? false
+          : typeof meta?.total === "number"
+          ? items.length < meta.total
+          : items.length >= pageSize,
+      );
+    } catch (error) {
+      if (requestId !== activeProductsRequest.current) {
+        return;
+      }
+
+      console.error("Error fetching products:", error);
+      setProducts([]);
+      setOffset(0);
+      setHasMore(false);
+    } finally {
+      if (requestId !== activeProductsRequest.current) {
+        return;
+      }
+
+      setProductsLoading(false);
+      setRefreshing(false);
+    }
+  }, [
+    buildFetchParams,
+    fetchAllProductsForCategoryIds,
+    pageSize,
+    selectedCategoryGroupIds,
+    shouldExpandSelectedCategory,
+  ]);
+
+  useEffect(() => {
+    fetchProductsList();
+  }, [fetchProductsList]);
 
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    const fetchParams = buildFetchParams({ limit: pageSize, offset: 0 });
-
-    dispatch(fetchProducts(fetchParams))
-      .unwrap()
-      .then((response) => {
-        const dataLength = response?.data?.length || response?.length || 0;
-        setOffset(pageSize);
-        setHasMore(dataLength >= pageSize);
-      })
+    fetchProductsList({ refreshingList: true })
       .catch((error) => {
         console.error("Error refreshing products:", error);
-      })
-      .finally(() => {
-        setRefreshing(false);
       });
-  }, [dispatch, buildFetchParams, pageSize]);
+  }, [fetchProductsList]);
 
   const loadMore = useCallback(() => {
-    if (loadingMore || !hasMore || productsLoading) return;
+    if (
+      loadingMore ||
+      loadMoreRequestInFlight.current ||
+      !hasMore ||
+      productsLoading
+    ) {
+      return;
+    }
 
+    const requestId = activeProductsRequest.current;
+    loadMoreRequestInFlight.current = true;
     setLoadingMore(true);
     const fetchParams = buildFetchParams({
       limit: pageSize,
       offset,
-      append: true,
     });
 
-    console.log("Loading more products with params:", fetchParams);
-
-    dispatch(fetchProducts(fetchParams))
-      .unwrap()
+    apiService
+      .get("/api/products", { params: fetchParams })
       .then((response) => {
-        const newItems = response?.data || response || [];
-        const dataLength = newItems.length;
-        console.log(`Loaded ${dataLength} more products`);
-        setOffset((prev) => prev + pageSize);
-        setHasMore(dataLength >= pageSize);
+        if (requestId !== activeProductsRequest.current) {
+          return;
+        }
+
+        const { items: nextItems, meta } = extractProductsResponseData(
+          response?.data,
+        );
+        const mergedItems = mergeUniqueProducts(products, nextItems);
+
+        setProducts(mergedItems);
+        setOffset(mergedItems.length);
+        setHasMore(
+          typeof meta?.total === "number"
+            ? mergedItems.length < meta.total
+            : nextItems.length >= pageSize,
+        );
       })
       .catch((error) => {
+        if (requestId !== activeProductsRequest.current) {
+          return;
+        }
+
         console.error("Error loading more products:", error);
         setHasMore(false);
       })
       .finally(() => {
+        loadMoreRequestInFlight.current = false;
         setLoadingMore(false);
       });
   }, [
-    dispatch,
     loadingMore,
     hasMore,
     offset,
+    products,
     productsLoading,
     buildFetchParams,
     pageSize,
   ]);
 
-  const handleScroll = (event) => {
-    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    if (contentSize.height <= layoutMeasurement.height) return;
-    const paddingToBottom = 220;
-    const isCloseToBottom =
-      layoutMeasurement.height + contentOffset.y >=
-      contentSize.height - paddingToBottom;
-
-    if (isCloseToBottom) {
-      loadMore();
-    }
-  };
-
-  const handleShareProduct = async (id, name, storeId) => {
+  const handleShareProduct = useCallback(async (id, name, storeId) => {
     try {
-      const productUrl = buildPublicProductUrl(id);
+      const productUrl = buildPublicProductUrl(id, user?.id);
 
       await Share.share({
         title: name,
@@ -320,7 +548,7 @@ export default function Products() {
         message: "Unable to share product",
       });
     }
-  };
+  }, [user?.id]);
 
   const computeBonus = (p) => {
     // Use commission_price if available
@@ -333,12 +561,12 @@ export default function Products() {
     return undefined;
   };
 
-  const getLocalizedProductName = (product, field) => {
+  const getLocalizedProductName = useCallback((product, field) => {
     // Ensure language has a default fallback
     const lang = locale;
     const localizedField = `${field}_${lang}`;
     return product[localizedField] || product[field] || "";
-  };
+  }, [locale]);
 
   // Get available subcategories based on selected brand and category
   const availableSubcategories = useMemo(() => {
@@ -385,35 +613,112 @@ export default function Products() {
     setSelectedSubcategory("all");
   }, [selectedBrand, selectedCategory]);
 
+  const activeFilterCount = useMemo(
+    () =>
+      (selectedBrand !== "all" ? 1 : 0) +
+      (selectedCategory !== "all" ? 1 : 0) +
+      (selectedSubcategory !== "all" ? 1 : 0) +
+      (trendingOnly ? 1 : 0) +
+      (sortBy !== "latest" ? 1 : 0) +
+      (searchQuery.trim() !== "" ? 1 : 0),
+    [
+      searchQuery,
+      selectedBrand,
+      selectedCategory,
+      selectedSubcategory,
+      sortBy,
+      trendingOnly,
+    ],
+  );
+
+  const draftActiveFilterCount = useMemo(
+    () =>
+      (draftBrand !== "all" ? 1 : 0) +
+      (draftCategory !== "all" ? 1 : 0) +
+      (selectedSubcategory !== "all" ? 1 : 0) +
+      (trendingOnly ? 1 : 0) +
+      (draftSortBy !== "latest" ? 1 : 0) +
+      (searchQuery.trim() !== "" ? 1 : 0),
+    [
+      draftBrand,
+      draftCategory,
+      draftSortBy,
+      searchQuery,
+      selectedSubcategory,
+      trendingOnly,
+    ],
+  );
+
+  const openFilterModal = useCallback(() => {
+    setDraftBrand(selectedBrand);
+    setDraftCategory(selectedCategory);
+    setDraftSortBy(sortBy);
+    setFilterModalVisible(true);
+  }, [selectedBrand, selectedCategory, sortBy]);
+
+  const applyDraftFilters = useCallback(() => {
+    const shouldResetSubcategory =
+      draftCategory !== selectedCategory || draftBrand !== selectedBrand;
+
+    setSelectedBrand(draftBrand);
+    setSelectedCategory(draftCategory);
+    setSortBy(draftSortBy);
+
+    if (shouldResetSubcategory) {
+      setSelectedSubcategory("all");
+    }
+
+    setFilterModalVisible(false);
+  }, [
+    draftBrand,
+    draftCategory,
+    draftSortBy,
+    selectedBrand,
+    selectedCategory,
+  ]);
+
+  const resetDraftFilters = useCallback(() => {
+    setDraftBrand("all");
+    setDraftCategory("all");
+    setDraftSortBy("latest");
+    setSelectedSubcategory("all");
+    setSearchQuery("");
+  }, []);
+
+  const productsListKey = useMemo(
+    () =>
+      [
+        "products",
+        layout.columns,
+        isRTL ? "rtl" : "ltr",
+        selectedBrand,
+        selectedCategory,
+        selectedSubcategory,
+        sortBy,
+        normalizedSearchQuery || "all",
+        trendingOnly ? "trend" : "regular",
+        importantOnly ? "important" : "normal",
+      ].join(":"),
+    [
+      importantOnly,
+      isRTL,
+      layout.columns,
+      normalizedSearchQuery,
+      selectedBrand,
+      selectedCategory,
+      selectedSubcategory,
+      sortBy,
+      trendingOnly,
+    ],
+  );
+
   const getFilteredProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
 
     let filtered = [...products];
 
-    // Filter by search query (client-side only)
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((product) => {
-        const searchableText = [
-          product?.name,
-          product?.name_en,
-          product?.name_ar,
-          product?.name_ku,
-          product?.description,
-          product?.description_en,
-          product?.description_ar,
-          product?.description_ku,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-
-        return searchableText.includes(query);
-      });
-    }
-
-    // Note: Brand, category, and subcategory filtering are now handled by the backend API
-    // Only search and sorting are done client-side
+    // Brand, category, subcategory, and search are handled by the backend API.
+    // Only sorting is done client-side.
 
     // Sort products (client-side)
     if (sortBy === "price-low") {
@@ -427,69 +732,162 @@ export default function Products() {
     }
 
     return filtered;
-  }, [products, searchQuery, sortBy]);
+  }, [products, sortBy]);
 
-  return (
-    <SafeAreaView
-      style={[
-        styles.container,
-        {
-          backgroundColor: theme.colors.background,
-          direction: isRTL ? "rtl" : "ltr",
-        },
-      ]}
-    >
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
+  const productImageHeight = layout.isSmallPhone
+    ? 100
+    : layout.isMediumPhone
+      ? 110
+      : 120;
+
+  const renderProductItem = useCallback(
+    ({ item: product }) => (
+      <Pressable
+        style={({ pressed }) => [
+          styles.productCard,
           {
             backgroundColor: theme.colors.card,
-            flexDirection: isRTL ? "row-reverse" : "row",
+            width: layout.cardWidth,
           },
+          pressed && styles.productCardPressed,
         ]}
-      >
-        <TouchableOpacity
-          onPress={() =>
-            router.canGoBack?.()
-              ? router.back()
-              : router.replace("/(tabs)/home")
+        onPress={() => {
+          if (!navigationInProgress.current) {
+            navigationInProgress.current = true;
+            router.push(`/product/${product.id}`);
+            setTimeout(() => {
+              navigationInProgress.current = false;
+            }, 500);
           }
-          style={styles.backButton}
-        >
-          <Ionicons
-            name={"arrow-back"}
-            size={24}
-            color={theme.colors.text}
-          />
-        </TouchableOpacity>
-        <Text
+        }}
+      >
+        <View
           style={[
-            styles.headerTitle,
-            { color: theme.colors.text, textAlign: "center" },
+            styles.productImage,
+            {
+              height: productImageHeight,
+            },
           ]}
         >
-          {trendingOnly
-            ? t("trendingProducts") || "Trending Products"
-            : t("allProducts") || "All Products"}
-        </Text>
-        <TouchableOpacity
-          onPress={() => setFilterModalVisible(true)}
-          style={styles.filterIconButton}
-        >
-          <ListFilter size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-      </View>
+          <Image
+            source={{
+              uri: getProductImageUrl(
+                product,
+                "https://via.placeholder.com/400",
+              ),
+            }}
+            style={styles.productImageImg}
+            contentFit="cover"
+            transition={200}
+            cachePolicy="memory-disk"
+          />
+          {(() => {
+            const bonus = computeBonus(product);
+            return typeof bonus === "number" ? (
+              <View
+                style={[
+                  styles.bonusTag,
+                  {
+                    backgroundColor: theme.colors.success || "#34C759",
+                  },
+                ]}
+              >
+                <Text style={styles.bonusTagText}>
+                  +{bonus} {currencyLabel}
+                </Text>
+              </View>
+            ) : null;
+          })()}
+        </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-      >
-        {/* Search Input */}
+        <View style={styles.productInfo}>
+          <Text
+            numberOfLines={2}
+            style={[
+              styles.productName,
+              {
+                color: theme.colors.text,
+                fontSize: layout.productNameSize,
+                textAlign: isRTL ? "right" : "left",
+                direction: isRTL ? "rtl" : "ltr",
+              },
+            ]}
+          >
+            {getLocalizedProductName(product, "name")}
+          </Text>
+          <View
+            style={[
+              styles.bottomRow,
+              { flexDirection: isRTL ? "row-reverse" : "row" },
+            ]}
+          >
+            <Text
+              style={[
+                styles.productPrice,
+                {
+                  color: theme.colors.primary,
+                  fontSize: layout.productPriceSize,
+                  textAlign: isRTL ? "right" : "left",
+                },
+              ]}
+            >
+              {typeof product.price === "number"
+                ? product.sell_price
+                : Number(product.sell_price)}{" "}
+              IQD
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.shareButton,
+                {
+                  backgroundColor: theme.colors.primary,
+                  width: layout.isSmallPhone ? 32 : 36,
+                  height: layout.isSmallPhone ? 32 : 36,
+                  borderRadius: layout.isSmallPhone ? 16 : 18,
+                  marginLeft: isRTL ? 0 : 8,
+                  marginRight: isRTL ? 8 : 0,
+                },
+              ]}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleShareProduct(
+                  product.id,
+                  getLocalizedProductName(product, "name"),
+                  product.store_id,
+                );
+              }}
+            >
+              <Ionicons
+                name="share-outline"
+                size={layout.isSmallPhone ? 16 : 18}
+                color="#fff"
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Pressable>
+    ),
+    [
+      currencyLabel,
+      getLocalizedProductName,
+      handleShareProduct,
+      isRTL,
+      layout.cardWidth,
+      layout.isSmallPhone,
+      layout.productNameSize,
+      layout.productPriceSize,
+      productImageHeight,
+      router,
+      theme.colors.card,
+      theme.colors.primary,
+      theme.colors.success,
+      theme.colors.text,
+    ],
+  );
+
+  const renderProductsHeader = useCallback(
+    () => (
+      <>
         <View
           style={[
             styles.searchWrapper,
@@ -542,7 +940,6 @@ export default function Products() {
           </View>
         </View>
 
-        {/* Subcategory Filter Badges */}
         {availableSubcategories.length > 0 && (
           <View
             style={[
@@ -557,11 +954,10 @@ export default function Products() {
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{
-                flexDirection: isRTL ? 'row-reverse' : 'row',
+                flexDirection: isRTL ? "row-reverse" : "row",
                 gap: 8,
               }}
             >
-              {/* All Subcategories Badge */}
               <TouchableOpacity
                 style={[
                   styles.subcategoryBadge,
@@ -590,7 +986,6 @@ export default function Products() {
                 </Text>
               </TouchableOpacity>
 
-              {/* Subcategory Badges */}
               {availableSubcategories.map((subcat) => (
                 <TouchableOpacity
                   key={subcat.id}
@@ -618,193 +1013,162 @@ export default function Products() {
                     ]}
                     numberOfLines={1}
                   >
-                    {getLocalizedProductName(subcat,"name") }
+                    {getLocalizedProductName(subcat, "name")}
                   </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
         )}
+      </>
+    ),
+    [
+      availableSubcategories,
+      getLocalizedProductName,
+      isRTL,
+      layout.horizontalPadding,
+      searchQuery,
+      selectedSubcategory,
+      t,
+      theme.colors.card,
+      theme.colors.primary,
+      theme.colors.text,
+      theme.colors.textSecondary,
+    ],
+  );
 
-        {/* Brand Filter */}
-        {/* Moved to Modal */}
+  const renderProductsFooter = useCallback(
+    () =>
+      loadingMore ? (
+        <View style={{ paddingVertical: 20, alignItems: "center" }}>
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+          <Text
+            style={{
+              color: theme.colors.textSecondary,
+              marginTop: 8,
+              fontSize: 12,
+            }}
+          >
+            {t("loadingMore") || "Loading more products..."}
+          </Text>
+        </View>
+      ) : (
+        <View style={{ height: 12 }} />
+      ),
+    [loadingMore, t, theme.colors.primary, theme.colors.textSecondary],
+  );
 
-        <View
+  const renderProductsEmpty = useCallback(
+    () =>
+      productsLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      ) : (
+        <View style={styles.emptyContainer}>
+          <Text
+            style={[
+              styles.emptyText,
+              { color: theme.colors.textSecondary },
+            ]}
+          >
+            {t("noProductsFound") || "No products found"}
+          </Text>
+        </View>
+      ),
+    [productsLoading, t, theme.colors.primary, theme.colors.textSecondary],
+  );
+
+  return (
+    <SafeAreaView
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.colors.background,
+          direction: isRTL ? "rtl" : "ltr",
+        },
+      ]}
+    >
+      {/* Header */}
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: theme.colors.card,
+            flexDirection: isRTL ? "row-reverse" : "row",
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() =>
+            router.canGoBack?.()
+              ? router.back()
+              : router.replace("/(tabs)/home")
+          }
+          style={styles.backButton}
+        >
+          <Ionicons
+            name={"arrow-back"}
+            size={24}
+            color={theme.colors.text}
+          />
+        </TouchableOpacity>
+        <Text
           style={[
-            styles.productsGrid,
-            {
-              flexDirection: isRTL ? "row-reverse" : "row",
-              paddingHorizontal: layout.horizontalPadding,
-              gap: layout.cardGap,
-            },
+            styles.headerTitle,
+            { color: theme.colors.text, textAlign: "center" },
           ]}
         >
-          {productsLoading && getFilteredProducts.length === 0 ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
-            </View>
-          ) : getFilteredProducts.length > 0 ? (
-            getFilteredProducts.map((product) => (
-              <Pressable
-                key={product.id}
-                style={({ pressed }) => [
-                  styles.productCard,
-                  {
-                    backgroundColor: theme.colors.card,
-                    width: layout.cardWidth,
-                  },
-                  pressed && styles.productCardPressed,
-                ]}
-                onPress={() => {
-                  if (!navigationInProgress.current) {
-                    navigationInProgress.current = true;
-                    router.push(`/product/${product.id}`);
-                    setTimeout(() => {
-                      navigationInProgress.current = false;
-                    }, 500);
-                  }
-                }}
-              >
-                <View
-                  style={[
-                    styles.productImage,
-                    {
-                      height: layout.isSmallPhone
-                        ? 100
-                        : layout.isMediumPhone
-                          ? 110
-                          : 120,
-                    },
-                  ]}
-                >
-                  <Image
-                    source={{
-                      uri: getProductImageUrl(
-                        product,
-                        "https://via.placeholder.com/400",
-                      ),
-                    }}
-                    style={styles.productImageImg}
-                    contentFit="cover"
-                    transition={200}
-                    cachePolicy="memory-disk"
-                  />
-                  {(() => {
-                    const bonus = computeBonus(product);
-                    return typeof bonus === "number" ? (
-                      <View
-                        style={[
-                          styles.bonusTag,
-                          {
-                            backgroundColor: theme.colors.success || "#34C759",
-                          },
-                        ]}
-                      >
-                        <Text style={styles.bonusTagText}>
-                          +{bonus} {isRTL ? "دینار" : "IQD"}
-                        </Text>
-                      </View>
-                    ) : null;
-                  })()}
-                </View>
-
-                <View style={styles.productInfo}>
-                  <Text
-                    numberOfLines={2}
-                    style={[
-                      styles.productName,
-                      {
-                        color: theme.colors.text,
-                        fontSize: layout.productNameSize,
-                        textAlign: isRTL ? "right" : "left",
-                        direction: isRTL ? "rtl" : "ltr",
-                      },
-                    ]}
-                  >
-                    {getLocalizedProductName(product, "name")}
-                  </Text>
-                  <View
-                    style={[
-                      styles.bottomRow,
-                      { flexDirection: isRTL ? "row-reverse" : "row" },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.productPrice,
-                        {
-                          color: theme.colors.primary,
-                          fontSize: layout.productPriceSize,
-                          textAlign: isRTL ? "right" : "left",
-                        },
-                      ]}
-                    >
-                      {typeof product.price === "number"
-                        ? product.sell_price
-                        : Number(product.sell_price)}{" "}
-                      IQD
-                    </Text>
-                    <TouchableOpacity
-                      style={[
-                        styles.shareButton,
-                        {
-                          backgroundColor: theme.colors.primary,
-                          width: layout.isSmallPhone ? 32 : 36,
-                          height: layout.isSmallPhone ? 32 : 36,
-                          borderRadius: layout.isSmallPhone ? 16 : 18,
-                          marginLeft: isRTL ? 0 : 8,
-                          marginRight: isRTL ? 8 : 0,
-                        },
-                      ]}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleShareProduct(
-                          product.id,
-                          getLocalizedProductName(product, "name"),
-                          product.store_id,
-                        );
-                      }}
-                    >
-                      <Ionicons
-                        name="share-outline"
-                        size={layout.isSmallPhone ? 16 : 18}
-                        color="#fff"
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </Pressable>
-            ))
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text
-                style={[
-                  styles.emptyText,
-                  { color: theme.colors.textSecondary },
-                ]}
-              >
-                {t("noProductsFound") || "No products found"}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Load More Indicator */}
-        {loadingMore && (
-          <View style={{ paddingVertical: 20, alignItems: "center" }}>
-            <ActivityIndicator size="small" color={theme.colors.primary} />
-            <Text
-              style={{
-                color: theme.colors.textSecondary,
-                marginTop: 8,
-                fontSize: 12,
-              }}
+          {trendingOnly
+            ? t("trendingProducts") || "Trending Products"
+            : t("allProducts") || "All Products"}
+        </Text>
+        <TouchableOpacity
+          onPress={openFilterModal}
+          style={styles.filterIconButton}
+        >
+          <ListFilter size={24} color={theme.colors.text} />
+          {activeFilterCount > 0 ? (
+            <View
+              style={[
+                styles.headerFilterBadge,
+                { backgroundColor: theme.colors.primary },
+              ]}
             >
-              {t("loadingMore") || "Loading more products..."}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+              <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+            </View>
+          ) : null}
+        </TouchableOpacity>
+      </View>
+
+      <FlatList
+        key={productsListKey}
+        style={styles.scrollView}
+        data={getFilteredProducts}
+        renderItem={renderProductItem}
+        keyExtractor={(item) => String(item.id)}
+        numColumns={layout.columns}
+        columnWrapperStyle={{
+          justifyContent: "space-between",
+          paddingHorizontal: layout.horizontalPadding,
+          marginBottom: 16,
+        }}
+        ListHeaderComponent={renderProductsHeader}
+        ListFooterComponent={renderProductsFooter}
+        ListEmptyComponent={renderProductsEmpty}
+        onEndReached={hasMore ? loadMore : undefined}
+        onEndReachedThreshold={0.35}
+        initialNumToRender={8}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: 12 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      />
 
       <InfoDialog
         visible={dialog.visible}
@@ -841,26 +1205,18 @@ export default function Products() {
                 <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
                   {t("filters") || "Filters"}
                 </Text>
-                {(() => {
-                  const activeFilters =
-                    (selectedBrand !== "all" ? 1 : 0) +
-                    (selectedCategory !== "all" ? 1 : 0) +
-                    (trendingOnly ? 1 : 0) +
-                    (sortBy !== "latest" ? 1 : 0) +
-                    (searchQuery.trim() !== "" ? 1 : 0);
-                  return activeFilters > 0 ? (
-                    <View
-                      style={[
-                        styles.filterBadge,
-                        { backgroundColor: theme.colors.primary },
-                      ]}
-                    >
-                      <Text style={styles.filterBadgeText}>
-                        {activeFilters}
-                      </Text>
-                    </View>
-                  ) : null;
-                })()}
+                {draftActiveFilterCount > 0 ? (
+                  <View
+                    style={[
+                      styles.filterBadge,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                  >
+                    <Text style={styles.filterBadgeText}>
+                      {draftActiveFilterCount}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
               <TouchableOpacity
                 onPress={() => setFilterModalVisible(false)}
@@ -888,15 +1244,15 @@ export default function Products() {
                       styles.filterOption,
                       {
                         backgroundColor:
-                          selectedBrand === "all"
+                          draftBrand === "all"
                             ? theme.colors.primary
                             : theme.colors.card,
                       },
                     ]}
-                    onPress={() => setSelectedBrand("all")}
+                    onPress={() => setDraftBrand("all")}
                   >
                     <View style={styles.filterOptionContent}>
-                      {selectedBrand === "all" && (
+                      {draftBrand === "all" && (
                         <Ionicons
                           name="checkmark-circle"
                           size={16}
@@ -909,7 +1265,7 @@ export default function Products() {
                           styles.filterOptionText,
                           {
                             color:
-                              selectedBrand === "all"
+                              draftBrand === "all"
                                 ? "#fff"
                                 : theme.colors.text,
                           },
@@ -928,15 +1284,15 @@ export default function Products() {
                         styles.filterOption,
                         {
                           backgroundColor:
-                            selectedBrand === String(brand.id)
+                            draftBrand === String(brand.id)
                               ? theme.colors.primary
                               : theme.colors.card,
                         },
                       ]}
-                      onPress={() => setSelectedBrand(String(brand.id))}
+                      onPress={() => setDraftBrand(String(brand.id))}
                     >
                       <View style={styles.filterOptionContent}>
-                        {selectedBrand === String(brand.id) && (
+                        {draftBrand === String(brand.id) && (
                           <Ionicons
                             name="checkmark-circle"
                             size={16}
@@ -949,7 +1305,7 @@ export default function Products() {
                             styles.filterOptionText,
                             {
                               color:
-                                selectedBrand === String(brand.id)
+                                draftBrand === String(brand.id)
                                   ? "#fff"
                                   : theme.colors.text,
                             },
@@ -980,19 +1336,19 @@ export default function Products() {
                       styles.filterOption,
                       {
                         backgroundColor:
-                          selectedCategory === "all"
+                          draftCategory === "all"
                             ? theme.colors.primary
                             : theme.colors.card,
                       },
                     ]}
-                    onPress={() => setSelectedCategory("all")}
+                    onPress={() => setDraftCategory("all")}
                   >
                     <View style={styles.filterOptionContent}>
                       <Ionicons
                         name="apps"
                         size={16}
                         color={
-                          selectedCategory === "all"
+                          draftCategory === "all"
                             ? "#fff"
                             : theme.colors.primary
                         }
@@ -1003,7 +1359,7 @@ export default function Products() {
                           styles.filterOptionText,
                           {
                             color:
-                              selectedCategory === "all"
+                              draftCategory === "all"
                                 ? "#fff"
                                 : theme.colors.text,
                           },
@@ -1015,20 +1371,20 @@ export default function Products() {
                   </TouchableOpacity>
 
                   {/* Category Options */}
-                  {categories && categories.length > 0 ? (
-                    categories.map((category) => (
+                  {topLevelCategories.length > 0 ? (
+                    topLevelCategories.map((category) => (
                       <TouchableOpacity
                         key={category.id}
                         style={[
                           styles.filterOption,
                           {
                             backgroundColor:
-                              selectedCategory === String(category.id)
+                              draftCategory === String(category.id)
                                 ? theme.colors.primary
                                 : theme.colors.card,
                           },
                         ]}
-                        onPress={() => setSelectedCategory(String(category.id))}
+                        onPress={() => setDraftCategory(String(category.id))}
                       >
                         <View style={styles.filterOptionContent}>
                           {category.icon ? (
@@ -1036,7 +1392,7 @@ export default function Products() {
                               name={category.icon}
                               size={16}
                               color={
-                                selectedCategory === String(category.id)
+                                draftCategory === String(category.id)
                                   ? "#fff"
                                   : theme.colors.primary
                               }
@@ -1047,7 +1403,7 @@ export default function Products() {
                               name="folder"
                               size={16}
                               color={
-                                selectedCategory === String(category.id)
+                                draftCategory === String(category.id)
                                   ? "#fff"
                                   : theme.colors.primary
                               }
@@ -1059,7 +1415,7 @@ export default function Products() {
                               styles.filterOptionText,
                               {
                                 color:
-                                  selectedCategory === String(category.id)
+                                  draftCategory === String(category.id)
                                     ? "#fff"
                                     : theme.colors.text,
                               },
@@ -1105,19 +1461,19 @@ export default function Products() {
                         styles.filterOption,
                         {
                           backgroundColor:
-                            sortBy === option.key
+                            draftSortBy === option.key
                               ? theme.colors.primary
                               : theme.colors.card,
                         },
                       ]}
-                      onPress={() => setSortBy(option.key)}
+                      onPress={() => setDraftSortBy(option.key)}
                     >
                       <Text
                         style={[
                           styles.filterOptionText,
                           {
                             color:
-                              sortBy === option.key
+                              draftSortBy === option.key
                                 ? "#fff"
                                 : theme.colors.text,
                           },
@@ -1138,12 +1494,7 @@ export default function Products() {
                   styles.modalButton,
                   { backgroundColor: theme.colors.border },
                 ]}
-                onPress={() => {
-                  setSelectedBrand("all");
-                  setSelectedCategory("all");
-                  setSortBy("latest");
-                  setSearchQuery("");
-                }}
+                onPress={resetDraftFilters}
               >
                 <Text
                   style={[styles.modalButtonText, { color: theme.colors.text }]}
@@ -1156,7 +1507,7 @@ export default function Products() {
                   styles.modalButton,
                   { backgroundColor: theme.colors.primary },
                 ]}
-                onPress={() => setFilterModalVisible(false)}
+                onPress={applyDraftFilters}
               >
                 <Text style={[styles.modalButtonText, { color: "#fff" }]}>
                   {t("apply") || "Apply"}
@@ -1187,6 +1538,7 @@ const styles = StyleSheet.create({
   },
   filterIconButton: {
     padding: 4,
+    position: "relative",
   },
   headerTitle: {
     fontSize: 18,
@@ -1451,6 +1803,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+  },
+  filterBadge: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 6,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerFilterBadge: {
+    position: "absolute",
+    top: -4,
+    right: -6,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    textAlign: "center",
   },
   modalFooter: {
     flexDirection: "row",

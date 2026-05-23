@@ -69,7 +69,8 @@ export default function ProductSlider({ products, title }) {
 
 function ProductCard({ product, onPress, theme, isDark }) {
   const [isFavorite, setIsFavorite] = useState(false);
-  const { isRTL } = useLanguage();
+  const { t } = useLanguage();
+  const currencyLabel = t("currency") || "IQD";
 
   // Get first image or fallback
   const imageUrl = getProductImageUrl(
@@ -99,9 +100,7 @@ function ProductCard({ product, onPress, theme, isDark }) {
             { backgroundColor: "#34C759" },
           ]}
         >
-          <Text style={styles.commissionText}>
-            +{commission} {isRTL ? "دینار" : "IQD"}
-          </Text>
+          <Text style={styles.commissionText}>+{commission} {currencyLabel}</Text>
         </View>
       )}
 
@@ -161,7 +160,7 @@ function ProductCard({ product, onPress, theme, isDark }) {
         {/* Price */}
         <View style={styles.priceRow}>
           <Text style={[styles.price, { color: theme.colors.primary }]}>
-            {product.sell_price || product.price} {isRTL ? "دینار" : "IQD"}
+            {product.sell_price || product.price} {currencyLabel}
           </Text>
           {product.base_price && product.base_price > (product.sell_price || product.price) && (
             <Text
@@ -170,7 +169,7 @@ function ProductCard({ product, onPress, theme, isDark }) {
                 { color: theme.colors.textSecondary },
               ]}
             >
-              {product.base_price} {isRTL ? "دینار" : "IQD"}
+              {product.base_price} {currencyLabel}
             </Text>
           )}
         </View>

@@ -61,6 +61,8 @@ export const translations = {
     cartEmpty: "Your cart is empty",
     orderSuccess: "Orders created successfully! Total: {total}",
     orderFailed: "Failed to create orders. Please try again.",
+    invalidCheckoutUser: "This checkout link is missing a valid Aman account. Open the product again from the Aman app and try again.",
+    devCheckoutUser: "This checkout link is using a development account that does not exist on the backend. Sign in with a real Aman account and try again.",
     
     // Currency
     currency: "IQD",
@@ -140,6 +142,8 @@ export const translations = {
     cartEmpty: "سلة التسوق فارغة",
     orderSuccess: "تم إنشاء الطلبات بنجاح! المجموع: {total}",
     orderFailed: "فشل إنشاء الطلبات. يرجى المحاولة مرة أخرى.",
+    invalidCheckoutUser: "افتح هذا المنتج مرة أخرى من تطبيق Aman ثم حاول مجدداً.",
+    devCheckoutUser: "رابط الطلب هذا يستخدم حساب تطوير غير موجود في الخادم.",
     
     // Currency
     currency: "د.ع",
@@ -219,6 +223,8 @@ export const translations = {
     cartEmpty: "سەبەتەکەت بەتاڵە",
     orderSuccess: "داواکاریەکان بە سەرکەوتوویی دروست کران! کۆی گشتی: {total}",
     orderFailed: "دروستکردنی داواکاریەکان سەرکەوتوو نەبوو. تکایە دووبارە هەوڵ بدەوە.",
+    invalidCheckoutUser: "ئەم کاڵایە دووبارە لە بەرنامەی Aman بکەرەوە و هەوڵ بدەوە.",
+    devCheckoutUser: "ئەم بەستەرە هەژماری گەشەپێدان بەکاردێنێت کە لە باکێندەدا ناسراو نییە.",
     
     // Currency
     currency: "د.ع",

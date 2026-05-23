@@ -1,5 +1,5 @@
 import express from 'express';
-import { register, login, getProfile, updateProfile, changePassword, startPhoneVerification, verifyPhone, requestPasswordReset, resetPassword } from '../controllers/auth/authController.js';
+import { register, login, getProfile, updateProfile, changePassword, deleteAccount, startPhoneVerification, verifyPhone, requestPasswordReset, resetPassword } from '../controllers/auth/authController.js';
 import { registerValidation, loginValidation } from '../middleware/authValidation.js';
 import { validateRequest } from '../middleware/validateRequest.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
@@ -20,6 +20,9 @@ router.put('/auth/profile', authenticateToken, updateProfile);
 
 // PUT /api/auth/change-password - Change password (protected)
 router.put('/auth/change-password', authenticateToken, changePassword);
+
+// DELETE /api/auth/account - Delete current account (protected)
+router.delete('/auth/account', authenticateToken, deleteAccount);
 
 // POST /api/auth/verify-phone/start - send code (protected)
 router.post('/auth/verify-phone/start', authenticateToken, startPhoneVerification);

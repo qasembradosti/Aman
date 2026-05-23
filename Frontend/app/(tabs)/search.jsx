@@ -20,16 +20,13 @@ import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { useDispatch, useSelector } from "react-redux";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Star, Heart, Grid3x3, List } from "lucide-react-native";
 import { toggleFavorite } from "../../services/favoriteService";
 import { useLanguage } from "../../utils/LanguageContext";
 import { useTheme } from "../../utils/ThemeContext";
-import {
-  buildProductCollectionKey,
-  fetchProducts,
-} from "../../store/slices/productsSlice";
 import { fetchCategories } from "../../store/slices/categoriesSlice";
 import { fetchBrands } from "../../store/slices/brandsSlice";
 import Input from "../../components/ui/Input";
@@ -40,8 +37,10 @@ import { buildPublicProductUrl } from "../../utils/productLinks";
 
 const STORAGE_KEY = 'recent_searches';
 const MAX_RECENT_SEARCHES = 10;
-const SEARCH_RESULT_LIMIT = 40;
-const DEFAULT_PRODUCT_COLLECTION_KEY = buildProductCollectionKey({});
+const SEARCH_PAGE_SIZE = 60;
+const SEARCH_RESULT_LIMIT = 180;
+const CATALOG_PRELOAD_LIMIT = 180;
+const EXPLORE_PRODUCT_LIMIT = 20;
 
 // Custom Text component with font
 const Text = ({ style, ...props }) => {
@@ -57,32 +56,89 @@ const Text = ({ style, ...props }) => {
   );
 };
 
+const extractProductsResponseData = (responseData) => {
+  const items = Array.isArray(responseData?.data)
+    ? responseData.data
+    : Array.isArray(responseData)
+      ? responseData
+      : [];
+  const meta =
+    responseData?.meta && typeof responseData.meta === "object"
+      ? responseData.meta
+      : null;
+
+  return { items, meta };
+};
+
+const mergeUniqueProducts = (currentItems, nextItems) => {
+  const existingIds = new Set(currentItems.map((item) => String(item?.id)));
+  const uniqueNextItems = nextItems.filter(
+    (item) => !existingIds.has(String(item?.id)),
+  );
+
+  return uniqueNextItems.length > 0
+    ? [...currentItems, ...uniqueNextItems]
+    : currentItems;
+};
+
+const pickRandomProducts = (products, limit, previousIds = []) => {
+  if (!Array.isArray(products) || products.length === 0) {
+    return [];
+  }
+
+  const maxItems = Math.min(limit, products.length);
+  const source = [...products];
+  let bestCandidate = source.slice(0, maxItems);
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    for (let index = source.length - 1; index > 0; index -= 1) {
+      const randomIndex = Math.floor(Math.random() * (index + 1));
+      [source[index], source[randomIndex]] = [source[randomIndex], source[index]];
+    }
+
+    const candidate = source.slice(0, maxItems);
+    const candidateIds = candidate.map((item) => String(item?.id));
+
+    if (
+      previousIds.length === 0 ||
+      products.length <= maxItems ||
+      candidateIds.join(",") !== previousIds.join(",")
+    ) {
+      return candidate;
+    }
+
+    bestCandidate = candidate;
+  }
+
+  return bestCandidate;
+};
+
 export default function Search() {
   const router = useRouter();
   const dispatch = useDispatch();
   const { t, isRTL, locale } = useLanguage();
+  const currencyLabel = t("currency") || "IQD";
   const { theme } = useTheme();
   const API_BASE_URL = getApiBaseUrl();
   const [searchQuery, setSearchQuery] = useState("");
   const [recentSearches, setRecentSearches] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [catalogProducts, setCatalogProducts] = useState([]);
+  const [randomProducts, setRandomProducts] = useState([]);
   const [favorites, setFavorites] = useState({});
   const [viewMode, setViewMode] = useState("grid"); // 'grid' or 'list'
   const navigationInProgress = useRef(false);
   const activeSearchRequest = useRef(0);
+  const activeCatalogRequest = useRef(0);
   const searchCacheRef = useRef(new Map());
+  const lastRandomProductIdsRef = useRef([]);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   
   // Redux state
-  const {
-    items: products,
-    loading: productsLoading,
-    lastCollectionKey,
-  } = useSelector((state) => state.products);
   const { items: categories, loading: categoriesLoading } = useSelector((state) => state.categories);
   const { items: brands, loading: brandsLoading } = useSelector((state) => state.brands);
-  const { isAuthenticated } = useSelector((state) => state.auth);
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -170,7 +226,7 @@ export default function Search() {
 
   const handleShareProduct = async (id, name, storeId) => {
     try {
-      const productUrl = buildPublicProductUrl(id);
+      const productUrl = buildPublicProductUrl(id, user?.id);
       await Share.share({
         title: name,
         message: `${name}\n\n${productUrl}`,
@@ -185,16 +241,89 @@ export default function Search() {
     loadRecentSearches();
   }, []);
 
-  // Fetch featured products, categories and brands on mount
-  useEffect(() => {
-    if (
-      (products.length === 0 ||
-        lastCollectionKey !== DEFAULT_PRODUCT_COLLECTION_KEY) &&
-      !productsLoading
-    ) {
-      dispatch(fetchProducts({ limit: 100, offset: 0 }));
-    }
+  const loadCatalogProducts = useCallback(async () => {
+    const requestId = activeCatalogRequest.current + 1;
+    activeCatalogRequest.current = requestId;
 
+    try {
+      let nextOffset = 0;
+      let hasMore = true;
+      let collectedItems = [];
+
+      while (hasMore && collectedItems.length < CATALOG_PRELOAD_LIMIT) {
+        const response = await apiService.get("/api/products", {
+          params: {
+            limit: SEARCH_PAGE_SIZE,
+            offset: nextOffset,
+          },
+        });
+
+        const { items, meta } = extractProductsResponseData(response?.data);
+
+        if (requestId !== activeCatalogRequest.current) {
+          return;
+        }
+
+        const mergedItems = mergeUniqueProducts(collectedItems, items);
+        const didAdvance = mergedItems.length > collectedItems.length;
+        collectedItems = mergedItems;
+        nextOffset = collectedItems.length;
+
+        hasMore =
+          didAdvance &&
+          items.length > 0 &&
+          (typeof meta?.total === "number"
+            ? collectedItems.length < Math.min(meta.total, CATALOG_PRELOAD_LIMIT)
+            : items.length >= SEARCH_PAGE_SIZE &&
+              collectedItems.length < CATALOG_PRELOAD_LIMIT);
+      }
+
+      if (requestId !== activeCatalogRequest.current) {
+        return;
+      }
+
+      setCatalogProducts(collectedItems);
+    } catch (error) {
+      console.error("Error loading search catalog:", error);
+      if (requestId === activeCatalogRequest.current) {
+        setCatalogProducts([]);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCatalogProducts();
+  }, [loadCatalogProducts]);
+
+  useEffect(() => {
+    searchCacheRef.current.clear();
+  }, [catalogProducts.length]);
+
+  const refreshRandomProducts = useCallback(() => {
+    const nextProducts = pickRandomProducts(
+      catalogProducts,
+      EXPLORE_PRODUCT_LIMIT,
+      lastRandomProductIdsRef.current,
+    );
+
+    lastRandomProductIdsRef.current = nextProducts.map((item) =>
+      String(item?.id),
+    );
+    setRandomProducts(nextProducts);
+  }, [catalogProducts]);
+
+  useEffect(() => {
+    refreshRandomProducts();
+  }, [refreshRandomProducts]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshRandomProducts();
+    }, [refreshRandomProducts]),
+  );
+
+  // Fetch categories and brands on mount
+  useEffect(() => {
     if (!categories.length && !categoriesLoading) {
       dispatch(fetchCategories({}));
     }
@@ -208,9 +337,6 @@ export default function Search() {
     categories.length,
     categoriesLoading,
     dispatch,
-    lastCollectionKey,
-    products.length,
-    productsLoading,
   ]);
 
   const loadRecentSearches = async () => {
@@ -253,7 +379,7 @@ export default function Search() {
 
   const searchableProducts = useMemo(
     () =>
-      products.map((product) => ({
+      catalogProducts.map((product) => ({
         product,
         searchIndex: [
           product?.name,
@@ -279,7 +405,7 @@ export default function Search() {
           .join(" ")
           .toLowerCase(),
       })),
-    [products],
+    [catalogProducts],
   );
 
   const filterProductsLocally = useCallback(
@@ -307,14 +433,14 @@ export default function Search() {
     const cacheKey = trimmedQuery.toLowerCase();
     const localResults = filterProductsLocally(trimmedQuery);
     const cachedResults = searchCacheRef.current.get(cacheKey);
+    const fallbackResults =
+      cachedResults && cachedResults.length > 0 ? cachedResults : localResults;
 
     if (cachedResults) {
       startTransition(() => setSearchResults(cachedResults));
-      setIsSearching(false);
-      return;
     }
 
-    if (localResults.length > 0) {
+    if (!cachedResults && localResults.length > 0) {
       startTransition(() => setSearchResults(localResults));
     }
 
@@ -323,22 +449,43 @@ export default function Search() {
     setIsSearching(true);
 
     try {
-      const response = await apiService.get("/api/products", {
-        params: {
-          q: trimmedQuery,
-          limit: SEARCH_RESULT_LIMIT,
-          offset: 0,
-        },
-      });
+      let nextOffset = 0;
+      let hasMore = true;
+      let remoteResults = [];
 
-      const responseData = response?.data;
-      const remoteResults = Array.isArray(responseData?.data)
-        ? responseData.data
-        : Array.isArray(responseData)
-          ? responseData
-          : [];
+      while (hasMore && remoteResults.length < SEARCH_RESULT_LIMIT) {
+        const response = await apiService.get("/api/products", {
+          params: {
+            q: trimmedQuery,
+            limit: SEARCH_PAGE_SIZE,
+            offset: nextOffset,
+          },
+        });
+
+        const { items, meta } = extractProductsResponseData(response?.data);
+
+        if (requestId !== activeSearchRequest.current) {
+          return;
+        }
+
+        const mergedResults = mergeUniqueProducts(remoteResults, items);
+        const didAdvance = mergedResults.length > remoteResults.length;
+        remoteResults = mergedResults;
+        nextOffset = remoteResults.length;
+
+        hasMore =
+          didAdvance &&
+          items.length > 0 &&
+          (typeof meta?.total === "number"
+            ? remoteResults.length < Math.min(meta.total, SEARCH_RESULT_LIMIT)
+            : items.length >= SEARCH_PAGE_SIZE &&
+              remoteResults.length < SEARCH_RESULT_LIMIT);
+      }
+
       const nextResults =
-        remoteResults.length > 0 ? remoteResults : localResults;
+        remoteResults.length > 0
+          ? mergeUniqueProducts(remoteResults, localResults)
+          : localResults;
 
       if (requestId !== activeSearchRequest.current) {
         return;
@@ -352,7 +499,7 @@ export default function Search() {
       }
 
       console.error("Search request failed:", error);
-      startTransition(() => setSearchResults(localResults));
+      startTransition(() => setSearchResults(fallbackResults));
     } finally {
       if (requestId === activeSearchRequest.current) {
         setIsSearching(false);
@@ -406,12 +553,6 @@ export default function Search() {
   const handleBrandClick = (brandId, _brandName) => {
     router.push(`/products?brand=${brandId}`);
   };
-
-  // Get random 20 products
-  const randomProducts = useMemo(() => {
-    if (!products || products.length === 0) return [];
-    return products.slice(0, 20);
-  }, [products]);
 
   return (
     <SafeAreaView
@@ -544,9 +685,7 @@ export default function Search() {
                       {product.commission_price && product.commission_price > 0 && (
                         <View style={styles.bonusTag}>
                           <Text style={styles.bonusTagText}>
-                            {isRTL
-                              ? `${product.commission_price} دینار `
-                              : `${product.commission_price} IQD`}
+                            {`${product.commission_price} ${currencyLabel}`}
                           </Text>
                         </View>
                       )}
@@ -597,9 +736,7 @@ export default function Search() {
                       {/* Price and Share */}
                       <View style={styles.bottomRow}>
                         <Text style={[styles.resultPrice, { color: theme.colors.primary }]}>
-                          {isRTL
-                            ? `${product.sell_price || product.price} دینار `
-                            : `${product.sell_price || product.price} IQD`}
+                          {`${product.sell_price || product.price} ${currencyLabel}`}
                         </Text>
                         <TouchableOpacity
                           style={[
@@ -847,9 +984,7 @@ export default function Search() {
                       {product.commission_price && product.commission_price > 0 && (
                         <View style={styles.bonusTag}>
                           <Text style={styles.bonusTagText}>
-                            {isRTL
-                              ? `${product.commission_price} \u062f\u06cc\u0646\u0627\u0631 `
-                              : `${product.commission_price} IQD`}
+                            {`${product.commission_price} ${currencyLabel}`}
                           </Text>
                         </View>
                       )}
@@ -900,9 +1035,7 @@ export default function Search() {
                       {/* Price and Share */}
                       <View style={styles.bottomRow}>
                         <Text style={[styles.resultPrice, { color: theme.colors.primary }]}>
-                          {isRTL
-                            ? `${product.sell_price || product.price} \u062f\u06cc\u0646\u0627\u0631 `
-                            : `${product.sell_price || product.price} IQD`}
+                          {`${product.sell_price || product.price} ${currencyLabel}`}
                         </Text>
                         <TouchableOpacity
                           style={[

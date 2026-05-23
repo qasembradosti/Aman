@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { orderService } from '../services/orderService';
+import {
+  extractOrderId,
+  getCheckoutQueryValue,
+  getPersistedOrderSnapshot,
+  normalizeOrderResponse,
+} from '../utils/checkoutSession';
 import { translations } from '../utils/translations';
 
 const Success = () => {
@@ -15,24 +21,48 @@ const Success = () => {
 
   useEffect(() => {
     const fetchOrder = async () => {
-      try {
-        // Get order ID from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const orderId = urlParams.get('orderId');
+      const orderId = getCheckoutQueryValue('orderId', 'order_id');
+      const cachedOrder = getPersistedOrderSnapshot();
+      const normalizedCachedOrder = cachedOrder
+        ? normalizeOrderResponse(cachedOrder)
+        : null;
+      const cachedOrderId = extractOrderId(normalizedCachedOrder);
+      const matchingCachedOrder =
+        orderId &&
+        cachedOrderId &&
+        String(cachedOrderId) === String(orderId)
+          ? normalizedCachedOrder
+          : null;
 
-        if (!orderId) {
+      try {
+        if (!orderId && !matchingCachedOrder) {
           setError('No order ID found');
           setLoading(false);
           return;
         }
 
-        // Fetch order details
+        if (matchingCachedOrder) {
+          setOrder(matchingCachedOrder);
+        }
+
+        if (!orderId) {
+          setLoading(false);
+          return;
+        }
+
         const orderData = await orderService.getOrderById(orderId);
-        setOrder(orderData);
-        setLoading(false);
+        setOrder(normalizeOrderResponse(orderData, matchingCachedOrder || {}));
+        setError(null);
       } catch (err) {
         console.error('Error fetching order:', err);
-        setError(err.message || 'Failed to load order details');
+        if (!matchingCachedOrder) {
+          setError(
+            err.response?.data?.message ||
+            err.message ||
+            'Failed to load order details'
+          );
+        }
+      } finally {
         setLoading(false);
       }
     };
@@ -83,6 +113,8 @@ const Success = () => {
     );
   }
 
+  const displayOrderId = extractOrderId(order);
+
   // Parse shipping address if it's a string
   let shippingAddress = order.shipping_address;
   if (typeof shippingAddress === 'string') {
@@ -113,7 +145,7 @@ const Success = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-sm text-gray-500 mb-1">Order ID</p>
-                <p className="text-xl font-bold text-gray-800">#{order.id}</p>
+                <p className="text-xl font-bold text-gray-800">#{displayOrderId}</p>
               </div>
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-sm text-gray-500 mb-1">Status</p>
@@ -156,16 +188,14 @@ const Success = () => {
                     // Construct proper image URL
                     let imageUrl = item.image;
                     if (imageUrl && !imageUrl.startsWith('http')) {
-                      // Remove leading slash if present
-                      imageUrl = imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl;
-                      // Construct full URL with backend server
-                      imageUrl = `http://backend.aman-store.com/${imageUrl}`;
+                      const cleanPath = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+                      imageUrl = `https://backend.aman-store.com${cleanPath}`;
                     }
                     
                     return (
                       <div key={index} className="flex items-center gap-4 bg-gray-50 rounded-lg p-4">
                         <img
-                          src={imageUrl || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="80"%3E%3Crect fill="%23ddd" width="80" height="80"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo image%3C/text%3E%3C/svg%3E'}
+                          src={imageUrl}
                           alt={item.product_name || 'Product'}
                           className="w-20 h-20 object-cover rounded-lg"
                           onError={(e) => {

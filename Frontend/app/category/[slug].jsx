@@ -34,6 +34,7 @@ export default function CategoryScreen() {
   const dispatch = useDispatch();
   const navigationInProgress = useRef(false);
   const { t, isRTL, locale } = useLanguage();
+  const currencyLabel = t("currency") || "IQD";
   const { theme } = useTheme();
   const API_BASE_URL = getApiBaseUrl();
 
@@ -46,6 +47,7 @@ export default function CategoryScreen() {
     items: allProducts,
     lastCollectionKey,
   } = useSelector((state) => state.products);
+  const { user } = useSelector((state) => state.auth);
   // Find the category by slug
   const category = useMemo(
     () => categories.find((cat) => cat.slug === slug),
@@ -115,7 +117,7 @@ export default function CategoryScreen() {
   const handleShareProduct = async (item) => {
     try {
       const itemName = getLocalizedName(item);
-      const productUrl = buildPublicProductUrl(item.id);
+      const productUrl = buildPublicProductUrl(item.id, user?.id);
       await Share.share({
         title: itemName,
         message: `Check out this product: ${itemName}\n\n${productUrl}`,
@@ -197,7 +199,7 @@ export default function CategoryScreen() {
         {/* Price and Share at bottom */}
         <View style={styles.rowBetween}>
           <Text style={[styles.price, { color: theme.colors.primary }]}>
-            {finalPrice.toLocaleString()} {isRTL ? "د" : "IQD"}
+            {finalPrice.toLocaleString()} {currencyLabel}
           </Text>
           <TouchableOpacity
             style={[styles.shareBtn, { backgroundColor: theme.colors.primary }]}

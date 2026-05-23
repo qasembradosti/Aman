@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getCheckoutToken } from '../utils/checkoutSession';
 
 // Use environment variable or fallback to localhost
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
@@ -14,6 +15,12 @@ const api = axios.create({
 // Add request interceptor for debugging
 api.interceptors.request.use(
   (config) => {
+    const token = getCheckoutToken();
+    if (token) {
+      config.headers = config.headers ?? {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
     console.log(`API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
     return config;
   },

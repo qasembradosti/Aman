@@ -49,6 +49,7 @@ export default function ProductDetail() {
   const dispatch = useDispatch();
   const layout = useResponsiveLayout();
   const { t, isRTL, locale } = useLanguage();
+  const currencyLabel = t("currency") || "IQD";
   const { theme } = useTheme();
   const API_BASE_URL = getApiBaseUrl();
   const rowDirection = isRTL ? "row-reverse" : "row";
@@ -69,7 +70,7 @@ export default function ProductDetail() {
   const { items: brands, loading: brandsLoading } = useSelector(
     (state) => state.brands,
   );
-  const { isAuthenticated } = useSelector((state) => state.auth);
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
 
   useEffect(() => {
     // Only fetch if products not already loaded
@@ -640,7 +641,7 @@ export default function ProductDetail() {
 
   const handleShare = async () => {
     try {
-      const publicProductUrl = buildPublicProductUrl(product?.id || id);
+      const publicProductUrl = buildPublicProductUrl(product?.id || id, user?.id);
 
       const result = await Share.share({
         message: `${product.name}\n\n${publicProductUrl}`,
@@ -671,7 +672,7 @@ export default function ProductDetail() {
     setShareCodeVisible(true);
   };
 
-  const shareLink = product?.id ? buildPublicProductUrl(product.id) : "";
+  const shareLink = product?.id ? buildPublicProductUrl(product.id, user?.id) : "";
 
   if ((productsLoading && !product) || fetchingProduct) {
     return (
@@ -1072,7 +1073,7 @@ export default function ProductDetail() {
                         color: theme.colors.primary,
                       }}
                     >
-                      {isRTL ? "دینار" : "IQD"}
+                      {currencyLabel}
                     </Text>
                   </View>
 
@@ -1095,7 +1096,7 @@ export default function ProductDetail() {
                         }}
                       >
                         {product.original_sell_price.toLocaleString()}{" "}
-                        {isRTL ? "دینار" : "IQD"}
+                        {currencyLabel}
                       </Text>
 
                       {/* Discount Badge */}
@@ -1117,7 +1118,7 @@ export default function ProductDetail() {
                             .toLowerCase()
                             .includes("percent")
                             ? `-${Math.round(product.discount)}%`
-                            : `-${product.discount.toLocaleString()} ${isRTL ? "د" : "IQD"}`}
+                            : `-${product.discount.toLocaleString()} ${currencyLabel}`}
                         </Text>
                       </View>
                     </View>
@@ -1198,7 +1199,7 @@ export default function ProductDetail() {
                               fontSize: 16,
                             }}
                           >
-                            {isRTL ? "دینار" : "IQD"}
+                            {currencyLabel}
                           </Text>
                         </View>
                         <Text
@@ -2031,7 +2032,7 @@ export default function ProductDetail() {
                             },
                           ]}
                         >
-                          {item.sell_price} {isRTL ? "دینار" : "IQD"}
+                          {item.sell_price} {currencyLabel}
                         </Text>
                       </View>
                     </View>
